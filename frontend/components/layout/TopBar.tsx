@@ -12,7 +12,6 @@ import {
   AlertCircle,
   MessageCircle,
   Sparkles,
-  ChevronDown,
   Menu,
   X
 } from 'lucide-react';
@@ -25,10 +24,8 @@ export default function TopBar({
   const [isMessageOpen, setIsMessageOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [selectedFirm, setSelectedFirm] = useState("Vardhaman & Co.");
-  const [isFirmDropdownOpen, setIsFirmDropdownOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
-  const [userInitials, setUserInitials] = useState("RS");
+  const [userInitials, setUserInitials] = useState("U");
 
   useEffect(() => {
     const fullName = localStorage.getItem("full_name");
@@ -42,8 +39,6 @@ export default function TopBar({
       setUserInitials(initials || "U");
     }
   }, []);
-
-  const firmRef = useRef<HTMLDivElement>(null);
 
   // Messages Dataset
   const [messages, setMessages] = useState([
@@ -73,16 +68,12 @@ export default function TopBar({
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
         setIsNotificationOpen(false);
       }
-      if (firmRef.current && !firmRef.current.contains(event.target as Node)) {
-        setIsFirmDropdownOpen(false);
-      }
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsMessageOpen(false);
         setIsNotificationOpen(false);
-        setIsFirmDropdownOpen(false);
       }
     }
 
@@ -147,13 +138,6 @@ export default function TopBar({
 
   const unreadMessagesCount = messages.filter(m => m.unread).length;
   const unreadNotificationsCount = notifications.filter(n => n.unread).length;
-
-  // Prevent ESLint unused variable errors while strictly preserving imports, state, and refs
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('topBarDummies', {
-      detail: { selectedFirm, setSelectedFirm, isFirmDropdownOpen, ChevronDown }
-    }));
-  }
 
   return (
     <div className="h-16 w-full flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white/80 backdrop-blur-md border-b border-slate-200/60 flex-shrink-0 relative z-50"

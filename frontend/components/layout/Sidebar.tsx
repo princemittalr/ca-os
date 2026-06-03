@@ -252,9 +252,9 @@ export default function Sidebar({
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [userName, setUserName] = useState("Rahul Sharma");
+  const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("PARTNER");
-  const [userInitials, setUserInitials] = useState("RS");
+  const [userInitials, setUserInitials] = useState("U");
   const profileRef = useRef<HTMLDivElement>(null);
 
   const [isTablet, setIsTablet] = useState(false);

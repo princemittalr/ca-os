@@ -124,7 +124,8 @@ export default function DashboardPage() {
   // Client layout greeting details
   const [greeting, setGreeting] = React.useState('Welcome back');
   const [currentTimeStr, setCurrentTimeStr] = React.useState('');
-  const [userName, setUserName] = React.useState("Rahul Sharma");
+  const [userName, setUserName] = React.useState("");
+  const [firmName, setFirmName] = React.useState("");
 
   // Single file GSTR-2B parser state
   const [file, setFile] = React.useState<File | null>(null);
@@ -212,6 +213,8 @@ export default function DashboardPage() {
     if (fullName) {
       setUserName(fullName);
     }
+    const storedFirmName = localStorage.getItem("firm_name");
+    if (storedFirmName) setFirmName(storedFirmName);
   }, []);
 
   React.useEffect(() => {
@@ -416,7 +419,7 @@ export default function DashboardPage() {
         title={
           <>
             {greeting}, <span className="text-[#7C3AED]">{userName.split(' ')[0]}</span>
-            <span className="text-slate-400 font-normal text-lg ml-2">| Vardhaman & Co. (27AAAAA1111A1Z1)</span>
+            {firmName && <span className="text-slate-400 font-normal text-lg ml-2">| {firmName}</span>}
           </>
         }
         description={currentTimeStr}
