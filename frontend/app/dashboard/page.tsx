@@ -374,12 +374,12 @@ export default function DashboardPage() {
 
   const connectBackend = async () => {
     try {
-      const response = await axios.get("http://127.0.0.1:8000/");
-      alert(response.data.message);
-      console.log(response.data);
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const response = await axios.get(`${apiBase}/api/health`);
+      const status = response.data?.status || "OK";
+      setToast({ message: `✓ Backend connected — ${status}`, type: 'success' });
     } catch (error) {
-      console.error(error);
-      alert("Backend Connection Failed");
+      setToast({ message: "Backend connection failed. Check API server.", type: 'error' });
     }
   };
 
@@ -420,13 +420,6 @@ export default function DashboardPage() {
         description={currentTimeStr}
         actions={
           <>
-            <button
-              onClick={connectBackend}
-              className="btn btn-secondary btn-md"
-            >
-              <RefreshCw size={12} className="text-[#4F46E5]" />
-              Connect Backend
-            </button>
             <button
               className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-100/50 transition-all"
               style={{
