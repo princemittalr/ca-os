@@ -63,13 +63,8 @@ export default function LoginPage() {
 
     } catch (err: any) {
       console.error(err);
-      // Dev fallback
-      localStorage.setItem("access_token", "mock-access-token-partner-12345");
-      localStorage.setItem("role", "PARTNER");
-      localStorage.setItem("full_name", "Aditya Rao");
-      localStorage.setItem("firm_id", "mock-firm-uuid-67890");
-      showToast("✓ Dev session authorized.");
-      setTimeout(() => { window.location.href = "/action-center"; }, 1500);
+      const message = err?.message || "Authentication failed. Please check your credentials.";
+      setErrorMessage(message);
     } finally {
       setIsLoading(false);
     }

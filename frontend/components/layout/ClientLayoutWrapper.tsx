@@ -17,7 +17,15 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     console.log("TOKEN CHECK:", token, "isAuthPage:", isAuthPage, "pathname:", pathname);
-    setIsAuthenticated(!!token);
+    
+    // Reject mock tokens in production
+    const isProduction = process.env.NODE_ENV === "production";
+    const isMockToken = token?.startsWith("mock-access-token");
+    const isValid = !!token && !(isProduction && isMockToken);
+    setIsAuthenticated(isValid);
+    if (isProduction && isMockToken) {
+      localStorage.clear();
+    }
     setIsMobileSidebarOpen(false);
 
     if (!token && !isAuthPage) {
