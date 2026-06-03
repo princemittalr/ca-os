@@ -74,15 +74,10 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 detail=f"Registration failed: {str(e)}"
             )
             
-    # Fallback developer mock sign up
-    return {
-        "access_token": f"mock-access-token-{uuid.uuid4()}",
-        "token_type": "bearer",
-        "user_id": user_id,
-        "firm_id": firm_id,
-        "role": role,
-        "full_name": full_name
-    }
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Registration service unavailable. Supabase is not configured."
+    )
 
 @router.post("/login", response_model=schemas.TokenResponse)
 @limiter.limit(AUTH_LIMIT)
@@ -143,16 +138,10 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
                 detail=f"Authentication failed: {str(e)}"
             )
 
-    # Fallback developer mock sign in
-    # Accepting any local logins for seamless workspace experience
-    return {
-        "access_token": "mock-access-token-partner-12345",
-        "token_type": "bearer",
-        "user_id": "mock-user-uuid-12345",
-        "firm_id": "mock-firm-uuid-67890",
-        "role": "PARTNER",
-        "full_name": "Aditya Rao"
-    }
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Authentication service unavailable. Supabase is not configured."
+    )
 
 @router.get("/me")
 async def get_current_user_profile(current_user: dict = Depends(verify_token)):

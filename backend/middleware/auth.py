@@ -15,20 +15,10 @@ async def verify_token(authorization: Optional[str] = Header(None)) -> dict:
     """
     # 1. Check if Supabase Persistent database is active
     if not is_supabase_active():
-        # Zero-friction local development mock context
-        role = "PARTNER"
-        full_name = "Aditya Rao"
-        if authorization and authorization.startswith("Bearer mock-role-"):
-            role = authorization.split(" ")[1].replace("mock-role-", "")
-            full_name = f"Mock {role}"
-            
-        return {
-            "user_id": "mock-user-uuid-12345",
-            "firm_id": "mock-firm-uuid-67890",
-            "role": role,
-            "full_name": full_name,
-            "email": f"{role.lower()}@reckon.ai"
-        }
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable. Database not configured."
+        )
 
     # 2. Enforce presence of Authorization header
     if not authorization or not authorization.startswith("Bearer "):
