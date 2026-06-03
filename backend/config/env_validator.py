@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,6 +9,7 @@ REQUIRED_SECRETS = [
     "SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "GROQ_API_KEY",
+    "SECRET_KEY",
 ]
 
 OPTIONAL_SECRETS = [
@@ -43,7 +45,7 @@ def validate_environment():
 
     print("[SUCCESS] Environment validation passed. All secrets loaded.")
 
-def get_secret(key: str, default: str = None) -> str:
+def get_secret(key: str, default: Optional[str] = None) -> Optional[str]:
     """Safe secret getter with validation."""
     val = os.getenv(key, default)
     if val in ("mock_key", "mock_url"):
