@@ -225,6 +225,8 @@ export default function DashboardPage() {
   const [reconResult, setReconResult] = React.useState<any | null>(null);
   const [reconError, setReconError] = React.useState<string | null>(null);
 
+  const isSandbox = process.env.NEXT_PUBLIC_SANDBOX_MODE === "true";
+
   // Automatically clear toast after 4 seconds
   React.useEffect(() => {
     if (toast) {
@@ -385,24 +387,26 @@ export default function DashboardPage() {
     <div className="space-y-6 pb-12 animate-in fade-in duration-500">
 
       {/* Sandbox Banner */}
-      <div
-        className="w-full flex items-center gap-2"
-        style={{
-          background: 'var(--color-warning-soft)',
-          borderBottom: '1px solid #FCD34D',
-          color: '#92400E',
-          fontSize: '13px',
-          fontWeight: 500,
-          padding: '10px 40px',
-          margin: '-32px -32px 24px -32px',
-          width: 'calc(100% + 64px)',
-        }}
-      >
-        <span className="text-base">⚠</span>
-        <div>
-          <span className="font-bold">SANDBOX ENVIRONMENT ACTIVE</span> — Seeded with mock corporate records for CA evaluation.
+      {isSandbox && (
+        <div
+          className="w-full flex items-center gap-2"
+          style={{
+            background: 'var(--color-warning-soft)',
+            borderBottom: '1px solid #FCD34D',
+            color: '#92400E',
+            fontSize: '13px',
+            fontWeight: 500,
+            padding: '10px 40px',
+            margin: '-32px -32px 24px -32px',
+            width: 'calc(100% + 64px)',
+          }}
+        >
+          <span className="text-base">⚠</span>
+          <div>
+            <span className="font-bold">SANDBOX ENVIRONMENT ACTIVE</span> — Seeded with mock corporate records for CA evaluation.
+          </div>
         </div>
-      </div>
+      )}
 
       <PageHeader
         sectionLabel="Intelligence Platform"
