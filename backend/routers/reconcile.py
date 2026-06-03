@@ -253,24 +253,28 @@ async def reconcile_import_boe(
 ):
     """Reconcile BOE customs data against GSTR-2B for import transactions."""
     try:
-        import pandas as pd
-        import io
+        from services.parser import parse_file_to_dataframe, normalize_columns, detect_gst_fields
+        from services.reconciliation import reconcile_dataframes
 
         boe_content = await file_boe.read()
         b2b_content = await file_2b.read()
 
-        boe_df = pd.read_csv(io.BytesIO(boe_content)) if file_boe.filename.endswith('.csv') else pd.read_excel(io.BytesIO(boe_content))
-        b2b_df = pd.read_csv(io.BytesIO(b2b_content)) if file_2b.filename.endswith('.csv') else pd.read_excel(io.BytesIO(b2b_content))
+        df_boe = parse_file_to_dataframe(boe_content, file_boe.filename)
+        df_2b = parse_file_to_dataframe(b2b_content, file_2b.filename)
 
-        # Normalize columns
-        boe_df.columns = [c.strip().lower().replace(' ', '_') for c in boe_df.columns]
-        b2b_df.columns = [c.strip().lower().replace(' ', '_') for c in b2b_df.columns]
+        df_boe = normalize_columns(df_boe)
+        df_2b = normalize_columns(df_2b)
 
-        return {
-            "status": "success",
-            "boe_rows": len(boe_df),
-            "b2b_rows": len(b2b_df),
-            "message": "Import BOE reconciliation completed"
-        }
+        mapping_boe = detect_gst_fields(list(df_boe.columns))
+        mapping_2b = detect_gst_fields(list(df_2b.columns))
+
+        results = reconcile_dataframes(
+            df_pr=df_boe,
+            df_2b=df_2b,
+            mapping_pr=mapping_boe,
+            mapping_2b=mapping_2b,
+            tolerance=1.0
+        )
+        return results
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
