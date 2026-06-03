@@ -54,6 +54,8 @@ const PREDEFINED_PROFILES: PredefinedProfile[] = [
   }
 ];
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function PilotOnboardingWelcome() {
   const [selectedPain, setSelectedPain] = useState<string>('itc_leakage');
   const [selectedProfile, setSelectedProfile] = useState<string>('manufacturing');
@@ -85,10 +87,10 @@ export default function PilotOnboardingWelcome() {
     
     try {
       // 1. Trigger API Demo Bootstrap/Reset
-      const res = await fetch("http://localhost:8000/api/demo/bootstrap");
+      const res = await fetch(`${API_BASE}/api/demo/bootstrap`);
       if (res.ok) {
         // Log pilot onboarding action in analytics
-        await fetch("http://localhost:8000/api/demo/analytics", {
+        await fetch(`${API_BASE}/api/demo/analytics`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

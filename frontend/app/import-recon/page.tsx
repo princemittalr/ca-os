@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 
 // Define TS Types for BOE Intelligence Center
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface BoeItem {
   id: string;
   boe_number: string;
@@ -266,7 +268,7 @@ export default function BoeIntelligenceCenter() {
 
   // Fetch clients from backend api
   useEffect(() => {
-    fetch("http://localhost:8000/api/clients/")
+    fetch(`${API_BASE}/api/clients/`)
       .then(r => r.json())
       .then(data => {
         setClients(data);

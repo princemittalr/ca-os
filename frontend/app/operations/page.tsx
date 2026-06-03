@@ -23,6 +23,9 @@ import {
   Loader2
 } from 'lucide-react';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 interface Job {
   job_id: string;
   job_type: string;
@@ -77,9 +80,9 @@ export default function OperationsDashboard() {
       const headers = { "Authorization": `Bearer ${token}` };
 
       const [jobsRes, notifRes, statusRes] = await Promise.all([
-        fetch("http://localhost:8000/api/jobs", { headers }),
-        fetch("http://localhost:8000/api/jobs/notifications", { headers }),
-        fetch("http://localhost:8000/api/status", { headers })
+        fetch(`${API_BASE}/api/jobs`, { headers }),
+        fetch(`${API_BASE}/api/jobs/notifications`, { headers }),
+        fetch(`${API_BASE}/api/status`, { headers })
       ]);
 
       if (jobsRes.ok && notifRes.ok) {
@@ -111,7 +114,7 @@ export default function OperationsDashboard() {
     try {
       setIsActioning(jobType);
       const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
-      const res = await fetch("http://localhost:8000/api/jobs/trigger", {
+      const res = await fetch(`${API_BASE}/api/jobs/trigger`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -135,7 +138,7 @@ export default function OperationsDashboard() {
     try {
       setIsActioning(jobId);
       const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
-      const res = await fetch(`http://localhost:8000/api/jobs/${jobId}/retry`, {
+      const res = await fetch(`${API_BASE}/api/jobs/${jobId}/retry`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` }
       });

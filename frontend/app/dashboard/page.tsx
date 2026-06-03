@@ -45,6 +45,9 @@ import {
   Cell,
 } from 'recharts';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 /* ─── Data ───────────────────────────────────────────────────── */
 const barData = [
   { name: 'Jan', protected: 320, risk: 180 },
@@ -140,7 +143,7 @@ export default function DashboardPage() {
 
   const fetchFlags = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/api/demo/feature-flags");
+      const res = await axios.get(`${API_BASE}/api/demo/feature-flags`);
       if (res.data && res.data.feature_flags) {
         setFeatureFlags(res.data.feature_flags);
       }
@@ -156,7 +159,7 @@ export default function DashboardPage() {
     };
     setFeatureFlags(updated);
     try {
-      await axios.post("http://localhost:8000/api/demo/feature-flags", updated);
+      await axios.post(`${API_BASE}/api/demo/feature-flags`, updated);
       setToast({
         message: `✓ Feature flag [${flagName}] toggled successfully!`,
         type: 'success'
@@ -169,7 +172,7 @@ export default function DashboardPage() {
   const handleResetSandbox = async () => {
     setIsResetting(true);
     try {
-      const res = await axios.post("http://localhost:8000/api/demo/reset");
+      const res = await axios.post(`${API_BASE}/api/demo/reset`);
       if (res.data && res.data.status === "SUCCESS") {
         setToast({
           message: "✓ Sandbox database wiped & re-seeded with fresh corporate portfolios!",
@@ -212,7 +215,7 @@ export default function DashboardPage() {
   }, []);
 
   React.useEffect(() => {
-    fetch("http://localhost:8000/api/clients/dashboard/summary")
+    fetch(`${API_BASE}/api/clients/dashboard/summary`)
       .then(r => r.json())
       .then(data => setDashStats(data))
       .catch(err => console.log("Dashboard stats fallback:", err));
@@ -306,7 +309,7 @@ export default function DashboardPage() {
 
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/upload/gstr2b",
+        `${API_BASE}/api/upload/gstr2b`,
         formData,
         {
           headers: {
@@ -345,7 +348,7 @@ export default function DashboardPage() {
 
     try {
       const response = await axios.post(
-        "http://127.0.0.1:8000/api/reconcile/gstr2b",
+        `${API_BASE}/api/reconcile/gstr2b`,
         formData,
         {
           headers: {
@@ -374,8 +377,7 @@ export default function DashboardPage() {
 
   const connectBackend = async () => {
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const response = await axios.get(`${apiBase}/api/health`);
+      const response = await axios.get(`${API_BASE}/api/health`);
       const status = response.data?.status || "OK";
       setToast({ message: `✓ Backend connected — ${status}`, type: 'success' });
     } catch (error) {
@@ -1422,7 +1424,7 @@ export default function DashboardPage() {
                     <button
                       onClick={() => {
                         setToast({ message: "Compiling executive summary... Dispatched PDF download successfully!", type: "success" });
-                        window.open("http://127.0.0.1:8000/api/export/reconciliation/pdf", "_blank");
+                        window.open(`${API_BASE}/api/export/reconciliation/pdf`, "_blank");
                       }}
                       className="px-4 py-2 rounded-xl text-xs font-black text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200/50 border border-slate-200 hover:border-slate-300 shadow-sm transition-all cursor-pointer"
                     >
@@ -1431,7 +1433,7 @@ export default function DashboardPage() {
                     <button
                       onClick={() => {
                         setToast({ message: "Compiling Excel sheets... Dispatched working papers successfully!", type: "success" });
-                        window.open("http://127.0.0.1:8000/api/export/reconciliation/excel", "_blank");
+                        window.open(`${API_BASE}/api/export/reconciliation/excel`, "_blank");
                       }}
                       className="px-4.5 py-2.5 rounded-xl text-xs font-black text-white transition-all hover:opacity-95 shadow-sm shadow-[#4F46E5]/10 cursor-pointer"
                       style={{

@@ -28,6 +28,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 interface ActionItem {
   action_id: string;
   client_id: string;
@@ -84,11 +87,11 @@ export default function SmartActionCenter() {
       };
 
       try {
-        const listRes = await fetch("http://localhost:8000/api/action-center");
+        const listRes = await fetch(`${API_BASE}/api/action-center`);
         if (!listRes.ok) throw new Error("Failed to load actions");
         listData = await listRes.json();
         
-        const summaryRes = await fetch("http://localhost:8000/api/action-center/summary");
+        const summaryRes = await fetch(`${API_BASE}/api/action-center/summary`);
         if (!summaryRes.ok) throw new Error("Failed to load summary");
         summaryData = await summaryRes.json();
       } catch (err) {
@@ -237,7 +240,7 @@ export default function SmartActionCenter() {
       // Fetch dynamic narrative briefing from AI Copilot layer
       try {
         const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
-        const aiBriefingRes = await fetch("http://localhost:8000/api/ai/daily-briefing", {
+        const aiBriefingRes = await fetch(`${API_BASE}/api/ai/daily-briefing`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -267,7 +270,7 @@ export default function SmartActionCenter() {
 
   const handleResolveAction = async (actionId: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/action-center/${actionId}/resolve`, {
+      const res = await fetch(`${API_BASE}/api/action-center/${actionId}/resolve`, {
         method: "PUT"
       });
       if (!res.ok) throw new Error("Failed to resolve action item");

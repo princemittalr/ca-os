@@ -4,6 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Play, ChevronRight, ChevronLeft, X, Sparkles, HelpCircle, CheckCircle } from 'lucide-react';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 interface TourStep {
   targetPath: string;
   title: string;
@@ -71,7 +74,7 @@ export default function OnboardingTour() {
       router.push(TOUR_STEPS[0].targetPath);
       
       // Submit analytics boot event
-      fetch("http://localhost:8000/api/demo/analytics", {
+      fetch(`${API_BASE}/api/demo/analytics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -97,7 +100,7 @@ export default function OnboardingTour() {
       router.push(TOUR_STEPS[nextIndex].targetPath);
       
       // Analytics tick
-      fetch("http://localhost:8000/api/demo/analytics", {
+      fetch(`${API_BASE}/api/demo/analytics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,7 +128,7 @@ export default function OnboardingTour() {
     router.push('/action-center');
     
     // Complete analytics boot event
-    fetch("http://localhost:8000/api/demo/analytics", {
+    fetch(`${API_BASE}/api/demo/analytics`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -139,7 +142,7 @@ export default function OnboardingTour() {
     localStorage.removeItem("active_tour_step");
     setCurrentStep(-1);
     
-    fetch("http://localhost:8000/api/demo/analytics", {
+    fetch(`${API_BASE}/api/demo/analytics`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

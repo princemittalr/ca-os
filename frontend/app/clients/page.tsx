@@ -37,6 +37,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 // Mock initial data matching prompt guidelines, enriched with dynamic Health/Risk elements
 const initialClients = [
   {
@@ -286,18 +289,18 @@ const MOCK_RECON_FALLBACK = [
   const fetchClientWorkspaceData = async () => {
     try {
       setIsLoading(true);
-      const clientsRes = await fetch("http://localhost:8000/api/clients/");
+      const clientsRes = await fetch(`${API_BASE}/api/clients/`);
       if (!clientsRes.ok) throw new Error("Failed to load clients portfolio");
       const clientsData = await clientsRes.json();
 
-      const summaryRes = await fetch("http://localhost:8000/api/clients/dashboard/summary");
+      const summaryRes = await fetch(`${API_BASE}/api/clients/dashboard/summary`);
       if (!summaryRes.ok) throw new Error("Failed to load summary aggregates");
       const summaryData = await summaryRes.json();
 
       // Fetch notices
       let noticesData = [];
       try {
-        const noticesRes = await fetch("http://localhost:8000/api/notices");
+        const noticesRes = await fetch(`${API_BASE}/api/notices`);
         if (noticesRes.ok) noticesData = await noticesRes.json();
       } catch (err) {
         console.warn("Failed to fetch notices, using fallback", err);
@@ -306,7 +309,7 @@ const MOCK_RECON_FALLBACK = [
       // Fetch compliance tasks
       let complianceData = [];
       try {
-        const complianceRes = await fetch("http://localhost:8000/api/compliance");
+        const complianceRes = await fetch(`${API_BASE}/api/compliance`);
         if (complianceRes.ok) complianceData = await complianceRes.json();
       } catch (err) {
         console.warn("Failed to fetch compliance, using fallback", err);
@@ -316,7 +319,7 @@ const MOCK_RECON_FALLBACK = [
       const reconciliationsList = await Promise.all(
         clientsData.map(async (c: any) => {
           try {
-            const res = await fetch(`http://localhost:8000/api/clients/${c.id}/reconciliations`);
+            const res = await fetch(`${API_BASE}/api/clients/${c.id}/reconciliations`);
             if (res.ok) {
               const runs = await res.json();
               const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
@@ -545,7 +548,7 @@ const MOCK_RECON_FALLBACK = [
     if (!newName || !newGstin) return;
 
     try {
-      const response = await fetch("http://localhost:8000/api/clients", {
+      const response = await fetch(`${API_BASE}/api/clients`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

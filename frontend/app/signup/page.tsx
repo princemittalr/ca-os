@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +41,7 @@ export default function SignupPage() {
       setIsLoading(true);
       setErrorMessage('');
       
-      const res = await fetch("http://localhost:8000/api/auth/signup", {
+      const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -29,6 +29,9 @@ import {
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 interface ReconciliationRun {
   reconciliation_id: string;
   client_id: string;
@@ -80,7 +83,7 @@ export default function ClientWorkspacePortal() {
   const fetchCommunications = async () => {
     try {
       setIsCommsLoading(true);
-      const res = await fetch(`http://localhost:8000/api/communications/${clientId}`);
+      const res = await fetch(`${API_BASE}/api/communications/${clientId}`);
       if (!res.ok) throw new Error("Failed to load communications");
       const data = await res.json();
       setCommunications(data);
@@ -127,7 +130,7 @@ export default function ClientWorkspacePortal() {
       return;
     }
     try {
-      const res = await fetch("http://localhost:8000/api/communications/generate", {
+      const res = await fetch(`${API_BASE}/api/communications/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -164,7 +167,7 @@ export default function ClientWorkspacePortal() {
 
   const handleUpdateStatus = async (commId: string, newStatus: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/communications/${commId}/status?new_status=${encodeURIComponent(newStatus)}`, {
+      const res = await fetch(`${API_BASE}/api/communications/${commId}/status?new_status=${encodeURIComponent(newStatus)}`, {
         method: "PUT"
       });
       if (!res.ok) throw new Error("Failed to update status");
@@ -187,12 +190,12 @@ export default function ClientWorkspacePortal() {
     try {
       setIsLoading(true);
       // Fetch Client details
-      const clientRes = await fetch(`http://localhost:8000/api/clients/${clientId}`);
+      const clientRes = await fetch(`${API_BASE}/api/clients/${clientId}`);
       if (!clientRes.ok) throw new Error("Failed to load client details");
       const clientData = await clientRes.json();
       
       // Fetch Historical reconciliation runs
-      const historyRes = await fetch(`http://localhost:8000/api/clients/${clientId}/reconciliations`);
+      const historyRes = await fetch(`${API_BASE}/api/clients/${clientId}/reconciliations`);
       if (!historyRes.ok) throw new Error("Failed to load filing history");
       const historyData = await historyRes.json();
       
@@ -1010,7 +1013,7 @@ export default function ClientWorkspacePortal() {
                   Close
                 </button>
                 <a 
-                  href={`http://localhost:8000/api/communications/export/pdf?vendor_name=${encodeURIComponent(selectedComm.vendor_name)}&gstin=${encodeURIComponent(selectedComm.gstin)}&issue=${encodeURIComponent(selectedComm.issue)}&deadline=${encodeURIComponent(selectedComm.recommended_deadline)}&body=${encodeURIComponent(selectedComm.email_body)}&priority=${encodeURIComponent(selectedComm.priority)}`}
+                  href={`${API_BASE}/api/communications/export/pdf?vendor_name=${encodeURIComponent(selectedComm.vendor_name)}&gstin=${encodeURIComponent(selectedComm.gstin)}&issue=${encodeURIComponent(selectedComm.issue)}&deadline=${encodeURIComponent(selectedComm.recommended_deadline)}&body=${encodeURIComponent(selectedComm.email_body)}&priority=${encodeURIComponent(selectedComm.priority)}`}
                   download
                   className="bg-gradient-to-r from-[#7C3AED] to-[#8C85FF] text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-[#7C3AED]/15 hover:shadow-[#7C3AED]/25 border border-slate-200 cursor-pointer transition-all flex items-center justify-center gap-1.5"
                 >

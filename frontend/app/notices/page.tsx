@@ -70,6 +70,8 @@ const MOCK_CLIENTS = [
   { id: 'client-5', business_name: 'Sharma Traders', gstin: '09AABCS7890E1Z9' }
 ];
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function NoticeIntelligenceCenter() {
   const [notices, setNotices] = useState<NoticeDossier[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<NoticeDossier | null>(null);
@@ -135,7 +137,7 @@ export default function NoticeIntelligenceCenter() {
   const fetchNotices = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("http://localhost:8000/api/notices");
+      const res = await fetch(`${API_BASE}/api/notices`);
       if (!res.ok) throw new Error("Failed to load notice dossiers.");
       const data = await res.json();
       setNotices(data);
@@ -240,7 +242,7 @@ export default function NoticeIntelligenceCenter() {
     setResponseDraft("");
     setTypedReply("");
     try {
-      const res = await fetch(`http://localhost:8000/api/notices/${noticeId}/draft-response`, {
+      const res = await fetch(`${API_BASE}/api/notices/${noticeId}/draft-response`, {
         method: "POST"
       });
       if (!res.ok) throw new Error("Statutory reply compiler failed.");
@@ -315,7 +317,7 @@ For ${selectedNotice?.client_name}`;
     formData.append("file", uploadFile);
 
     try {
-      const res = await fetch("http://localhost:8000/api/notices/upload", {
+      const res = await fetch(`${API_BASE}/api/notices/upload`, {
         method: "POST",
         body: formData
       });

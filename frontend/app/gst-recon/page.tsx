@@ -36,6 +36,9 @@ import {
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 // Mock client database
 const MOCK_CLIENTS = [
   { id: '1', business_name: 'TechNova Solutions Pvt Ltd', gstin: '27AAACT1234A1Z5', state: 'Maharashtra', prev_health: 88.1 },
@@ -430,7 +433,7 @@ function GSTReconciliationPageContent() {
 
   // Fetch clients from API (with fallback)
   useEffect(() => {
-    fetch("http://localhost:8000/api/clients/")
+    fetch(`${API_BASE}/api/clients/`)
       .then(r => r.json())
       .then(data => {
         if (data && data.length > 0) {
@@ -467,7 +470,7 @@ function GSTReconciliationPageContent() {
         setIsAiLoading(true);
         try {
           const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
-          const res = await fetch("http://localhost:8000/api/ai/explain-mismatch", {
+          const res = await fetch(`${API_BASE}/api/ai/explain-mismatch`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -596,7 +599,7 @@ function GSTReconciliationPageContent() {
     showToast(`Generating ${type.toUpperCase()} report...`);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/export/reconciliation/${type}`);
+      const response = await fetch(`${API_BASE}/api/export/reconciliation/${type}`);
       if (!response.ok) throw new Error();
 
       const blob = await response.blob();
@@ -631,7 +634,7 @@ function GSTReconciliationPageContent() {
       if (filePR) formData.append('file_pr', filePR);
       if (file2B) formData.append('file_2b', file2B);
 
-      const response = await fetch('http://localhost:8000/api/reconcile/gstr2b', {
+      const response = await fetch(`${API_BASE}/api/reconcile/gstr2b`, {
         method: 'POST',
         body: formData
       });

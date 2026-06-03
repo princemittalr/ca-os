@@ -32,6 +32,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+
 interface ComplianceRecord {
   compliance_id: string;
   client_id: string;
@@ -95,7 +98,7 @@ export default function ComplianceOperationsCenter() {
   const [clientsMap, setClientsMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/clients/")
+    fetch(`${API_BASE}/api/clients/`)
       .then(r => r.json())
       .then(data => {
         const map: Record<string, string> = {};
@@ -114,7 +117,7 @@ export default function ComplianceOperationsCenter() {
     try {
       setIsLoading(true);
 
-      const res = await fetch("http://localhost:8000/api/compliance");
+      const res = await fetch(`${API_BASE}/api/compliance`);
       if (!res.ok) {
         throw new Error("Failed to load compliance tasks");
       }
@@ -419,7 +422,7 @@ export default function ComplianceOperationsCenter() {
 
   const handleMarkAsFiled = async (compId: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/compliance/${compId}/status?new_status=Filed`, {
+      const res = await fetch(`${API_BASE}/api/compliance/${compId}/status?new_status=Filed`, {
         method: "PUT"
       });
       if (!res.ok) throw new Error("Failed to update status");
@@ -439,7 +442,7 @@ export default function ComplianceOperationsCenter() {
 
   const handleAssignStaff = async (compId: string, staff: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/compliance/${compId}/status?assigned_to=${encodeURIComponent(staff)}`, {
+      const res = await fetch(`${API_BASE}/api/compliance/${compId}/status?assigned_to=${encodeURIComponent(staff)}`, {
         method: "PUT"
       });
       if (!res.ok) throw new Error("Failed to re-assign task");
@@ -476,7 +479,7 @@ export default function ComplianceOperationsCenter() {
   const handleCreateDeadline = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/compliance/create", {
+      const res = await fetch(`${API_BASE}/api/compliance/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
