@@ -368,35 +368,7 @@ MOCK_JOBS = [
     }
 ]
 
-MOCK_NOTIFICATIONS = [
-    {
-        "id": "notif-1",
-        "channel": "EMAIL",
-        "recipient": "accounts@technova.com",
-        "subject": "GST Reconciliation Action Required",
-        "body": "Dear Client, we detected Value Mismatches on invoice INV/2024/00892. Please resolve.",
-        "status": "SENT",
-        "sent_at": datetime(2026, 5, 28, 10, 0, 10)
-    },
-    {
-        "id": "notif-2",
-        "channel": "WHATSAPP",
-        "recipient": "+91 98765 43210",
-        "subject": None,
-        "body": "[ALERT] Sharma Traders has not responded to GSTR-2B discrepancy notice. Penalty risk is high.",
-        "status": "SENT",
-        "sent_at": datetime(2026, 5, 28, 10, 0, 11)
-    },
-    {
-        "id": "notif-3",
-        "channel": "SMS",
-        "recipient": "+91 99999 88888",
-        "subject": None,
-        "body": "Filing reminder: GSTR-3B return is due today for TechNova. Avoid late fees.",
-        "status": "SENT",
-        "sent_at": datetime(2026, 5, 28, 10, 0, 12)
-    }
-]
+MOCK_NOTIFICATIONS: list = []
 
 # -------------------------------------------------------------------------
 # OPERATIONS JOBS CRUD ABSTRACTION
