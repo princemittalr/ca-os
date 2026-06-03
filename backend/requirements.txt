@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pandas
+openpyxl
+pymupdf
+python-jose[cryptography]
+passlib[bcrypt]
+rapidfuzz
+google-generativeai
+supabase
+pydantic
+pydantic-settings
+python-multipart
+reportlab

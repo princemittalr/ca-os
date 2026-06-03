@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # --- MOCK REDIS INFRASTRUCTURE SERVICE ---
+  redis:
+    image: redis:7-alpine
+    container_name: reckon_redis_mock
+    ports:
+      - "6379:6379"
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # --- FASTAPI BACKEND SERVICE ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: reckon_backend_api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=production
+      - SUPABASE_URL=${SUPABASE_URL:-mock_url}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-mock_key}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-mock_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-mock_key}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock_key}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: always
+
+  # --- NEXT.JS FRONTEND SERVICE ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: reckon_frontend_web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: always

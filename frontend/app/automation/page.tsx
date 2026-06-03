@@ -1,0 +1,492 @@
+"use client";
+
+import React, { useState } from 'react';
+import PageHeader from '@/components/layout/PageHeader';
+import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import { 
+  Play, 
+  CheckCircle2, 
+  ArrowRight,
+  Shield,
+  Clock,
+  CalendarDays,
+  Users,
+  Database
+} from 'lucide-react';
+
+const initialAgents = [
+  {
+    id: 'a-1',
+    name: 'Auto-Reconciliation Agent',
+    description: 'Automatically triggers GSTR-2B API matching as soon as portal records update on the 11th of each month.',
+    is_active: true,
+    icon: Database,
+    icon_color: '#4F46E5', // Orange
+    category: 'RECONCILIATION',
+    config: {
+      trigger: 'Portal Update (11th)',
+      ledger: 'Tally Prime',
+      threshold: 98,
+      notify_channels: ['email', 'system']
+    }
+  },
+  {
+    id: 'a-2',
+    name: 'Vendor Compliance Robot',
+    description: 'Scans for non-matching invoices and dispatches recurring reminder notifications to suppliers with pending uploads.',
+    is_active: false,
+    icon: Users,
+    icon_color: '#6B7280', // gray
+    category: 'COMPLIANCE',
+    config: {
+      trigger: 'On Mismatch Detected',
+      ledger: 'Zoho Books',
+      threshold: 95,
+      notify_channels: ['email', 'whatsapp']
+    }
+  },
+  {
+    id: 'a-3',
+    name: 'Deadline Reminder Bot',
+    description: 'Sends alerts to client personnel and billing desks regarding upcoming TDS, GSTR-1, and GSTR-3B filings.',
+    is_active: true,
+    icon: Clock,
+    icon_color: '#F59E0B', // amber
+    category: 'COMPLIANCE',
+    config: {
+      trigger: '5 Days Before Due',
+      ledger: 'Busy Accounting',
+      threshold: 100,
+      notify_channels: ['system', 'whatsapp']
+    }
+  },
+  {
+    id: 'a-4',
+    name: 'ITC Finalization Bot',
+    description: 'Performs final risk evaluations and files claim logs inside the Supabase ledger automatically after approval.',
+    is_active: false,
+    icon: Shield,
+    icon_color: '#10B981', // green
+    category: 'RECONCILIATION',
+    config: {
+      trigger: 'Manual Approval',
+      ledger: 'Tally Prime',
+      threshold: 99,
+      notify_channels: ['email']
+    }
+  }
+];
+
+const initialWorkflows = [
+  {
+    id: 'w-1',
+    name: 'TechNova Solutions Monthly Recon',
+    trigger: 'GSTR-2B Portal Update',
+    last_run: '12-05-2026 10:14',
+    next_run: '11-06-2026 09:00',
+    status: 'Idle' // Idle / Running / Failed
+  },
+  {
+    id: 'w-2',
+    name: 'Urgent Supplier Reminder Dispatcher',
+    trigger: 'Mismatch Detection > ₹10,000',
+    last_run: '26-05-2026 15:30',
+    next_run: '28-05-2026 15:30',
+    status: 'Running'
+  },
+  {
+    id: 'w-3',
+    name: 'ROC Filing Document Assembler',
+    trigger: 'Client Uploaded Auditor Sheet',
+    last_run: '14-04-2026 12:00',
+    next_run: 'On Event Trigger',
+    status: 'Idle'
+  }
+];
+
+export default function AutomationCenterPage() {
+  const [agents, setAgents] = useState(initialAgents);
+  const [workflows] = useState(initialWorkflows);
+  const [toastMsg, setToastMsg] = useState('');
+
+  // Modal Configuration States
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Modal Form Inputs
+  const [modalTrigger, setModalTrigger] = useState('');
+  const [modalLedger, setModalLedger] = useState('');
+  const [modalThreshold, setModalThreshold] = useState(95);
+  const [modalChannels, setModalChannels] = useState<string[]>([]);
+
+  const triggerToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const handleOpenConfigure = (agent: any) => {
+    console.log("[Configure Agent] Initializing configuration flow for:", agent.name);
+    setSelectedAgent(agent);
+    setModalTrigger(agent.config?.trigger || 'Manual Approval');
+    setModalLedger(agent.config?.ledger || 'Tally Prime');
+    setModalThreshold(agent.config?.threshold || 95);
+    setModalChannels(agent.config?.notify_channels || ['email']);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveConfig = () => {
+    if (!selectedAgent) return;
+    setIsSaving(true);
+    console.log("[Configure Agent] Compiling and deploying agent config for:", selectedAgent.name);
+
+    // Simulate cryptographic compilation & deployment to Supabase ledger
+    setTimeout(() => {
+      setAgents(agents.map(a => {
+        if (a.id === selectedAgent.id) {
+          return {
+            ...a,
+            config: {
+              trigger: modalTrigger,
+              ledger: modalLedger,
+              threshold: modalThreshold,
+              notify_channels: modalChannels
+            }
+          };
+        }
+        return a;
+      }));
+
+      setIsSaving(false);
+      setIsModalOpen(false);
+      triggerToast(`✓ ${selectedAgent.name} compiled and deployed successfully.`);
+    }, 1000);
+  };
+
+  const handleToggleChannel = (channel: string) => {
+    if (modalChannels.includes(channel)) {
+      setModalChannels(modalChannels.filter(c => c !== channel));
+    } else {
+      setModalChannels([...modalChannels, channel]);
+    }
+  };
+
+  const handleToggleAgent = (id: string) => {
+    setAgents(agents.map(a => {
+      if (a.id === id) {
+        const nextState = !a.is_active;
+        triggerToast(`✓ ${a.name} turned ${nextState ? 'ON' : 'OFF'}.`);
+        
+        // update icon color as well for active style
+        return {
+          ...a,
+          is_active: nextState,
+          icon_color: nextState ? (id === 'a-1' ? '#4F46E5' : id === 'a-2' ? '#7C3AED' : id === 'a-3' ? '#F59E0B' : '#10B981') : '#6B7280'
+        };
+      }
+      return a;
+    }));
+  };
+
+  const handleRunWorkflow = (workflowName: string) => {
+    triggerToast(`⚡ Workflow "${workflowName}" triggered manually.`);
+  };
+
+  return (
+    <div className="space-y-12 pb-16 animate-in fade-in duration-500 relative">
+      
+      {/* Toast Alert */}
+      {toastMsg && (
+        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3.5">
+          <CheckCircle2 className="text-[#10B981] flex-shrink-0 animate-bounce" size={20} />
+          <span className="text-[13px] font-bold tracking-wide">{toastMsg}</span>
+        </div>
+      )}
+
+      <PageHeader
+        sectionLabel="Autopilot Hub"
+        title="Robotic Engines"
+        description="Configure intelligent AI robotic task run triggers and automatic CA filing schedulers."
+      />
+
+      {/* 2x2 Agent Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {agents.map((agent) => (
+          <div 
+            key={agent.id}
+            className="std-card std-card-interactive p-8 flex flex-col justify-between gap-6 relative group"
+          >
+            
+            {/* Top Row: Icon Container + Toggle Switch */}
+            <div className="flex items-center justify-between">
+              <div 
+                className={`agent-icon-container ${
+                  agent.id === 'a-1' ? 'agent-icon-purple' :
+                  agent.id === 'a-2' ? 'agent-icon-blue' :
+                  agent.id === 'a-3' ? 'agent-icon-amber' :
+                  'agent-icon-green'
+                } transition-transform duration-300 group-hover:scale-105`}
+                style={{ color: agent.icon_color }}
+              >
+                <agent.icon size={22} />
+              </div>
+
+              {/* IOS Styled Toggle Switch */}
+              <button 
+                onClick={() => handleToggleAgent(agent.id)}
+                className={`w-12 h-6.5 rounded-full p-0.5 transition-colors duration-300 focus:outline-none flex items-center cursor-pointer ${
+                  agent.is_active ? 'bg-[#4F46E5]' : 'bg-[#F8FAFC] border border-slate-200'
+                }`}
+              >
+                <div 
+                  className={`w-5.5 h-5.5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                    agent.is_active ? 'translate-x-5.5' : 'translate-x-0'
+                  }`}
+                ></div>
+              </button>
+            </div>
+
+            {/* Info details */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#4F46E5] transition-colors">{agent.name}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {agent.description}
+              </p>
+            </div>
+
+            {/* Status indicators */}
+            <div className="agent-bottom-row border-t border-slate-100 pt-5 mt-2">
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <span className={`w-2.5 h-2.5 rounded-full ${
+                  agent.is_active ? 'bg-[#10B981] animate-pulse' : 'bg-slate-100'
+                }`}></span>
+                <span className={agent.is_active ? 'text-[#10B981] font-bold' : 'text-slate-500'}>
+                  {agent.is_active ? 'Engines Running' : 'Offline'}
+                </span>
+              </div>
+
+              <button 
+                onClick={() => handleOpenConfigure(agent)}
+                className="agent-configure-link flex items-center gap-1.5 cursor-pointer focus:outline-none hover:opacity-80 transition-opacity"
+              >
+                <span>Configure Agent →</span>
+              </button>
+            </div>
+
+          </div>
+        ))}
+      </div>
+
+      {/* Active Workflows Section */}
+      <div className="space-y-6">
+        <div className="px-1">
+          <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.2em] uppercase block">Ledger Synchronization</span>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight mt-0.5">Active Automated Runs</h2>
+        </div>
+        
+        <div className="data-table-shell p-4">
+          <div className="overflow-x-auto hidden-scrollbar">
+            <table className="data-table data-table-striped-6plus">
+              <thead>
+                <tr>
+                  <th>Workflow Automation Subject</th>
+                  <th>Pipeline Trigger Event</th>
+                  <th>Last Success Run</th>
+                  <th>Next Scheduled Run</th>
+                  <th>Current State</th>
+                  <th className="text-right">Manual Override</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                {workflows.map((wf) => (
+                  <tr key={wf.id} className="group">
+                    {/* Name */}
+                    <td className="font-sans font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">
+                      {wf.name}
+                    </td>
+                    
+                    {/* Trigger */}
+                    <td className="font-sans data-table-secondary font-medium">
+                      {wf.trigger}
+                    </td>
+                    
+                    {/* Last Run */}
+                    <td className="data-table-secondary font-semibold text-[13px]">
+                      <span className="inline-flex items-center gap-1.5">
+                        <CalendarDays size={12} />
+                        {wf.last_run}
+                      </span>
+                    </td>
+
+                    {/* Next Run */}
+                    <td className="data-table-secondary font-semibold text-[13px]">
+                      <span className="inline-flex items-center gap-1.5">
+                        <CalendarDays size={12} />
+                        {wf.next_run}
+                      </span>
+                    </td>
+
+                    {/* State */}
+                    <td className="font-sans">
+                      <span className={`status-badge ${getUnifiedBadgeClass(wf.status === 'Running' ? 'RUNNING' : 'SYNCED')}`}>
+                        {wf.status === 'Running' && renderBadgeDot(wf.status)}
+                        {wf.status === 'Running' ? 'Running...' : 'Idle Synced'}
+                      </span>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="text-right font-sans">
+                      <button 
+                        onClick={() => handleRunWorkflow(wf.name)}
+                        className="btn btn-warning btn-sm flex items-center gap-1.5 ml-auto"
+                      >
+                        <Play size={10} fill="currentColor" />
+                        <span>Force Run</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Configure Agent Modal ────────────────────────────── */}
+      {isModalOpen && selectedAgent && (
+        <div className="fixed inset-0 bg-[#F8FAFC]/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className="bg-white border border-white/[0.08] w-full max-w-lg rounded-3xl p-8 flex flex-col gap-6 relative shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] animate-in zoom-in-95 duration-200"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+          >
+            {/* Header */}
+            <div>
+              <span className="text-[10px] font-black text-[#4F46E5] tracking-[0.2em] uppercase">Configure Core Engines</span>
+              <h3 id="modal-title" className="text-2xl font-black text-slate-900 tracking-tight mt-1 truncate">
+                {selectedAgent.name}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                Tune thresholds, ledger pipes, and communication streams for this autonomous agent.
+              </p>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-5">
+              {/* Trigger Event */}
+              <div className="space-y-2">
+                <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider block">Pipeline Trigger Event</label>
+                <select
+                  value={modalTrigger}
+                  onChange={(e) => setModalTrigger(e.target.value)}
+                  className="w-full h-11 bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5] transition-all cursor-pointer"
+                >
+                  <option value="Portal Update (11th)">GSTR Portal Update (11th of month)</option>
+                  <option value="On Mismatch Detected">Immediate (On Mismatch Detected &gt; ₹10,000)</option>
+                  <option value="5 Days Before Due">Scheduled (5 Days Before Filing Deadline)</option>
+                  <option value="Manual Approval">Trigger-On-Demand (Requires Manual Approval)</option>
+                  <option value="Every 24 Hours">Interval (Daily Ledger Sync Sweep)</option>
+                </select>
+              </div>
+
+              {/* Target Ledger Mapping */}
+              <div className="space-y-2">
+                <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider block">Target Ledger Mapping</label>
+                <select
+                  value={modalLedger}
+                  onChange={(e) => setModalLedger(e.target.value)}
+                  className="w-full h-11 bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5] transition-all cursor-pointer"
+                >
+                  <option value="Tally Prime">Tally Prime ERP (Direct API Gateway)</option>
+                  <option value="Zoho Books">Zoho Books (Cloud Ledger Pipeline)</option>
+                  <option value="Busy Accounting">Busy Accounting (Local Export Bridge)</option>
+                  <option value="SAP Business One">SAP Business One (Enterprise RFC)</option>
+                  <option value="QuickBooks Online">QuickBooks Online (QBO OAuth Hook)</option>
+                </select>
+              </div>
+
+              {/* Accuracy Threshold Slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider">Matching Accuracy Threshold</label>
+                  <span className="text-xs font-bold text-[#4F46E5] font-mono">{modalThreshold}%</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    min="80"
+                    max="100"
+                    value={modalThreshold}
+                    onChange={(e) => setModalThreshold(parseInt(e.target.value))}
+                    className="flex-1 h-1 bg-[#F8FAFC] border border-slate-200 rounded-lg appearance-none cursor-pointer accent-[#4F46E5]"
+                  />
+                  <span className="text-[10px] text-slate-500 font-bold w-12 text-right">Min: 80%</span>
+                </div>
+              </div>
+
+              {/* Notification Channels */}
+              <div className="space-y-2">
+                <label className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider block">Active Notification Channels</label>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: 'email', label: 'Email Alerts' },
+                    { id: 'whatsapp', label: 'WhatsApp' },
+                    { id: 'system', label: 'System Push' }
+                  ].map((ch) => {
+                    const active = modalChannels.includes(ch.id);
+                    return (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => handleToggleChannel(ch.id)}
+                        className={`h-11 rounded-xl text-xs font-semibold flex items-center justify-center transition-all cursor-pointer border ${
+                          active 
+                            ? 'bg-[#4F46E5]/10 border-[#4F46E5]/45 text-white font-bold' 
+                            : 'bg-[#F8FAFC] border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+                        }`}
+                      >
+                        {ch.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-2">
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSaving}
+                className="btn btn-secondary btn-md"
+                title={isSaving ? 'Saving in progress' : undefined}
+              >
+                Cancel
+              </button>
+              
+              <button
+                type="button"
+                onClick={handleSaveConfig}
+                disabled={isSaving}
+                className="btn btn-primary btn-md"
+                title={isSaving ? 'Saving in progress' : undefined}
+              >
+                {isSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></span>
+                    <span>Compiling...</span>
+                  </>
+                ) : (
+                  <span>Save & Deploy</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

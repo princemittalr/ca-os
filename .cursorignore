@@ -1,0 +1,16 @@
+.next/
+node_modules/
+venv/
+.venv/
+dist/
+build/
+coverage/
+
+*.csv
+*.xlsx
+*.pdf
+*.log
+
+uploads/
+exports/
+reports/# Add directories or file patterns to ignore during indexing (e.g. foo/ or *.csv)
