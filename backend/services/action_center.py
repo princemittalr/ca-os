@@ -75,12 +75,15 @@ def generate_daily_summary() -> Dict[str, Any]:
     
     exposure = sum([a.get("exposure_amount", 0.0) for a in active])
             
+    top_items = sorted(active, key=lambda x: x.get("risk_score", 0), reverse=True)[:3]
+    top_text = "; ".join([
+        f"{a['client_name']} — {a['title']} (₹{a.get('exposure_amount', 0):,.0f} at risk)"
+        for a in top_items
+    ]) if top_items else "No critical items detected."
     summary_text = (
-        f"Good morning, Partner. Today, the CA Mission Control has compiled {len(active)} active compliance signals "
-        f"requiring your focus. There are {len(high_priority)} high-severity escalations exposing {f'₹{exposure:,.0f}'} in tax assets. "
-        f"TechNova Solutions GSTR-2B mismatch blocks ₹4,20,000, while customs BOE gaps at Apex Innovations expose ₹3,40,000. "
-        f"Additionally, a critical DRC-01 Show Cause Notice for Wayne Enterprises has been received (₹1,85,000 at risk). "
-        f"We recommend resolving GSTR-2B discrepancies and preparing the SCN reply extension requests immediately."
+        f"Today, the CA Copilot has compiled {len(active)} active compliance signals requiring your attention. "
+        f"There are {len(high_priority)} HIGH-severity escalations. "
+        f"Top items: {top_text}"
     )
     
     return {

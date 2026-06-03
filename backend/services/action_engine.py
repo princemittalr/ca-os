@@ -5,120 +5,13 @@ from typing import List, Dict, Any, Optional
 class ActionEngineService:
     def __init__(self):
         self.actions: Dict[str, Dict[str, Any]] = {}
-        self._preload_mock_data()
 
     def _preload_mock_data(self):
         """
         Preloads standard high-impact alerts across different categories
         using the push mechanism to ensure perfect timeline and state alignment.
         """
-        today_str = date.today().strftime("%Y-%m-%d")
-        
-        preloaded = [
-            {
-                "id": "act-1",
-                "client_id": "client-1",
-                "client_name": "TechNova Solutions Pvt Ltd",
-                "source_module": "RECONCILIATION",
-                "title": "GST Mismatch: Books vs GSTR-2B",
-                "description": "Reconciliation check identified a critical mismatch of ₹4,20,000 in IGST credit claims. Major supplier Sharma Traders GSTR-2B filing records are missing.",
-                "recommended_action": "Run GSTR-2B automated reconciliation audit matching Sharma invoices and withhold vendor payment.",
-                "due_date": today_str,
-                "risk_score": 95.0,
-                "exposure_amount": 420000.0,
-                "assigned_to": "Aditya Rao",
-                "action_state": "NEW",
-                "source_url": "/gst-recon",
-                "automation_candidate": True,
-                "can_auto_resolve": True,
-                "confidence_score": 0.98,
-                "ai_summary": "Supplier Sharma Traders has failed to upload sales invoices to GSTR-1, causing GSTR-2B inputs variance.",
-                "predicted_impact": "Saves ₹4,20,000 in blocked statutory input tax credit."
-            },
-            {
-                "id": "act-2",
-                "client_id": "client-2",
-                "client_name": "Apex Innovations Pvt Ltd",
-                "source_module": "IMPORT",
-                "title": "Missing ICEGATE BOE Reflection",
-                "description": "Bill of Entry (BOE) import duty log mismatch detected between ICEGATE port customs gate logs and purchase registers. Mismatched IGST imports detected.",
-                "recommended_action": "Re-trigger ICEGATE customs gateway sync and check BOE numbers.",
-                "due_date": (date.today() + timedelta(days=2)).strftime("%Y-%m-%d"),
-                "risk_score": 88.0,
-                "exposure_amount": 340000.0,
-                "assigned_to": "Neha Sharma",
-                "action_state": "IN_PROGRESS",
-                "source_url": "/import-recon",
-                "automation_candidate": True,
-                "can_auto_resolve": False,
-                "confidence_score": 0.94,
-                "ai_summary": "Discrepancies between Customs port logs and purchase registers will result in IGST credit claim rejection.",
-                "predicted_impact": "Secures ₹3,40,000 in unclaimed import duty inputs and prevents double assessment."
-            },
-            {
-                "id": "act-3",
-                "client_id": "client-3",
-                "client_name": "Wayne Enterprises Ltd",
-                "source_module": "NOTICE",
-                "title": "Notice Reply Required: DRC-01 SCN",
-                "description": "GST show cause notice received under Section 73 (Ref: GST/TNV/2026/DRC-01/108) regarding Books vs GSTR-2B credit discrepancies.",
-                "recommended_action": "Draft and submit statutory extension reply or pay liability.",
-                "due_date": (date.today() + timedelta(days=3)).strftime("%Y-%m-%d"),
-                "risk_score": 92.0,
-                "exposure_amount": 185000.0,
-                "assigned_to": "Rohan Mehta",
-                "action_state": "WAITING_FOR_CLIENT",
-                "source_url": "/notices",
-                "automation_candidate": False,
-                "can_auto_resolve": False,
-                "confidence_score": 0.96,
-                "ai_summary": "Failure to file a comprehensive rectification reply within 15 days results in direct recovery demands.",
-                "predicted_impact": "Mitigates high-severity litigation dispute risks and ₹75,000 immediate penalty risk."
-            },
-            {
-                "id": "act-4",
-                "client_id": "client-4",
-                "client_name": "Global Trade LLC",
-                "source_module": "COMPLIANCE",
-                "title": "TDS Return Filing Deadline",
-                "description": "Quarterly TDS GSTR-7 return submission is due today. 3 deduction certificates pending verification.",
-                "recommended_action": "Verify client employee PAN registers and file TDS returns.",
-                "due_date": today_str,
-                "risk_score": 65.0,
-                "exposure_amount": 20000.0,
-                "assigned_to": "Neha Sharma",
-                "action_state": "NEW",
-                "source_url": "/compliance",
-                "automation_candidate": True,
-                "can_auto_resolve": True,
-                "confidence_score": 0.89,
-                "ai_summary": "Incomplete deducer submissions trigger Section 234E late fee penalties.",
-                "predicted_impact": "Avoids TDS delay penalty of ₹200/day under Section 234E."
-            },
-            {
-                "id": "act-5",
-                "client_id": "client-5",
-                "client_name": "Sharma Traders",
-                "source_module": "MANUAL",
-                "title": "Collect Vendor Payment Proofs",
-                "description": "Obtain bank statement payment records matching discrepancy invoices for Sharma GSTR-2B mismatch audit.",
-                "recommended_action": "Outreach client accounts team for ledger statement folders.",
-                "due_date": (date.today() + timedelta(days=4)).strftime("%Y-%m-%d"),
-                "risk_score": 50.0,
-                "exposure_amount": 0.0,
-                "assigned_to": "Kunal Sen",
-                "action_state": "NEW",
-                "source_url": "/action-center",
-                "automation_candidate": False,
-                "can_auto_resolve": False,
-                "confidence_score": 0.85,
-                "ai_summary": "Manual audit trail compilation required to support the ASMT-11 scrutiny reply.",
-                "predicted_impact": "Secures evidence checklist readiness score to 100%."
-            }
-        ]
-        
-        for act in preloaded:
-            self.push_action_item(act)
+        pass
 
     def push_action_item(self, action_data: Dict[str, Any]) -> Dict[str, Any]:
         """

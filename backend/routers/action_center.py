@@ -22,23 +22,11 @@ async def get_action_center_summary():
     active = db_manager.get_action_items()
     high_priority = [a for a in active if a["priority"] == "HIGH"]
     
-    itc_exposure = 0.0
-    for a in active:
-        desc = a.get("description") or ""
-        impact = a.get("predicted_impact") or ""
-        if "₹1.8L" in desc or "₹1,83,780" in impact:
-            itc_exposure += 183780.0
-        if "₹1,85,000" in desc:
-            itc_exposure += 185000.0
+    itc_exposure = sum(float(a.get("exposure_amount", 0.0)) for a in active)
             
-    summary_text = (
-        f"Good morning, Partner Auditor. Today, the Reckon AI Copilot has detected {len(active)} active compliance signals "
-        f"requiring your focus. There are {len(high_priority)} HIGH-severity escalations. "
-        f"TechNova Solutions GSTR-3B tax returns are overdue by 4 days, locking statutory input tax credit. "
-        f"Additionally, Sharma Traders has not responded to GSTR-2B mismatches, placing {f'₹{185000:,.0f}'} in ITC claims "
-        f"at extreme delay risk, while high-value discrepancies at Wayne Enterprises expose {f'₹{183780:,.0f}'} in corporate capital. "
-        f"We recommend completing immediate filings for TechNova and launching SMS/outreach reminder warnings for Sharma Traders."
-    )
+    from services.action_center import generate_daily_summary
+    summary_data = generate_daily_summary()
+    summary_text = summary_data["daily_summary"]
     
     return {
         "total_actions": len(active),
