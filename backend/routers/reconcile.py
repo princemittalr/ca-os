@@ -22,180 +22,18 @@ MAX_FILE_SIZE = 20 * 1024 * 1024
 # Global in-memory cache for latest reconciliation results
 latest_reconciliation_results = None
 
-# Mock Fallback Data matching MOCK_RECON_ROWS exactly
-MOCK_RECONDATA_ROWS = [
-    {
-        "gstin": "27AAACG5678A1Z9",
-        "invoice_number": "INV/2024/00891",
-        "invoice_date": "12-03-2024",
-        "taxable_value": 150000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "27AAACG5678A1Z9",
-        "invoice_number": "INV/2024/00892",
-        "invoice_date": "14-03-2024",
-        "taxable_value": 75000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "29AABCB3456F1Z2",
-        "invoice_number": "IN-34291",
-        "invoice_date": "02-03-2024",
-        "taxable_value": 345000.0,
-        "issue": "VALUE_MISMATCH",
-        "likely_cause": "Taxable value differs between books and GST portal.",
-        "recommended_action": "Verify invoice amendments or accounting entry errors.",
-        "risk_level": "MEDIUM"
-    },
-    {
-        "gstin": "07AAACW9911D1Z0",
-        "invoice_number": "WE-2024-981",
-        "invoice_date": "20-03-2024",
-        "taxable_value": 280000.0,
-        "issue": "MISSING_IN_2B",
-        "likely_cause": "Vendor may not have filed GSTR-1 or invoice not uploaded.",
-        "recommended_action": "Contact vendor and verify filing status before claiming ITC.",
-        "risk_level": "HIGH"
-    },
-    {
-        "gstin": "27AABCS9012E1Z8",
-        "invoice_number": "ST-901",
-        "invoice_date": "05-03-2024",
-        "taxable_value": 120000.0,
-        "issue": "MISSING_IN_BOOKS",
-        "likely_cause": "Invoice present in portal but not recorded in purchase register.",
-        "recommended_action": "Record this invoice in Purchase Books or check for duplication.",
-        "risk_level": "MEDIUM"
-    },
-    {
-        "gstin": "24AAACG3333C1Z4",
-        "invoice_number": "GT/451/23-24",
-        "invoice_date": "10-03-2024",
-        "taxable_value": 450000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "27AAACG5678A1Z9",
-        "invoice_number": "INV/2024/00910",
-        "invoice_date": "18-03-2024",
-        "taxable_value": 95000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "27AAACG5678A1Z9",
-        "invoice_number": "INV/2024/00915",
-        "invoice_date": "22-03-2024",
-        "taxable_value": 110000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "29AABCB3456F1Z2",
-        "invoice_number": "IN-34305",
-        "invoice_date": "15-03-2024",
-        "taxable_value": 215500.0,
-        "issue": "VALUE_MISMATCH",
-        "likely_cause": "Taxable value differs between books and GST portal.",
-        "recommended_action": "Verify invoice amendments or accounting entry errors.",
-        "risk_level": "MEDIUM"
-    },
-    {
-        "gstin": "27AABCS9012E1Z8",
-        "invoice_number": "ST-924",
-        "invoice_date": "12-03-2024",
-        "taxable_value": 65000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "09AAACS1100C1Z4",
-        "invoice_number": "SH/2024/77",
-        "invoice_date": "08-03-2024",
-        "taxable_value": 185000.0,
-        "issue": "MISSING_IN_2B",
-        "likely_cause": "Vendor may not have filed GSTR-1 or invoice not uploaded.",
-        "recommended_action": "Contact vendor and verify filing status before claiming ITC.",
-        "risk_level": "HIGH"
-    },
-    {
-        "gstin": "27AAACG5678A1Z9",
-        "invoice_number": "INV/2024/00930",
-        "invoice_date": "28-03-2024",
-        "taxable_value": 220000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "24AAACG3333C1Z4",
-        "invoice_number": "GT/489/23-24",
-        "invoice_date": "25-03-2024",
-        "taxable_value": 140000.0,
-        "issue": "MISSING_IN_BOOKS",
-        "likely_cause": "Invoice present in portal but not recorded in purchase register.",
-        "recommended_action": "Record this invoice in Purchase Books or check for duplication.",
-        "risk_level": "MEDIUM"
-    },
-    {
-        "gstin": "07AAACW9911D1Z0",
-        "invoice_number": "WE-2024-999",
-        "invoice_date": "29-03-2024",
-        "taxable_value": 540000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    },
-    {
-        "gstin": "29AABCA5678B1Z3",
-        "invoice_number": "AP/MAR/1004",
-        "invoice_date": "04-03-2024",
-        "taxable_value": 130000.0,
-        "issue": "MATCHED",
-        "likely_cause": "N/A - Invoices match perfectly.",
-        "recommended_action": "No action required.",
-        "risk_level": "LOW"
-    }
-]
-
 def get_active_results():
-    """Retrieve active cached in-memory results, or generate from mock data."""
+    """Retrieve active cached in-memory results, or raise HTTP 404."""
     global latest_reconciliation_results
     if latest_reconciliation_results is not None:
         summary = latest_reconciliation_results.get("summary", {})
         matches = latest_reconciliation_results.get("matches", [])
         mismatches = latest_reconciliation_results.get("mismatches", [])
         return summary, matches, mismatches
-
-    # Build fallback splits from mock data
-    matches = [r for r in MOCK_RECONDATA_ROWS if r["issue"] == "MATCHED"]
-    mismatches = [r for r in MOCK_RECONDATA_ROWS if r["issue"] != "MATCHED"]
-    summary = {
-        "matched": len(matches),
-        "missing_in_2b": len([m for m in mismatches if m["issue"] == "MISSING_IN_2B"]),
-        "missing_in_books": len([m for m in mismatches if m["issue"] == "MISSING_IN_BOOKS"]),
-        "value_mismatch": len([m for m in mismatches if m["issue"] == "VALUE_MISMATCH"]),
-        "partial_match": len([m for m in mismatches if m["issue"] == "PARTIAL_MATCH"]),
-    }
-    return summary, matches, mismatches
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="No reconciliation has been run yet. Please upload files and run reconciliation first."
+    )
 
 @router.post("/gstr2b")
 async def reconcile_gstr2b(
