@@ -48,7 +48,7 @@ def read_root():
     return {"status": "ok", "message": "Welcome to Reckon AI API"}
 
 # Import routers here and include them
-from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, demo
+from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, demo, audit
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
 app.include_router(reconcile.router, prefix="/api/reconcile", tags=["reconcile"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
@@ -61,6 +61,7 @@ app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(notices.router, prefix="/api/notices", tags=["notices"])
 app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(demo.router, prefix="/api/demo", tags=["demo"])
+app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 
 
 # Periodic Cron Scheduler Lifespans

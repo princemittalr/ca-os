@@ -1,55 +1,44 @@
-from fastapi import APIRouter
-from typing import List
-from app.models import schemas
-from datetime import datetime, timedelta
+from fastapi import APIRouter, Query
+from typing import List, Optional
+from models import schemas
+from config.supabase import supabase_client, is_supabase_active
+from fastapi import HTTPException, status
 
 router = APIRouter()
 
-MOCK_AUDIT_LOGS = [
-    {
-        "id": "log-1",
-        "user_id": "mock-user-uuid-12345",
-        "action": "RECONCILE",
-        "entity_type": "reconciliation",
-        "entity_id": "recon-1001",
-        "details": {"client": "TechNova Solutions Pvt Ltd", "period": "March 2024", "matches": 1102, "mismatches": 52},
-        "ip_address": "192.168.1.15",
-        "created_at": datetime.now() - timedelta(hours=2)
-    },
-    {
-        "id": "log-2",
-        "user_id": "mock-user-uuid-12345",
-        "action": "CREATE",
-        "entity_type": "client",
-        "entity_id": "client-5",
-        "details": {"client_name": "Sharma Traders", "gstin": "09AABCS7890E1Z9"},
-        "ip_address": "192.168.1.15",
-        "created_at": datetime.now() - timedelta(days=1)
-    },
-    {
-        "id": "log-3",
-        "user_id": "mock-user-uuid-12345",
-        "action": "EXPORT",
-        "entity_type": "excel_report",
-        "entity_id": "recon-998",
-        "details": {"client": "Apex Innovations", "period": "February 2024"},
-        "ip_address": "192.168.1.20",
-        "created_at": datetime.now() - timedelta(days=2)
-    },
-    {
-        "id": "log-4",
-        "user_id": "mock-user-uuid-12345",
-        "action": "LOGIN",
-        "entity_type": "user",
-        "entity_id": "mock-user-uuid-12345",
-        "details": {"login_status": "success"},
-        "ip_address": "192.168.1.15",
-        "created_at": datetime.now() - timedelta(days=3)
-    }
-]
-
 @router.get("/", response_model=List[schemas.AuditLogResponse])
-async def get_audit_logs():
-    """Fetch user audit log trails."""
-    return MOCK_AUDIT_LOGS
-
+async def get_audit_logs(
+  limit: int = Query(50, description="Number of records to return"),
+  actor_id: Optional[str] = Query(None, description="Filter by actor user ID"),
+  entity_type: Optional[str] = Query(None, description="Filter by entity type")
+):
+  """Fetch audit trail from persistent database."""
+  if not is_supabase_active():
+    raise HTTPException(
+      status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+      detail="Audit trail unavailable. Database not configured."
+    )
+  try:
+    q = supabase_client.table("audit_logs").select("*").order("created_at", desc=True).limit(limit)
+    if actor_id:
+      q = q.eq("actor_id", actor_id)
+    if entity_type:
+      q = q.eq("entity_type", entity_type)
+    res = q.execute()
+    
+    # Map database columns to match AuditLogResponse schema requirements (e.g. actor_id -> user_id, entity_id null safety)
+    mapped_data = []
+    for row in res.data:
+      mapped_row = dict(row)
+      if "user_id" not in mapped_row or not mapped_row["user_id"]:
+        mapped_row["user_id"] = mapped_row.get("actor_id") or "system"
+      if "entity_id" not in mapped_row or mapped_row["entity_id"] is None:
+        mapped_row["entity_id"] = str(mapped_row.get("entity_id") or "")
+      mapped_data.append(mapped_row)
+      
+    return mapped_data
+  except Exception as e:
+    raise HTTPException(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      detail=f"Failed to fetch audit logs: {str(e)}"
+    )
