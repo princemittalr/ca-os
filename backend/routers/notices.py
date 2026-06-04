@@ -75,6 +75,9 @@ async def upload_gst_notice(
     else:
         due_date_parsed = date.today() + timedelta(days=15)
 
+    if not due_date_parsed:
+        due_date_parsed = date.today() + timedelta(days=15)
+
     hearing_date_parsed = None
     hearing_str = det.get("hearing_date")
     if hearing_str:
@@ -108,7 +111,7 @@ async def upload_gst_notice(
     # 6. Save Notice Dossier Record
     notice_payload = {
         "client_id": client_id,
-        "client_name": client.get("business_name") or "TechNova Solutions",
+        "client_name": client.get("business_name") or client.get("legal_name") or "Unknown Client",
         "notice_number": det.get("notice_number") or ai_data.get("notice_number") or f"GST/REF/{int(datetime.now().timestamp())}",
         "issuing_authority": det.get("issuing_authority") or "State Tax Officer, GST Department",
         "section_references": ai_data.get("sections_referenced") or det.get("section_references") or ["Section 73"],
