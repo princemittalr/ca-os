@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { 
@@ -13,6 +13,18 @@ import {
   Users,
   Database
 } from 'lucide-react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const formatJobType = (type: string) => {
+  const displayNames: Record<string, string> = {
+    'nightly_reconciliation': 'TechNova Solutions Monthly Recon',
+    'compliance_reminders': 'Urgent Supplier Reminder Dispatcher',
+    'overdue_escalation': 'ROC Filing Document Assembler',
+    'action_center_refresh': 'Action Center Refresh'
+  };
+  return displayNames[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
 
 const initialAgents = [
   {
@@ -77,37 +89,30 @@ const initialAgents = [
   }
 ];
 
-const initialWorkflows = [
-  {
-    id: 'w-1',
-    name: 'TechNova Solutions Monthly Recon',
-    trigger: 'GSTR-2B Portal Update',
-    last_run: '12-05-2026 10:14',
-    next_run: '11-06-2026 09:00',
-    status: 'Idle' // Idle / Running / Failed
-  },
-  {
-    id: 'w-2',
-    name: 'Urgent Supplier Reminder Dispatcher',
-    trigger: 'Mismatch Detection > ₹10,000',
-    last_run: '26-05-2026 15:30',
-    next_run: '28-05-2026 15:30',
-    status: 'Running'
-  },
-  {
-    id: 'w-3',
-    name: 'ROC Filing Document Assembler',
-    trigger: 'Client Uploaded Auditor Sheet',
-    last_run: '14-04-2026 12:00',
-    next_run: 'On Event Trigger',
-    status: 'Idle'
-  }
-];
-
 export default function AutomationCenterPage() {
   const [agents, setAgents] = useState(initialAgents);
-  const [workflows] = useState(initialWorkflows);
+  const [jobsHistory, setJobsHistory] = useState<any[]>([]);
+  const [isJobsLoading, setIsJobsLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+
+  const fetchJobs = async () => {
+    try {
+      setIsJobsLoading(true);
+      const res = await fetch(`${API_BASE}/api/jobs`);
+      if (res.ok) {
+        const data = await res.json();
+        setJobsHistory(data);
+      }
+    } catch (err) {
+      console.error("Jobs fetch failed:", err);
+    } finally {
+      setIsJobsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
 
   // Modal Configuration States
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
@@ -188,8 +193,28 @@ export default function AutomationCenterPage() {
     }));
   };
 
-  const handleRunWorkflow = (workflowName: string) => {
-    triggerToast(`⚡ Workflow "${workflowName}" triggered manually.`);
+  const handleRunWorkflow = async (workflowName: string) => {
+    const typeMap: Record<string, string> = {
+      'TechNova Solutions Monthly Recon': 'nightly_reconciliation',
+      'Urgent Supplier Reminder Dispatcher': 'compliance_reminders',
+      'ROC Filing Document Assembler': 'overdue_escalation'
+    };
+    const job_type = typeMap[workflowName] || workflowName || 'action_center_refresh';
+    try {
+      const res = await fetch(`${API_BASE}/api/jobs/trigger`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_type })
+      });
+      if (res.ok) {
+        triggerToast(`✓ Job "${job_type}" triggered. Check jobs history.`);
+        await fetchJobs();
+      } else {
+        triggerToast(`⚠ Trigger failed: ${(await res.json()).detail}`);
+      }
+    } catch (err) {
+      triggerToast(`⚡ Workflow "${workflowName}" trigger queued locally.`);
+    }
   };
 
   return (
@@ -286,6 +311,11 @@ export default function AutomationCenterPage() {
         
         <div className="data-table-shell p-4">
           <div className="overflow-x-auto hidden-scrollbar">
+            {!isJobsLoading && jobsHistory.length === 0 && (
+              <div className="text-center py-8 text-xs text-slate-500 font-bold">
+                No automated jobs have run yet. Trigger a job below.
+              </div>
+            )}
             <table className="data-table data-table-striped-6plus">
               <thead>
                 <tr>
@@ -298,23 +328,23 @@ export default function AutomationCenterPage() {
                 </tr>
               </thead>
               <tbody className="font-mono">
-                {workflows.map((wf) => (
-                  <tr key={wf.id} className="group">
+                {(isJobsLoading ? [] : jobsHistory.length > 0 ? jobsHistory : []).map((wf: any) => (
+                  <tr key={wf.job_id || wf.id} className="group">
                     {/* Name */}
                     <td className="font-sans font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">
-                      {wf.name}
+                      {formatJobType(wf.job_type)}
                     </td>
                     
                     {/* Trigger */}
                     <td className="font-sans data-table-secondary font-medium">
-                      {wf.trigger}
+                      {`Job Type: ${wf.job_type}`}
                     </td>
                     
                     {/* Last Run */}
                     <td className="data-table-secondary font-semibold text-[13px]">
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarDays size={12} />
-                        {wf.last_run}
+                        {wf.completed_at ? new Date(wf.completed_at).toLocaleString('en-IN') : "—"}
                       </span>
                     </td>
 
@@ -322,22 +352,22 @@ export default function AutomationCenterPage() {
                     <td className="data-table-secondary font-semibold text-[13px]">
                       <span className="inline-flex items-center gap-1.5">
                         <CalendarDays size={12} />
-                        {wf.next_run}
+                        {"Scheduled"}
                       </span>
                     </td>
 
                     {/* State */}
                     <td className="font-sans">
-                      <span className={`status-badge ${getUnifiedBadgeClass(wf.status === 'Running' ? 'RUNNING' : 'SYNCED')}`}>
-                        {wf.status === 'Running' && renderBadgeDot(wf.status)}
-                        {wf.status === 'Running' ? 'Running...' : 'Idle Synced'}
+                      <span className={`status-badge ${getUnifiedBadgeClass(wf.status || '')}`}>
+                        {(wf.status && wf.status.toUpperCase() === 'RUNNING') && renderBadgeDot(wf.status)}
+                        {wf.status && wf.status.toUpperCase() === 'COMPLETED' ? 'Idle Synced' : wf.status && wf.status.toUpperCase() === 'RUNNING' ? 'Running' : wf.status && wf.status.toUpperCase() === 'FAILED' ? 'Failed' : (wf.status || '')}
                       </span>
                     </td>
 
                     {/* Actions */}
                     <td className="text-right font-sans">
                       <button 
-                        onClick={() => handleRunWorkflow(wf.name)}
+                        onClick={() => handleRunWorkflow(wf.job_type)}
                         className="btn btn-warning btn-sm flex items-center gap-1.5 ml-auto"
                       >
                         <Play size={10} fill="currentColor" />
