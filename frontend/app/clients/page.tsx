@@ -40,84 +40,6 @@ import Link from 'next/link';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 
-// Mock initial data matching prompt guidelines, enriched with dynamic Health/Risk elements
-const initialClients = [
-  {
-    id: '1',
-    business_name: 'TechNova Solutions Pvt Ltd',
-    gstin: '27AAACT1234A1Z5',
-    state: 'Maharashtra',
-    email: 'info@technova.com',
-    phone: '+91 98765 43210',
-    last_run: '2 hours ago',
-    status: 'Issues', // Clean / Issues / In Progress / Never Run
-    itc_at_risk: 45000,
-    avatar_color: '#4F46E5',
-    initials: 'T',
-    health_score: 68,
-    risk_level: 'High'
-  },
-  {
-    id: '2',
-    business_name: 'Apex Innovations Pvt Ltd',
-    gstin: '29AABCA5678B1Z3',
-    state: 'Karnataka',
-    email: 'tax@apexinno.in',
-    phone: '+91 87654 32109',
-    last_run: '5 hours ago',
-    status: 'Issues',
-    itc_at_risk: 32500,
-    avatar_color: '#7C3AED',
-    initials: 'A',
-    health_score: 75,
-    risk_level: 'Medium'
-  },
-  {
-    id: '3',
-    business_name: 'Wayne Enterprises Ltd',
-    gstin: '07AABCW9012C1Z1',
-    state: 'Delhi',
-    email: 'filings@wayne.co',
-    phone: '+91 76543 21098',
-    last_run: 'Yesterday',
-    status: 'In Progress',
-    itc_at_risk: 18000,
-    avatar_color: '#F59E0B',
-    initials: 'W',
-    health_score: 85,
-    risk_level: 'Medium'
-  },
-  {
-    id: '4',
-    business_name: 'Global Trade LLC',
-    gstin: '24AABCG3456D1Z7',
-    state: 'Gujarat',
-    email: 'accounts@globaltrade.in',
-    phone: '+91 65432 10987',
-    last_run: '2 days ago',
-    status: 'Clean',
-    itc_at_risk: 0,
-    avatar_color: '#10B981',
-    initials: 'G',
-    health_score: 98,
-    risk_level: 'Low'
-  },
-  {
-    id: '5',
-    business_name: 'Sharma Traders',
-    gstin: '09AABCS7890E1Z9',
-    state: 'Uttar Pradesh',
-    email: 'sharmatraders@gmail.com',
-    phone: '+91 54321 09876',
-    last_run: 'Never',
-    status: 'Never Run',
-    itc_at_risk: 0,
-    avatar_color: '#6B7280',
-    initials: 'S',
-    health_score: 92,
-    risk_level: 'Low'
-  }
-];
 
 // Helper to calculate health score and risk level deterministically based on status and ITC exposure
 const getHealthAndRisk = (status: string, itcRisk: number) => {
@@ -178,112 +100,6 @@ export default function ClientPortfolioPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-// Fallbacks when backend is unavailable or not fully responsive
-const MOCK_NOTICES_FALLBACK = [
-  {
-    id: "notice-1",
-    client_id: "client-1",
-    client_name: "TechNova Solutions Pvt Ltd",
-    notice_number: "GST/TNV/2026/DRC-01/108",
-    issuing_authority: "Deputy Commissioner of Central Tax, Mumbai",
-    section_references: ["Section 73", "Section 16(4)"],
-    notice_type: "DRC-01",
-    tax_amount: 185000.0,
-    due_date: "2026-06-15",
-    hearing_date: "2026-06-10",
-    summary: "Show cause notice under Section 73 regarding input tax credit mismatches between Books and GSTR-2B register for FY 2025-26.",
-    risk_level: "HIGH",
-    required_action: "Verify matching invoices from Sharma Traders and submit reply before June 15.",
-    status: "PENDING",
-    file_path: "/uploads/notices/technova_drc01.pdf",
-    raw_ocr_text: "OFFICE OF THE DEPUTY COMMISSIONER OF CENTRAL TAX... SHOW CAUSE NOTICE UNDER SECTION 73... GSTIN: 27AAACT1234A1Z5... REFERENCE NO: GST/TNV/2026/DRC-01/108..."
-  },
-  {
-    id: "notice-2",
-    client_id: "client-5",
-    client_name: "Sharma Traders",
-    notice_number: "GST/SHR/2026/ASMT-10/409",
-    issuing_authority: "State Tax Officer, Uttar Pradesh",
-    section_references: ["Section 61", "Section 50"],
-    notice_type: "ASMT-10",
-    tax_amount: 45000.0,
-    due_date: "2026-06-05",
-    hearing_date: null,
-    summary: "Scrutiny notice under Section 61 for tax discrepancies on GSTR-1 vs GSTR-3B filings for Q3 FY 2025-26.",
-    risk_level: "MEDIUM",
-    required_action: "Reconcile out-of-period sales reports and file DRC-03 if tax liability is confirmed.",
-    status: "DRAFTED",
-    file_path: "/uploads/notices/sharma_asmt10.pdf",
-    raw_ocr_text: "DEPARTMENT OF STATE TAX, UTTAR PRADESH... SCRUTINY OF RETURN UNDER SECTION 61... REFERENCE NO: GST/SHR/2026/ASMT-10/409..."
-  }
-];
-
-const MOCK_COMPLIANCE_FALLBACK = [
-  {
-    compliance_id: "comp-1",
-    client_id: "client-1",
-    compliance_type: "GSTR-1",
-    filing_period: "March 2024",
-    status: "Upcoming",
-    risk_level: "LOW"
-  },
-  {
-    compliance_id: "comp-2",
-    client_id: "client-1",
-    compliance_type: "GSTR-3B",
-    filing_period: "March 2024",
-    status: "Escalated",
-    risk_level: "HIGH"
-  },
-  {
-    compliance_id: "comp-3",
-    client_id: "client-2",
-    compliance_type: "TDS Returns",
-    filing_period: "Q4 2023-24",
-    status: "Due Today",
-    risk_level: "MEDIUM"
-  },
-  {
-    compliance_id: "comp-4",
-    client_id: "client-2",
-    compliance_type: "Advance Tax",
-    filing_period: "Q4 FY24",
-    status: "Overdue",
-    risk_level: "HIGH"
-  },
-  {
-    compliance_id: "comp-8",
-    client_id: "client-4",
-    compliance_type: "ROC Filing",
-    filing_period: "FY 2023-24",
-    status: "Escalated",
-    risk_level: "HIGH"
-  },
-  {
-    compliance_id: "comp-10",
-    client_id: "client-5",
-    compliance_type: "TDS Returns",
-    filing_period: "Q4 2023-24",
-    status: "Overdue",
-    risk_level: "HIGH"
-  },
-  {
-    compliance_id: "comp-12",
-    client_id: "client-3",
-    compliance_type: "ITR Filing",
-    filing_period: "AY 2024-25",
-    status: "Escalated",
-    risk_level: "HIGH"
-  }
-];
-
-const MOCK_RECON_FALLBACK = [
-  { client_id: "client-1", mismatch_count: 4, itc_at_risk: 183780.0, status: "Issues" },
-  { client_id: "client-2", mismatch_count: 2, itc_at_risk: 32500.0, status: "Issues" },
-  { client_id: "client-3", mismatch_count: 0, itc_at_risk: 0.0, status: "Clean" },
-  { client_id: "client-4", mismatch_count: 0, itc_at_risk: 0.0, status: "Clean" },
-  { client_id: "client-5", mismatch_count: 3, itc_at_risk: 85000.0, status: "Issues" }
-];
 
   // Fetch real-time client workspace profiles from backend FastAPI
   const fetchClientWorkspaceData = async () => {
@@ -332,11 +148,10 @@ const MOCK_RECON_FALLBACK = [
           } catch (e) {
             console.warn(`Failed to fetch reconciliations for client ${c.id}`);
           }
-          const fallback = MOCK_RECON_FALLBACK.find(r => r.client_id === c.id || r.client_id === `client-${c.id}`);
           return {
             client_id: c.id,
-            mismatch_count: fallback ? fallback.mismatch_count : 0,
-            itc_at_risk: fallback ? fallback.itc_at_risk : 0
+            mismatch_count: 0,
+            itc_at_risk: 0
           };
         })
       );
@@ -395,56 +210,15 @@ const MOCK_RECON_FALLBACK = [
       setClients(mapped);
       setDashboardSummary(summaryData);
     } catch (err) {
-      console.error(err);
-      // Fallback cleanly to static mock items if backend server isn't running
-      const mapped = initialClients.map((c, index) => {
-        const clientRecon = MOCK_RECON_FALLBACK.find(r => r.client_id === c.id || r.client_id === `client-${c.id}`);
-        const itcRisk = clientRecon ? clientRecon.itc_at_risk : 0;
-        const mismatchCount = clientRecon ? clientRecon.mismatch_count : 0;
-
-        const clientNotices = MOCK_NOTICES_FALLBACK.filter((n: any) => 
-          (n.client_id === c.id || n.client_id === `client-${c.id}`) && 
-          n.status !== 'RESOLVED'
-        );
-        const openNoticesCount = clientNotices.length;
-        const noticesTotalTax = clientNotices.reduce((sum: number, n: any) => sum + (n.tax_amount || 0), 0);
-
-        const clientCompliance = MOCK_COMPLIANCE_FALLBACK.filter((task: any) => 
-          (task.client_id === c.id || task.client_id === `client-${c.id}`) && 
-          (task.status === 'Overdue' || task.status === 'Escalated' || task.status === 'Due Today')
-        );
-        const complianceIssuesCount = clientCompliance.length;
-
-        let status = c.status;
-        if (c.status === 'Issues' || itcRisk > 0 || openNoticesCount > 0 || complianceIssuesCount > 0 || mismatchCount > 0) {
-          status = 'Issues';
-        }
-        const effectiveStatus = c.id === '3' ? 'In Progress' : status;
-        const { healthScore, riskLevel } = getHealthAndRisk(effectiveStatus, itcRisk);
-
-        return {
-          ...c,
-          id: c.id.startsWith('client-') ? c.id : `client-${c.id}`,
-          status: effectiveStatus,
-          itc_at_risk: itcRisk,
-          mismatch_count: mismatchCount,
-          open_notices_count: openNoticesCount,
-          notices_total_tax: noticesTotalTax,
-          compliance_issues_count: complianceIssuesCount,
-          health_score: healthScore,
-          risk_level: riskLevel,
-          risk_score: 100 - healthScore
-        };
-      });
-
-      setClients(mapped);
+      console.error("Client fetch failed:", err);
+      setClients([]);
       setDashboardSummary({
-        total_clients: 5,
-        total_mismatches: 9,
-        blocked_itc: 301280.0,
-        high_risk_clients: 2,
-        pending_reconciliations: 3,
-        active_jobs_run: 12
+        total_clients: 0,
+        total_mismatches: 0,
+        blocked_itc: 0,
+        high_risk_clients: 0,
+        pending_reconciliations: 0,
+        active_jobs_run: 0
       });
     } finally {
       setIsLoading(false);
