@@ -95,151 +95,19 @@ export default function SmartActionCenter() {
         if (!summaryRes.ok) throw new Error("Failed to load summary");
         summaryData = await summaryRes.json();
       } catch (err) {
-        console.error("Backend offline, loading mock items:", err);
-        // Fallback Mock Action Items enriched with BOE and notice cases
-        listData = [
-          {
-            action_id: "act-1",
-            client_id: "client-1",
-            client_name: "TechNova Solutions Pvt Ltd",
-            category: "COMPLIANCE",
-            priority: "HIGH",
-            title: "Escalated Return: GSTR-3B Filing Overdue",
-            description: "TechNova GSTR-3B tax offset filing is overdue by 4 days. STATUTORY RISK: Late fees accumulating, and supplier ITC claim window closing.",
-            recommended_action: "Mark filed immediately or schedule tax offset offsets in portal.",
-            deadline: "2026-05-24",
-            risk_score: 95.0,
-            status: "PENDING",
-            confidence_score: 0.98,
-            ai_summary: "Statutory return default. Delaying GSTR-3B blocks the matching credit ledger, raising assessment risks under CGST rules.",
-            predicted_impact: "Prevents ₹15,000 statutory late fee penalties and avoids tax office audits."
-          },
-          {
-            action_id: "act-2",
-            client_id: "client-5",
-            client_name: "Sharma Traders",
-            category: "VENDOR",
-            priority: "HIGH",
-            title: "Unresolved GSTR-2B Invoice Mismatch",
-            description: "Supplier Sharma Traders has not responded to GSTR-2B invoice mismatch notice SH/2024/77 for 7 days. Financial exposure: ₹1,85,000 blocked ITC.",
-            recommended_action: "Escalate follow-up notice or withhold vendor payments.",
-            deadline: "2026-05-30",
-            risk_score: 88.0,
-            status: "PENDING",
-            confidence_score: 0.94,
-            ai_summary: "Unresponsive supplier blocking legitimate input credit. Invoices remain unfiled in GSTR-1, causing active capital blockage.",
-            predicted_impact: "Recovers ₹33,300 in blocked statutory input tax credit."
-          },
-          {
-            action_id: "act-boe-1",
-            client_id: "client-6",
-            client_name: "IndoGlobal Importers Pvt Ltd",
-            category: "RECONCILIATION",
-            priority: "HIGH",
-            title: "Unresolved ICEGATE BOE Mismatch",
-            description: "Bill of Entry (BOE) mismatch detected between ICEGATE port customs records and the GSTR-2B Purchase Register. Unmatched import duty matches found.",
-            recommended_action: "Re-sync ICEGATE logs and match bill of entry numbers to GSTR-2B details.",
-            deadline: "2026-06-03",
-            risk_score: 94.0,
-            status: "PENDING",
-            confidence_score: 0.97,
-            ai_summary: "Import reconciliation hazard. Discrepancies between customs gate logs and GSTR-2B invoices will cause standard IGST input claim rejection.",
-            predicted_impact: "Secures ₹3,40,000 in unclaimed import duty inputs and prevents double assessment."
-          },
-          {
-            action_id: "act-3",
-            client_id: "client-3",
-            client_name: "Wayne Enterprises Ltd",
-            category: "RECONCILIATION",
-            priority: "HIGH",
-            title: "High Blocked ITC Reconciliation Discrepancy",
-            description: "Reconciliation check detected ₹1.8L at-risk ITC variance for March 2024. Massive value mismatches found across 4 vendor invoices.",
-            recommended_action: "Open Reconciliation Audit Workspace to identify vendor discrepancy errors.",
-            deadline: "2026-05-31",
-            risk_score: 92.0,
-            status: "PENDING",
-            confidence_score: 0.96,
-            ai_summary: "Discrepancy exceeds corporate risk thresholds. Books vs portal register variance indicates manual billing errors.",
-            predicted_impact: "Secures ₹1,83,780 in working capital credit and minimizes audit risk."
-          },
-          {
-            action_id: "act-4",
-            client_id: "client-2",
-            client_name: "Apex Innovations Pvt Ltd",
-            category: "COMPLIANCE",
-            priority: "MEDIUM",
-            title: "Filing Deadline Today: TDS Returns Q4",
-            description: "Filing deadline for TDS returns Q4 is TODAY. Pending verification of employee PAN records and deduction certificates.",
-            recommended_action: "Complete PAN validation check and submit return filings.",
-            deadline: "2026-05-28",
-            risk_score: 65.0,
-            status: "PENDING",
-            confidence_score: 0.89,
-            ai_summary: "Due today. Incomplete verification of PAN records creates late-fee assessment hazards.",
-            predicted_impact: "Avoids TDS delay penalty of ₹200/day under Section 234E."
-          },
-          {
-            action_id: "act-5",
-            client_id: "client-4",
-            client_name: "Global Trade LLC",
-            category: "RISK",
-            priority: "HIGH",
-            title: "Escalated MCA/ROC Regulatory Breach Notice",
-            description: "Annual ROC Filing return is overdue by 5 days. Daily penalties accumulating under Ministry of Corporate Affairs rules.",
-            recommended_action: "Submit annual return folders and audit records to ROC ledger.",
-            deadline: "2026-05-23",
-            risk_score: 90.0,
-            status: "PENDING",
-            confidence_score: 0.95,
-            ai_summary: "MCA non-compliance. Directors risk disqualification profiles if delays exceed statutory duration limits.",
-            predicted_impact: "Avoids director portfolio blacklisting and mitigates corporate late fees."
-          },
-          {
-            action_id: "act-notice-2",
-            client_id: "client-7",
-            client_name: "Future Retailers Ltd",
-            category: "RISK",
-            priority: "HIGH",
-            title: "GST Notice: Sec 143(1) Discrepancy",
-            description: "Received a statutory notice from the tax desk regarding an active variance in GSTR-1 vs GSTR-3B filings for Q3.",
-            recommended_action: "File comprehensive rectification reply or pay calculated difference.",
-            deadline: "2026-06-08",
-            risk_score: 89.0,
-            status: "PENDING",
-            confidence_score: 0.93,
-            ai_summary: "Statutory notice escalation. Failure to respond within 15 days will result in automated system demands and interest penalty charges.",
-            predicted_impact: "Mitigates high-severity litigation dispute risks and ₹75,000 immediate penalty risk."
-          },
-          {
-            action_id: "act-6",
-            client_id: "client-1",
-            client_name: "TechNova Solutions Pvt Ltd",
-            category: "RECONCILIATION",
-            priority: "LOW",
-            title: "Minor Taxable Value Discrepancy Detected",
-            description: "Invoice IN-4439 value mismatch detected. Variance amount: ₹82.00 (below CA operational materiality limits).",
-            recommended_action: "Auto-adjust mismatch ledger and mark task resolved.",
-            deadline: "2026-06-07",
-            risk_score: 12.0,
-            status: "PENDING",
-            confidence_score: 0.85,
-            ai_summary: "Immaterial discrepancy. Audit variance lies below threshold margins, recommended for auto-reconciliation.",
-            predicted_impact: "Saves auditor validation time by auto-matching minor balances."
-          }
-        ];
-        summaryData = {
-          total_actions: 8,
-          high_priority_count: 6,
-          pending_itc_exposure: 708780.0,
-          daily_summary: "Good morning, Partner Auditor. Today, the Reckon AI Copilot has compiled 8 active compliance signals requiring your focus. There are 6 HIGH-severity escalations. TechNova Solutions GSTR-3B tax returns are overdue by 4 days, locking statutory input tax credit. Sharma Traders GSTR-2B mismatches block ₹1,85,000, while a high-value ICEGATE mismatch at IndoGlobal Importers exposes ₹3,40,000 in import credits. Additionally, a critical Section 143(1) Notice for Future Retailers has been received. We recommend focusing on Priority Inbox tasks immediately."
-        };
+        console.error("Backend offline:", err);
+        setActions([]);
+        setSummary({ total_actions: 0, high_priority_count: 0, pending_itc_exposure: 0, daily_summary: "Backend unavailable. Please ensure the API server is running." });
+        setIsLoading(false);
+        return;
       }
       
       setActions(listData);
       
       // Fetch dynamic narrative briefing from AI Copilot layer
       try {
-        const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
+        const token = localStorage.getItem("access_token");
+        if (!token) throw new Error("No auth token");
         const aiBriefingRes = await fetch(`${API_BASE}/api/ai/daily-briefing`, {
           method: "POST",
           headers: {
@@ -277,14 +145,8 @@ export default function SmartActionCenter() {
       showToast("✓ Action resolved and removed from daily task feed!");
       await fetchActionCenter();
     } catch (err) {
-      console.error(err);
-      // Fallback local remove
-      setActions(prev => prev.filter(a => a.action_id !== actionId));
-      setSummary(prev => ({
-        ...prev,
-        total_actions: Math.max(0, prev.total_actions - 1)
-      }));
-      showToast("✓ Action marked resolved locally.");
+      console.error("Resolve failed:", err);
+      showToast("⚠ Failed to resolve action. Check API connection.");
     }
   };
 
@@ -444,8 +306,8 @@ export default function SmartActionCenter() {
               <span className="text-[12px] uppercase font-semibold text-[var(--color-primary-light)] shrink-0">
                 ⚡ TODAY'S PRIORITY:
               </span>
-              <span className="text-[13px] font-medium text-[var(--color-text-primary)]">
-                Resolve TechNova Filing Overdue & IndoGlobal Customs mismatches to safeguard working capital.
+              <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">
+                {actions.length > 0 ? `Focus on top ${Math.min(3, actions.length)} high-priority items to protect ITC.` : "No critical actions detected today."}
               </span>
             </div>
           </div>
