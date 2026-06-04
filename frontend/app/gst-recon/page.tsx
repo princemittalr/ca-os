@@ -39,315 +39,6 @@ import { useSearchParams } from 'next/navigation';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 
-// Mock client database
-const MOCK_CLIENTS = [
-  { id: '1', business_name: 'TechNova Solutions Pvt Ltd', gstin: '27AAACT1234A1Z5', state: 'Maharashtra', prev_health: 88.1 },
-  { id: '2', business_name: 'Apex Innovations Pvt Ltd', gstin: '29AABCA5678B1Z3', state: 'Karnataka', prev_health: 92.0 },
-  { id: '3', business_name: 'Wayne Enterprises Ltd', gstin: '07AABCW9012C1Z1', state: 'Delhi', prev_health: 85.0 },
-  { id: '4', business_name: 'Global Trade LLC', gstin: '24AABCG3456D1Z7', state: 'Gujarat', prev_health: 90.0 },
-  { id: '5', business_name: 'Sharma Traders', gstin: '09AABCS7890E1Z9', state: 'Uttar Pradesh', prev_health: 86.5 }
-];
-
-// Rich set of mock rows for TechNova Solutions (March 2024)
-// Total 22 rows representing all 5 categories
-const MOCK_RECON_ROWS = [
-  // 1. Perfect Matches (matched)
-  {
-    id: 'row-1',
-    supplier_gstin: '27AAACG5678A1Z9',
-    invoice_number: 'INV/2024/00891',
-    invoice_date: '12-03-2024',
-    taxable_value_2b: 150000,
-    taxable_value_pr: 150000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 13500, cgst_pr: 13500,
-    sgst_2b: 13500, sgst_pr: 13500,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-2',
-    supplier_gstin: '27AAACG5678A1Z9',
-    invoice_number: 'INV/2024/00892',
-    invoice_date: '14-03-2024',
-    taxable_value_2b: 75000,
-    taxable_value_pr: 75000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 6750, cgst_pr: 6750,
-    sgst_2b: 6750, sgst_pr: 6750,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-3',
-    supplier_gstin: '24AAACG3333C1Z4',
-    invoice_number: 'GT/451/23-24',
-    invoice_date: '10-03-2024',
-    taxable_value_2b: 450000,
-    taxable_value_pr: 450000,
-    igst_2b: 81000, igst_pr: 81000,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-4',
-    supplier_gstin: '27AAACG5678A1Z9',
-    invoice_number: 'INV/2024/00910',
-    invoice_date: '18-03-2024',
-    taxable_value_2b: 95000,
-    taxable_value_pr: 95000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 8550, cgst_pr: 8550,
-    sgst_2b: 8550, sgst_pr: 8550,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-5',
-    supplier_gstin: '27AAACG5678A1Z9',
-    invoice_number: 'INV/2024/00915',
-    invoice_date: '22-03-2024',
-    taxable_value_2b: 110000,
-    taxable_value_pr: 110000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 9900, cgst_pr: 9900,
-    sgst_2b: 9900, sgst_pr: 9900,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-6',
-    supplier_gstin: '27AABCS9012E1Z8',
-    invoice_number: 'ST-924',
-    invoice_date: '12-03-2024',
-    taxable_value_2b: 65000,
-    taxable_value_pr: 65000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 5850, cgst_pr: 5850,
-    sgst_2b: 5850, sgst_pr: 5850,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-7',
-    supplier_gstin: '27AAACG5678A1Z9',
-    invoice_number: 'INV/2024/00930',
-    invoice_date: '28-03-2024',
-    taxable_value_2b: 220000,
-    taxable_value_pr: 220000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 19800, cgst_pr: 19800,
-    sgst_2b: 19800, sgst_pr: 19800,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-8',
-    supplier_gstin: '07AAACW9911D1Z0',
-    invoice_number: 'WE-2024-999',
-    invoice_date: '29-03-2024',
-    taxable_value_2b: 540000,
-    taxable_value_pr: 540000,
-    igst_2b: 97200, igst_pr: 97200,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-9',
-    supplier_gstin: '29AABCA5678B1Z3',
-    invoice_number: 'AP/MAR/1004',
-    invoice_date: '04-03-2024',
-    taxable_value_2b: 130000,
-    taxable_value_pr: 130000,
-    igst_2b: 23400, igst_pr: 23400,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'The invoice amounts match perfectly in GSTR-2B and Books. No action needed.'
-  },
-  {
-    id: 'row-10',
-    supplier_gstin: '27AAACG5678A1Z9',
-    invoice_number: 'INV/2024/00940',
-    invoice_date: '30-03-2024',
-    taxable_value_2b: 180000,
-    taxable_value_pr: 180000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 16200, cgst_pr: 16200,
-    sgst_2b: 16200, sgst_pr: 16200,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'Perfect match recorded in both registers.'
-  },
-  {
-    id: 'row-11',
-    supplier_gstin: '27AABCS9012E1Z8',
-    invoice_number: 'ST-930',
-    invoice_date: '15-03-2024',
-    taxable_value_2b: 120000,
-    taxable_value_pr: 120000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 10800, cgst_pr: 10800,
-    sgst_2b: 10800, sgst_pr: 10800,
-    difference: 0,
-    status: 'matched',
-    suggested_action: 'None required',
-    ai_insight: 'Matches perfectly.'
-  },
-
-  // 2. Missing In Books (missing_in_books)
-  {
-    id: 'row-12',
-    supplier_gstin: '27AABCS9012E1Z8',
-    invoice_number: 'ST-901',
-    invoice_date: '05-03-2024',
-    taxable_value_2b: 120000,
-    taxable_value_pr: 0,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 10800, cgst_pr: 0,
-    sgst_2b: 10800, sgst_pr: 0,
-    difference: 120000,
-    status: 'missing_in_books',
-    suggested_action: 'Record invoice in Purchase Register',
-    ai_insight: 'Supplier uploaded invoice in GSTR-1 (2B) but is missing in Books. Ensure accounts team records this in ERP to claim ITC.'
-  },
-  {
-    id: 'row-13',
-    supplier_gstin: '24AAACG3333C1Z4',
-    invoice_number: 'GT/489/23-24',
-    invoice_date: '25-03-2024',
-    taxable_value_2b: 140000,
-    taxable_value_pr: 0,
-    igst_2b: 25200, igst_pr: 0,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 140000,
-    status: 'missing_in_books',
-    suggested_action: 'Record invoice in Purchase Register',
-    ai_insight: 'Import invoice present in customs data/2B but missing in PR. Verify physical arrival and book immediately.'
-  },
-
-  // 3. Missing In GSTR-2B (missing_in_2b)
-  {
-    id: 'row-14',
-    supplier_gstin: '07AAACW9911D1Z0',
-    invoice_number: 'WE-2024-981',
-    invoice_date: '20-03-2024',
-    taxable_value_2b: 0,
-    taxable_value_pr: 280000,
-    igst_2b: 0, igst_pr: 50400,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 280000,
-    status: 'missing_in_2b',
-    suggested_action: 'Follow up with supplier to file GSTR-1',
-    ai_insight: 'Invoice is present in Books but completely missing in GSTR-2B. Send warning to supplier to upload before deadline.'
-  },
-  {
-    id: 'row-15',
-    supplier_gstin: '09AAACS1100C1Z4',
-    invoice_number: 'SH/2024/77',
-    invoice_date: '08-03-2024',
-    taxable_value_2b: 0,
-    taxable_value_pr: 185000,
-    igst_2b: 0, igst_pr: 33300,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 185000,
-    status: 'missing_in_2b',
-    suggested_action: 'Follow up with supplier to file GSTR-1',
-    ai_insight: 'Invoice from Sharma Traders missing in GSTR-2B. Contact supplier to ensure GSTR-1 is filed by 11th.'
-  },
-
-  // 4. GSTIN Mismatch (gstin_mismatch)
-  {
-    id: 'row-16',
-    supplier_gstin: '27AAACG5678A1Z9', // Portal
-    supplier_gstin_books: '27AAACG5678A1XX', // Books
-    invoice_number: 'INV/2024/00955',
-    invoice_date: '24-03-2024',
-    taxable_value_2b: 110000,
-    taxable_value_pr: 110000,
-    igst_2b: 0, igst_pr: 0,
-    cgst_2b: 9900, cgst_pr: 9900,
-    sgst_2b: 9900, sgst_pr: 9900,
-    difference: 0,
-    status: 'gstin_mismatch',
-    suggested_action: 'Update Supplier GSTIN in ERP',
-    ai_insight: 'GSTIN transcription error: supplier is registered under 27AAACG5678A1Z9 on portal, but ERP books recorded it under 27AAACG5678A1XX.'
-  },
-  {
-    id: 'row-17',
-    supplier_gstin: '29AABCB3456F1Z2', // Portal
-    supplier_gstin_books: '29AABCB3456F1ZZ', // Books
-    invoice_number: 'IN-34320',
-    invoice_date: '26-03-2024',
-    taxable_value_2b: 125000,
-    taxable_value_pr: 125000,
-    igst_2b: 22500, igst_pr: 22500,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 0,
-    status: 'gstin_mismatch',
-    suggested_action: 'Verify supplier GSTIN in master list',
-    ai_insight: 'State code matches but trailing check digits differ. Correct the GSTIN in ERP to match GSTR-2B portal filings.'
-  },
-
-  // 5. Invoice Value Mismatch (value_mismatch)
-  {
-    id: 'row-18',
-    supplier_gstin: '29AABCB3456F1Z2',
-    invoice_number: 'IN-34291',
-    invoice_date: '02-03-2024',
-    taxable_value_2b: 340000,
-    taxable_value_pr: 345000,
-    igst_2b: 61200, igst_pr: 62100,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 5000,
-    status: 'value_mismatch',
-    suggested_action: 'Review invoice value difference',
-    ai_insight: 'Taxable value mismatch of ₹5,000 detected. Verify physical invoice or request supplier to amend GSTR-1.'
-  },
-  {
-    id: 'row-19',
-    supplier_gstin: '29AABCB3456F1Z2',
-    invoice_number: 'IN-34305',
-    invoice_date: '15-03-2024',
-    taxable_value_2b: 215000,
-    taxable_value_pr: 215500,
-    igst_2b: 38700, igst_pr: 38790,
-    cgst_2b: 0, cgst_pr: 0,
-    sgst_2b: 0, sgst_pr: 0,
-    difference: 500,
-    status: 'value_mismatch',
-    suggested_action: 'Review invoice value difference',
-    ai_insight: 'Minor difference of ₹500 in taxable value. Likely a round-off discrepancy. Manual clearance suggested.'
-  }
-];
 
 const PROCESSING_STEPS = [
   "📂 Establishing connection to GST portal API...",
@@ -428,8 +119,8 @@ function GSTReconciliationPageContent() {
   const [scheduleFollowupModalOpen, setScheduleFollowupModalOpen] = useState(false);
   
   // Ledger rows database state
-  const [reconRows, setReconRows] = useState<ReconRow[]>(MOCK_RECON_ROWS);
-  const [clients, setClients] = useState(MOCK_CLIENTS);
+  const [reconRows, setReconRows] = useState<ReconRow[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
 
   // Fetch clients from API (with fallback)
   useEffect(() => {
@@ -446,7 +137,7 @@ function GSTReconciliationPageContent() {
           })));
         }
       })
-      .catch(() => { });
+      .catch(err => { console.error("Client fetch failed:", err); });
   }, []);
 
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -584,6 +275,7 @@ function GSTReconciliationPageContent() {
   };
 
   // Demo mode bypass
+  // Note: Keep handleLoadDemoDataset() as-is; it pre-fills files for real API submission, not mock data.
   const handleLoadDemoDataset = () => {
     setSelectedClient('1'); // TechNova Solutions
     setFile2B(new File([], "technova_gstr2b_fy23_24.json"));
@@ -701,10 +393,14 @@ function GSTReconciliationPageContent() {
         });
       }
 
-      setReconRows(apiRows.length > 0 ? apiRows : MOCK_RECON_ROWS);
+      setReconRows(apiRows);
     } catch (err) {
-      // Fallback on optimized mock ledger
-      setReconRows(MOCK_RECON_ROWS);
+      console.error("Reconciliation API failed:", err);
+      setReconRows([]);
+      showToast("⚠ Reconciliation failed. Please check your files and try again.");
+      setIsProcessing(false);
+      setStep(3);
+      return;
     }
   };
 
