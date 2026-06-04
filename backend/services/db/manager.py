@@ -339,38 +339,7 @@ def resolve_action_item(action_id: str) -> Optional[Dict[str, Any]]:
 # -------------------------------------------------------------------------
 # MOCK STORES FOR JOBS & NOTIFICATIONS
 # -------------------------------------------------------------------------
-MOCK_JOBS = [
-    {
-        "job_id": "job-1",
-        "job_type": "action_center_refresh",
-        "status": "COMPLETED",
-        "progress": 100.0,
-        "retry_count": 0,
-        "created_at": datetime(2026, 5, 28, 9, 0, 0),
-        "completed_at": datetime(2026, 5, 28, 9, 0, 5),
-        "error_logs": None
-    },
-    {
-        "job_id": "job-2",
-        "job_type": "compliance_reminders",
-        "status": "COMPLETED",
-        "progress": 100.0,
-        "retry_count": 0,
-        "created_at": datetime(2026, 5, 28, 10, 0, 0),
-        "completed_at": datetime(2026, 5, 28, 10, 0, 12),
-        "error_logs": None
-    },
-    {
-        "job_id": "job-3",
-        "job_type": "report_generation",
-        "status": "FAILED",
-        "progress": 45.0,
-        "retry_count": 2,
-        "created_at": datetime(2026, 5, 28, 11, 30, 0),
-        "completed_at": datetime(2026, 5, 28, 11, 30, 15),
-        "error_logs": "ConnectionTimeoutError: Failed to reach GST portal endpoint after 3 attempts."
-    }
-]
+MOCK_JOBS: list = []
 
 MOCK_NOTIFICATIONS: list = []
 

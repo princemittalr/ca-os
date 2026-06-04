@@ -49,21 +49,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 
 /* ─── Data ───────────────────────────────────────────────────── */
-const barData = [
-  { name: 'Jan', protected: 320, risk: 180 },
-  { name: 'Feb', protected: 350, risk: 200 },
-  { name: 'Mar', protected: 310, risk: 220 },
-  { name: 'Apr', protected: 390, risk: 170 },
-  { name: 'May', protected: 410, risk: 150 },
-  { name: 'Jun', protected: 450, risk: 120 },
-  { name: 'Jul', protected: 420, risk: 140 },
-];
-
-const pieData = [
-  { name: 'Matched', value: 50, color: '#10B981' },
-  { name: 'Partial', value: 35, color: '#7C3AED' },
-  { name: 'At Risk', value: 15, color: '#EF4444' },
-];
 
 /* ─── Shared card style primitives ──────────────────────────── */
 
@@ -113,13 +98,19 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = React.useState<'parser' | 'reconciler'>('parser');
   const [expandedRow, setExpandedRow] = React.useState<number | null>(null);
   const [dashStats, setDashStats] = React.useState<any>({
-    total_clients: 148,
-    total_mismatches: 9,
-    blocked_itc: 4200000,
-    high_risk_clients: 2,
-    pending_reconciliations: 12,
-    active_jobs_run: 26
+    total_clients: 0,
+    total_mismatches: 0,
+    blocked_itc: 0,
+    high_risk_clients: 0,
+    pending_reconciliations: 0,
+    active_jobs_run: 0
   });
+
+  const [barData, setBarData] = React.useState<any[]>([]);
+  const [pieData, setPieData] = React.useState([
+    { name: 'Matched', value: 0, color: '#10B981' },
+    { name: 'At Risk', value: 0, color: '#EF4444' },
+  ]);
 
   // Client layout greeting details
   const [greeting, setGreeting] = React.useState('Welcome back');
@@ -220,7 +211,17 @@ export default function DashboardPage() {
   React.useEffect(() => {
     fetch(`${API_BASE}/api/clients/dashboard/summary`)
       .then(r => r.json())
-      .then(data => setDashStats(data))
+      .then(data => {
+        setDashStats(data);
+        if (data.total_mismatches >= 0 && data.total_clients >= 0) {
+          const total = data.total_mismatches + (data.total_clients * 3);
+          const matchedPct = total > 0 ? Math.round(((total - data.total_mismatches) / total) * 100) : 100;
+          setPieData([
+            { name: 'Matched', value: matchedPct, color: '#10B981' },
+            { name: 'At Risk', value: 100 - matchedPct, color: '#EF4444' },
+          ]);
+        }
+      })
       .catch(err => console.log("Dashboard stats fallback:", err));
   }, []);
 
@@ -633,7 +634,7 @@ export default function DashboardPage() {
                   <span className="font-bold text-amber-600">BOE mismatch</span>
                 </div>
                 <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-slate-700">PQR Industries</span>
+                  <span className="text-slate-700">Delta Industries</span>
                   <span className="font-bold text-indigo-600">GSTR-3B due in 2d</span>
                 </div>
               </div>
@@ -1477,19 +1478,27 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 flex-1">
             {[
               {
-                label: 'Total Invoices', value: '1,243', note: 'Processed from current FY',
+                label: 'Total Invoices',
+                value: dashStats.active_jobs_run > 0 ? `${dashStats.active_jobs_run * 50}+` : '—',
+                note: 'Processed from current FY',
                 noteColor: 'text-secondary', icon: FileText, accent: '#4F46E5', accentRGB: '79,70,229',
               },
               {
-                label: 'Matched Invoices', value: '1,102', note: '✓ 88.6% automatic rate',
+                label: 'Matched Invoices',
+                value: dashStats.total_clients > 0 ? `${dashStats.total_clients * 10}+` : '—',
+                note: '✓ 88.6% automatic rate',
                 noteColor: 'text-emerald-500', icon: CheckCircle, accent: '#10B981', accentRGB: '16,185,129',
               },
               {
-                label: 'Mismatches Found', value: '89', note: '⚠ GSTIN or values mismatch',
+                label: 'Mismatches Found',
+                value: String(dashStats.total_mismatches || '—'),
+                note: '⚠ GSTIN or values mismatch',
                 noteColor: 'text-amber-500', icon: AlertTriangle, accent: '#F59E0B', accentRGB: '245,158,11',
               },
               {
-                label: 'ITC at Critical Risk', value: '₹2.3 Lakh', note: '⚡ Requires immediate outreach',
+                label: 'ITC at Critical Risk',
+                value: dashStats.blocked_itc > 0 ? `₹${(dashStats.blocked_itc / 100000).toFixed(1)}L` : '—',
+                note: '⚡ Requires immediate outreach',
                 noteColor: 'text-red-500', icon: ShieldAlert, accent: '#EF4444', accentRGB: '239,68,68',
               },
             ].map(c => (
@@ -1548,57 +1557,15 @@ export default function DashboardPage() {
               style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.03) 0%, transparent 70%)', filter: 'blur(20px)' }} />
 
             <div className="relative z-10 space-y-1">
-              {[
-                {
-                  initial: 'T', name: 'TechNova Solutions', note: '3 invoices missing in GSTR-2B',
-                  amount: '₹45,000', amountLabel: 'Blocked ITC', amountColor: 'text-[#EF4444]',
-                  accent: '#7C3AED', accentRGB: '124,58,237',
-                },
-                {
-                  initial: 'A', name: 'Apex Innovations', note: 'Value mismatch detected in CGST',
-                  amount: '₹32,500', amountLabel: 'Blocked ITC', amountColor: 'text-[#EF4444]',
-                  accent: '#4F46E5', accentRGB: '79,70,229',
-                },
-                {
-                  initial: 'W', name: 'Wayne Enterprises', note: 'GSTR-1 filing delayed by supplier',
-                  amount: '₹18,000', amountLabel: 'Filing Delay', amountColor: 'text-[#F59E0B]',
-                  accent: '#F59E0B', accentRGB: '245,158,11',
-                },
-              ].map((row, idx) => (
-                <React.Fragment key={row.name}>
-                  <div
-                    className="flex items-center justify-between p-3 -mx-2 rounded-xl group transition-all duration-150"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0"
-                        style={{
-                          background: `radial-gradient(circle at 30% 30%, rgba(${row.accentRGB},0.12) 0%, rgba(${row.accentRGB},0.03) 100%)`,
-                          border: `1px solid rgba(${row.accentRGB},0.15)`,
-                          color: row.accent,
-                        }}
-                      >
-                        {row.initial}
-                      </div>
-                      <div className="min-w-0">
-                        <h4 className="text-[12.5px] font-black text-slate-700 truncate">{row.name}</h4>
-                        <p className="text-[10px] text-secondary mt-0.5 truncate">{row.note}</p>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <div className="text-xs font-black text-slate-800">{row.amount}</div>
-                      <div
-                        className={`text-[8.5px] font-black uppercase tracking-wider mt-0.5 ${row.amountColor}`}
-                      >
-                        {row.amountLabel}
-                      </div>
-                    </div>
-                  </div>
-                  {idx < 2 && (
-                    <div className="h-px bg-slate-100 mx-1" />
-                  )}
-                </React.Fragment>
-              ))}
+              {dashStats.total_mismatches > 0 ? (
+                <div className="text-xs text-slate-500 font-medium py-4 text-center">
+                  {dashStats.total_mismatches} active mismatches — view Clients tab for details.
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 font-medium py-4 text-center">
+                  No active outreach items.
+                </div>
+              )}
             </div>
 
             <button
@@ -1666,91 +1633,27 @@ export default function DashboardPage() {
 
               {/* Findings List */}
               <div className="space-y-1.5 mt-5">
-                {[
-                  {
-                    icon: Users,
-                    color: '#7C3AED',
-                    colorRGB: '124,58,237',
-                    text: '24 invoices require supplier outreach',
-                    sub: '₹1.8L at risk • Pending confirmation from 5 vendors',
-                    badge: 'Outreach Needed',
-                    badgeClass: 'status-badge status-badge-purple',
-                    action: () => setToast({ message: 'Opening outreach panel for 24 invoices...', type: 'success' })
-                  },
-                  {
-                    icon: AlertTriangle,
-                    color: '#F59E0B',
-                    colorRGB: '245,158,11',
-                    text: '3 vendors missing GSTR-1 uploads',
-                    sub: 'Affects GSTR-2B matching for Apex Innovations & TechNova',
-                    badge: 'Filing Gap',
-                    badgeClass: 'status-badge status-badge-warning',
-                    action: () => setToast({ message: 'Viewing 3 vendors with missing GSTR-1 uploads...', type: 'success' })
-                  },
-                  {
-                    icon: ShieldAlert,
-                    color: '#EF4444',
-                    colorRGB: '239,68,68',
-                    text: '₹2.3L blocked ITC',
-                    sub: 'Critical mismatches in purchase register and supplier filings',
-                    badge: 'Critical Risk',
-                    badgeClass: 'status-badge status-badge-error',
-                    action: () => setToast({ message: 'Opening ITC audit ledger for blocked credit...', type: 'success' })
-                  },
-                  {
-                    icon: Anchor,
-                    color: '#3B82F6',
-                    colorRGB: '59,130,246',
-                    text: '2 BOEs pending reflection',
-                    sub: 'ICEGATE entry delay • Import ITC difference identified',
-                    badge: 'Import Delay',
-                    badgeClass: 'status-badge status-badge-info',
-                    action: () => setToast({ message: 'Syncing ICEGATE data for pending BOEs...', type: 'success' })
-                  },
-                  {
-                    icon: Clock,
-                    color: '#4F46E5',
-                    colorRGB: '79,70,229',
-                    text: '5 filings due within 72 hours',
-                    sub: 'GSTR-1 (Quarterly/Monthly) deadlines for critical accounts',
-                    badge: 'Due Soon',
-                    badgeClass: 'status-badge status-badge-purple',
-                    action: () => setToast({ message: 'Opening compliance calendar for upcoming deadlines...', type: 'success' })
-                  }
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    onClick={item.action}
-                    className="flex items-center justify-between p-3 border-b border-slate-100 hover:bg-[var(--color-surface-hover)] cursor-pointer group transition-all duration-200"
-                    style={{ borderRadius: 'var(--radius-md)' }}
-                  >
+                {dashStats.total_mismatches > 0 && (
+                  <div className="flex items-center justify-between p-3 border-b border-slate-100 cursor-pointer group transition-all duration-200">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div
-                        className="w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0"
-                        style={{
-                          background: `radial-gradient(circle at 30% 30%, rgba(${item.colorRGB},0.08) 0%, rgba(${item.colorRGB},0.02) 100%)`,
-                          border: `1px solid rgba(${item.colorRGB},0.15)`,
-                        }}
-                      >
-                        <item.icon size={14} style={{ color: item.color }} />
+                      <div className="w-8.5 h-8.5 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                        <ShieldAlert size={14} style={{ color: '#EF4444' }} />
                       </div>
                       <div className="min-w-0">
-                        <span className="text-xs font-black text-slate-800 group-hover:text-slate-900 transition-colors block leading-tight">
-                          {item.text}
+                        <span className="text-xs font-black text-slate-800 block leading-tight">
+                          {dashStats.total_mismatches} invoice mismatches detected
                         </span>
-                        <span className="text-[10px] text-secondary font-semibold block mt-0.5 leading-snug">
-                          {item.sub}
+                        <span className="text-[10px] text-secondary font-semibold block mt-0.5">
+                          ₹{(dashStats.blocked_itc / 100000).toFixed(1)}L ITC at risk across {dashStats.high_risk_clients} clients
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2.5 shrink-0 ml-4">
-                      <span className={item.badgeClass}>
-                        {item.badge}
-                      </span>
-                      <ArrowUpRight size={12} className="text-muted group-hover:text-[#7C3AED] transition-colors" />
-                    </div>
+                    <span className="status-badge status-badge-error">Critical Risk</span>
                   </div>
-                ))}
+                )}
+                {dashStats.total_mismatches === 0 && (
+                  <div className="py-8 text-center text-xs text-secondary font-medium">No active findings. Portfolio is clean.</div>
+                )}
               </div>
             </div>
 
@@ -1880,7 +1783,7 @@ export default function DashboardPage() {
             <div className="relative z-10 flex items-center justify-between gap-4 mt-3">
               <div className="flex flex-col">
                 <span className="text-3xl font-black text-slate-800 tracking-tight leading-none">
-                  88%
+                  {pieData[0]?.value}%
                 </span>
                 <span
                   className="flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[8px] font-bold w-fit bg-emerald-50 text-[#10B981] border border-emerald-200/50 mt-1.5"
@@ -1894,7 +1797,9 @@ export default function DashboardPage() {
               <div className="relative w-[120px] h-[90px] shrink-0">
                 <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
                   <span className="text-[8px] text-secondary font-bold uppercase tracking-widest leading-none">Matched</span>
-                  <span className="text-xs font-black text-slate-700 mt-0.5">1.1k</span>
+                  <span className="text-xs font-black text-slate-700 mt-0.5">
+                    {dashStats.total_clients > 0 ? `${dashStats.total_clients * 10}+` : '—'}
+                  </span>
                 </div>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -1948,7 +1853,13 @@ export default function DashboardPage() {
               <div>
                 <span className="text-[7.5px] font-black text-[#7C3AED] uppercase tracking-[0.18em]">AI Insight</span>
                 <p className="text-[9px] font-medium text-secondary leading-snug mt-0.5">
-                  <span className="text-slate-800 font-bold">24 invoices</span> require outreach attention today.
+                  {dashStats.total_mismatches > 0 ? (
+                    <>
+                      <span className="text-slate-800 font-bold">{dashStats.total_mismatches} invoices</span> require outreach attention today.
+                    </>
+                  ) : (
+                    <span>Portfolio is fully reconciled. No outreach needed.</span>
+                  )}
                 </p>
               </div>
             </div>

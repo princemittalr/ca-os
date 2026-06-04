@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -6,14 +7,24 @@ from config.settings import settings
 from middleware.observability import ObservabilityMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from middleware.errors import global_exception_handler, http_exception_handler, validation_exception_handler
+from services.jobs.scheduler import cron_scheduler
 
 from config.env_validator import validate_environment
 validate_environment()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start periodic scheduler
+    cron_scheduler.start()
+    yield
+    # Shutdown: Stop periodic scheduler
+    cron_scheduler.stop()
+
 app = FastAPI(
     title="Reckon AI API",
     description="Backend API for Reckon AI - CA Intelligence Platform",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 from slowapi import _rate_limit_exceeded_handler
@@ -22,7 +33,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from middleware.rate_limit import limiter, rate_limit_exceeded_handler
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore
 app.add_middleware(SlowAPIMiddleware)
 
 # Configure hardened Production CORS
@@ -40,8 +51,8 @@ app.add_middleware(SecurityHeadersMiddleware)
 
 # Register structured global error boundaries
 app.add_exception_handler(Exception, global_exception_handler)
-app.add_exception_handler(HTTPException, http_exception_handler)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore
+app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore
 
 @app.get("/")
 def read_root():
@@ -65,16 +76,7 @@ app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 
 
-# Periodic Cron Scheduler Lifespans
-from services.jobs.scheduler import cron_scheduler
-
-@app.on_event("startup")
-def startup_event():
-    cron_scheduler.start()
-
-@app.on_event("shutdown")
-def shutdown_event():
-    cron_scheduler.stop()
+# Lifespan events (startup/shutdown) are handled via FastAPI lifespan context manager
 
 # Direct export mappings to ensure exact path conformance
 from routers.reconcile import export_reconciliation_excel, export_reconciliation_pdf
