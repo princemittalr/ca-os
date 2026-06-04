@@ -7,3 +7,5 @@ frontend/tsconfig.tsbuildinfo
 backend/__pycache__/
 backend/venv/
 *.pyc
+.vscode/
+pyrightconfig.json
