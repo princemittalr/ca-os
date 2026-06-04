@@ -75,6 +75,9 @@ app.include_router(demo.router, prefix="/api/demo", tags=["demo"])
 app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 
+from routers import support
+app.include_router(support.router, prefix="/api/support", tags=["support"])
+
 
 # Lifespan events (startup/shutdown) are handled via FastAPI lifespan context manager
 
