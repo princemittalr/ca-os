@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
 import { 
@@ -14,99 +14,6 @@ import {
   Shield,
   ChevronDown
 } from 'lucide-react';
-
-const initialLogs = [
-  {
-    id: 'l-1',
-    timestamp: '27-05-2026 18:30',
-    user: 'Rahul Sharma',
-    action: 'RECONCILE', // RECONCILE / CREATE / UPDATE / DELETE / EXPORT / LOGIN
-    entity: 'TechNova Solutions',
-    details: 'Executed GST reconciliation matching. Reconciled 1,243 invoices, matched 1,102.',
-    ip_address: '103.44.82.10'
-  },
-  {
-    id: 'l-2',
-    timestamp: '27-05-2026 15:45',
-    user: 'Rahul Sharma',
-    action: 'LOGIN',
-    entity: 'User Session',
-    details: 'Successful authentication. Session established via Windows 11 Chrome.',
-    ip_address: '103.44.82.10'
-  },
-  {
-    id: 'l-3',
-    timestamp: '26-05-2026 16:20',
-    user: 'Priyanka Patel (Assistant)',
-    action: 'CREATE',
-    entity: 'Sharma Traders',
-    details: 'Registered new client profile with GSTIN 09AABCS7890E1Z9.',
-    ip_address: '192.168.1.45'
-  },
-  {
-    id: 'l-4',
-    timestamp: '26-05-2026 14:10',
-    user: 'Rahul Sharma',
-    action: 'EXPORT',
-    entity: 'Apex Innovations',
-    details: 'Downloaded reconciliation Excel report for Q3-FY25 period.',
-    ip_address: '103.44.82.10'
-  },
-  {
-    id: 'l-5',
-    timestamp: '25-05-2026 11:30',
-    user: 'Priyanka Patel (Assistant)',
-    action: 'UPDATE',
-    entity: 'Wayne Enterprises',
-    details: 'Modified billing contact phone number to +91 76543 21098.',
-    ip_address: '192.168.1.45'
-  },
-  {
-    id: 'l-6',
-    timestamp: '25-05-2026 09:15',
-    user: 'Rahul Sharma',
-    action: 'RECONCILE',
-    entity: 'Apex Innovations',
-    details: 'Executed customs Import Reconciliation. Reconciled 5 Bills of Entry.',
-    ip_address: '103.44.82.10'
-  },
-  {
-    id: 'l-7',
-    timestamp: '24-05-2026 17:00',
-    user: 'Rahul Sharma',
-    action: 'DELETE',
-    entity: 'Old Client Test LLC',
-    details: 'Archived and removed client account and historical filing records.',
-    ip_address: '103.44.82.10'
-  },
-  {
-    id: 'l-8',
-    timestamp: '24-05-2026 10:30',
-    user: 'Priyanka Patel (Assistant)',
-    action: 'LOGIN',
-    entity: 'User Session',
-    details: 'Successful assistant authentication logged from local office.',
-    ip_address: '192.168.1.45'
-  },
-  {
-    id: 'l-9',
-    timestamp: '23-05-2026 15:40',
-    user: 'Rahul Sharma',
-    action: 'UPDATE',
-    entity: 'Compliance Tasks',
-    details: 'Marked TDS quarterly return for Wayne Enterprises as Filed.',
-    ip_address: '103.44.82.10'
-  },
-  {
-    id: 'l-10',
-    timestamp: '23-05-2026 12:15',
-    user: 'Rahul Sharma',
-    action: 'EXPORT',
-    entity: 'Audit Trail',
-    details: 'Exported chronological activity logs to CSV format for annual compliance audit.',
-    ip_address: '103.44.82.10'
-  }
-];
 
 interface LogEntry {
   id: string;
@@ -140,12 +47,48 @@ function getInitial(name: string): string {
 }
 
 export default function AuditTrailPage() {
-  const [logs] = useState<LogEntry[]>(initialLogs);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [toastMsg, setToastMsg] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  
+  const fetchLogs = async () => {
+    try {
+      setIsLoadingLogs(true);
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${API_BASE}/api/audit/`, {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error("Failed to fetch audit logs");
+      const data = await res.json();
+      // Map Supabase audit_logs fields to LogEntry format
+      const mapped = data.map((row: any) => ({
+        id: row.id,
+        timestamp: new Date(row.created_at).toLocaleString('en-IN', {
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        }).replace(',', '').replace(/\//g, '-'),
+        user: row.user_id || row.actor_id || "System",
+        action: row.action,
+        entity: row.entity_type || "—",
+        details: JSON.stringify(row.details || {}),
+        ip_address: row.ip_address || "—"
+      }));
+      setLogs(mapped);
+    } catch (err) {
+      console.error("Audit fetch failed:", err);
+      setLogs([]);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+  
+  useEffect(() => { fetchLogs(); }, []);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -153,7 +96,17 @@ export default function AuditTrailPage() {
   };
 
   const handleExportLogs = () => {
-    triggerToast("✓ Audit log CSV ledger exported successfully.");
+    const csv = ["Timestamp,User,Action,Entity,Details,IP Address",
+      ...logs.map(l => `"${l.timestamp}","${l.user}","${l.action}","${l.entity}","${l.details.replace(/"/g, "'")}","${l.ip_address}"`)
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "audit_trail.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    triggerToast("✓ Audit log CSV exported successfully.");
   };
 
   const getActionBadgeStyle = (action: string) => {
@@ -329,6 +282,7 @@ export default function AuditTrailPage() {
         description="Immutable security logging and cryptographic activity records for auditing."
         actions={
           <button
+            id="btn-export-logs"
             onClick={handleExportLogs}
             className="btn btn-md btn-secondary"
           >
@@ -367,6 +321,7 @@ export default function AuditTrailPage() {
             <Search size={16} className="text-slate-400 group-focus-within:text-[var(--color-primary-light)] transition-colors" />
           </div>
           <input
+            id="input-search-logs"
             type="text"
             placeholder="Search action logs, target profiles, audit hashes..."
             value={searchQuery}
@@ -381,6 +336,7 @@ export default function AuditTrailPage() {
           {/* Action filter select */}
           <div className="relative">
             <select
+              id="select-action-filter"
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
               className="form-select filter-select-sm"
@@ -398,6 +354,7 @@ export default function AuditTrailPage() {
 
           {/* Labeled Filter button with active count badge */}
           <button
+            id="btn-filter-toggle"
             onClick={() => {/* filter panel toggle – hook preserved */}}
             className="btn btn-md btn-secondary"
           >
@@ -426,7 +383,9 @@ export default function AuditTrailPage() {
               </tr>
             </thead>
             <tbody className="font-sans">
-              {filteredLogs.length > 0 ? (
+              {isLoadingLogs ? (
+                <tr><td colSpan={7} className="text-center py-12 text-secondary text-xs font-bold">Loading audit logs...</td></tr>
+              ) : filteredLogs.length > 0 ? (
                 filteredLogs.map((log) => {
                   const { dateLabel, timeLabel } = parseTimestamp(log.timestamp);
                   const isExpanded = expandedRows.has(log.id);
@@ -434,6 +393,7 @@ export default function AuditTrailPage() {
                   return (
                     <React.Fragment key={log.id}>
                       <tr
+                        id={`row-${log.id}`}
                         onClick={() => toggleRowExpand(log.id)}
                         className="data-table-row-clickable group"
                         style={{ verticalAlign: 'middle' }}
@@ -488,6 +448,7 @@ export default function AuditTrailPage() {
                         {/* ── Chevron toggle ── */}
                         <td style={{ verticalAlign: 'middle', paddingLeft: 4, paddingRight: 12 }}>
                           <ChevronDown
+                            id={`chevron-${log.id}`}
                             size={15}
                             className={`audit-row-chevron${isExpanded ? ' open' : ''}`}
                           />

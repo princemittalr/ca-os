@@ -72,7 +72,7 @@ def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
         "business_name": client_data.get("business_name"),
         "legal_name": client_data.get("legal_name") or client_data.get("business_name"),
         "trade_name": client_data.get("trade_name") or client_data.get("business_name"),
-        "gstin": client_data.get("gstin").upper(),
+        "gstin": client_data.get("gstin", "").upper(),
         "contact_person": client_data.get("contact_person") or "Assigned Auditor",
         "email": client_data.get("email") or "accounts@domain.com",
         "phone": client_data.get("phone") or "+91 99999 99999",
@@ -470,86 +470,7 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
 # -------------------------------------------------------------------------
 # GST NOTICES PERSISTENCE & MOCK REGISTRY
 # -------------------------------------------------------------------------
-MOCK_NOTICES = [
-    {
-        "id": "notice-1",
-        "client_id": "client-1",
-        "client_name": "TechNova Solutions Pvt Ltd",
-        "notice_number": "GST/TNV/2026/DRC-01/108",
-        "issuing_authority": "Deputy Commissioner of Central Tax, Mumbai",
-        "section_references": ["Section 73", "Section 16(4)"],
-        "notice_type": "DRC-01",
-        "tax_amount": 185000.0,
-        "due_date": date(2026, 6, 15),
-        "hearing_date": date(2026, 6, 10),
-        "summary": "Show cause notice under Section 73 regarding input tax credit mismatches between Books and GSTR-2B register for FY 2025-26.",
-        "risk_level": "HIGH",
-        "risk_score": 85.0,
-        "complexity_score": "Complex",
-        "recommended_next_action": "Obtain Vendor Confirmation",
-        "interest_exposure_est": 33300.0,
-        "penalty_exposure_est": 18500.0,
-        "total_exposure_est": 236800.0,
-        "required_action": "Verify matching invoices from Sharma Traders and submit reply before June 15.",
-        "status": "PENDING",
-        "file_path": "/uploads/notices/technova_drc01.pdf",
-        "raw_ocr_text": "OFFICE OF THE DEPUTY COMMISSIONER OF CENTRAL TAX... SHOW CAUSE NOTICE UNDER SECTION 73... GSTIN: 27AAACT1234A1Z5... REFERENCE NO: GST/TNV/2026/DRC-01/108...",
-        "created_at": datetime(2026, 5, 28, 10, 0, 0),
-        "updated_at": datetime(2026, 5, 28, 10, 0, 0),
-        "gstin": "27AAACT1234A1Z5",
-        "supporting_evidence": [
-            "Purchase Register Matching GSTR-2B",
-            "Original Purchase Tax Invoices",
-            "Vendor Payment Proofs (Bank Statement)"
-        ],
-        "missing_documents": [
-            "Supplier GSTR-1 Filing Confirmation",
-            "E-way bill copies for transport verification"
-        ],
-        "questions_for_client": [
-            "Have payments to the vendor been made within 180 days of the invoice date?",
-            "Can you confirm physical receipt of goods for the disputed invoices?"
-        ]
-    },
-    {
-        "id": "notice-2",
-        "client_id": "client-5",
-        "client_name": "Sharma Traders",
-        "notice_number": "GST/SHR/2026/ASMT-10/409",
-        "issuing_authority": "State Tax Officer, Uttar Pradesh",
-        "section_references": ["Section 61", "Section 50"],
-        "notice_type": "ASMT-10",
-        "tax_amount": 45000.0,
-        "due_date": date(2026, 6, 5),
-        "hearing_date": None,
-        "summary": "Scrutiny notice under Section 61 for tax discrepancies on GSTR-1 vs GSTR-3B filings for Q3 FY 2025-26.",
-        "risk_level": "MEDIUM",
-        "risk_score": 45.0,
-        "complexity_score": "Moderate",
-        "recommended_next_action": "Request Documents",
-        "interest_exposure_est": 8100.0,
-        "penalty_exposure_est": 10000.0,
-        "total_exposure_est": 63100.0,
-        "required_action": "Reconcile out-of-period sales reports and file DRC-03 if tax liability is confirmed.",
-        "status": "DRAFTED",
-        "file_path": "/uploads/notices/sharma_asmt10.pdf",
-        "raw_ocr_text": "DEPARTMENT OF STATE TAX, UTTAR PRADESH... SCRUTINY OF RETURN UNDER SECTION 61... REFERENCE NO: GST/SHR/2026/ASMT-10/409...",
-        "created_at": datetime(2026, 5, 28, 11, 0, 0),
-        "updated_at": datetime(2026, 5, 28, 11, 0, 0),
-        "gstin": "09AABCS7890E1Z9",
-        "supporting_evidence": [
-            "Reconciliation Statement GSTR-2B vs Books",
-            "Tax Purchase Ledger Entries"
-        ],
-        "missing_documents": [
-            "GSTR-1 upload receipts from the supplier"
-        ],
-        "questions_for_client": [
-            "Do we have tax invoices matching these discrepancy values?",
-            "Are there any out-of-period sales invoices filed in Q4 that belonged to Q3?"
-        ]
-    }
-]
+MOCK_NOTICES: list = []
 
 def get_notices(client_id: Optional[str] = None) -> List[Dict[str, Any]]:
     if is_supabase_active():
