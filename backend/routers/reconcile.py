@@ -56,11 +56,12 @@ async def reconcile_gstr2b(
         )
         
     for file in [file_pr, file_2b]:
-        fn_lower = file.filename.lower()
+        filename = file.filename or ""
+        fn_lower = filename.lower()
         if not fn_lower.endswith(('.xlsx', '.xls', '.csv')):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported file format for '{file.filename}'. Please upload a valid Excel (.xlsx, .xls) or CSV (.csv) file."
+                detail=f"Unsupported file format for '{filename}'. Please upload a valid Excel (.xlsx, .xls) or CSV (.csv) file."
             )
             
     try:
@@ -78,8 +79,8 @@ async def reconcile_gstr2b(
                 detail=f"GSTR-2B file exceeds size limit of 20MB."
             )
             
-        df_pr = parse_file_to_dataframe(contents_pr, file_pr.filename)
-        df_2b = parse_file_to_dataframe(contents_2b, file_2b.filename)
+        df_pr = parse_file_to_dataframe(contents_pr, file_pr.filename or "")
+        df_2b = parse_file_to_dataframe(contents_2b, file_2b.filename or "")
         
         df_pr = normalize_columns(df_pr)
         df_2b = normalize_columns(df_2b)
@@ -87,11 +88,14 @@ async def reconcile_gstr2b(
         mapping_pr = detect_gst_fields(list(df_pr.columns))
         mapping_2b = detect_gst_fields(list(df_2b.columns))
         
+        mapping_pr_clean: Dict[str, str] = {k: v or "" for k, v in mapping_pr.items()}
+        mapping_2b_clean: Dict[str, str] = {k: v or "" for k, v in mapping_2b.items()}
+        
         results = reconcile_dataframes(
             df_pr=df_pr,
             df_2b=df_2b,
-            mapping_pr=mapping_pr,
-            mapping_2b=mapping_2b,
+            mapping_pr=mapping_pr_clean,
+            mapping_2b=mapping_2b_clean,
             tolerance=1.0
         )
         
@@ -156,8 +160,8 @@ async def upload_and_reconcile(
         content_pr = await file_pr.read()
         
         # Standardize uploads
-        df_pr = parse_file_to_dataframe(content_pr, file_pr.filename)
-        df_2b = parse_file_to_dataframe(content_2b, file_2b.filename)
+        df_pr = parse_file_to_dataframe(content_pr, file_pr.filename or "")
+        df_2b = parse_file_to_dataframe(content_2b, file_2b.filename or "")
         
         df_pr = normalize_columns(df_pr)
         df_2b = normalize_columns(df_2b)
@@ -165,11 +169,14 @@ async def upload_and_reconcile(
         mapping_pr = detect_gst_fields(list(df_pr.columns))
         mapping_2b = detect_gst_fields(list(df_2b.columns))
         
+        mapping_pr_clean: Dict[str, str] = {k: v or "" for k, v in mapping_pr.items()}
+        mapping_2b_clean: Dict[str, str] = {k: v or "" for k, v in mapping_2b.items()}
+        
         results = reconcile_dataframes(
             df_pr=df_pr,
             df_2b=df_2b,
-            mapping_pr=mapping_pr,
-            mapping_2b=mapping_2b,
+            mapping_pr=mapping_pr_clean,
+            mapping_2b=mapping_2b_clean,
             tolerance=1.0
         )
         
@@ -259,8 +266,8 @@ async def reconcile_import_boe(
         boe_content = await file_boe.read()
         b2b_content = await file_2b.read()
 
-        df_boe = parse_file_to_dataframe(boe_content, file_boe.filename)
-        df_2b = parse_file_to_dataframe(b2b_content, file_2b.filename)
+        df_boe = parse_file_to_dataframe(boe_content, file_boe.filename or "")
+        df_2b = parse_file_to_dataframe(b2b_content, file_2b.filename or "")
 
         df_boe = normalize_columns(df_boe)
         df_2b = normalize_columns(df_2b)
@@ -268,13 +275,18 @@ async def reconcile_import_boe(
         mapping_boe = detect_gst_fields(list(df_boe.columns))
         mapping_2b = detect_gst_fields(list(df_2b.columns))
 
+        mapping_boe_clean: Dict[str, str] = {k: v or "" for k, v in mapping_boe.items()}
+        mapping_2b_clean: Dict[str, str] = {k: v or "" for k, v in mapping_2b.items()}
+
         results = reconcile_dataframes(
             df_pr=df_boe,
             df_2b=df_2b,
-            mapping_pr=mapping_boe,
-            mapping_2b=mapping_2b,
+            mapping_pr=mapping_boe_clean,
+            mapping_2b=mapping_2b_clean,
             tolerance=1.0
         )
+        global latest_reconciliation_results
+        latest_reconciliation_results = results
         return results
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

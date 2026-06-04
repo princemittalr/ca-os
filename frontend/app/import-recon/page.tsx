@@ -55,180 +55,9 @@ interface BoeItem {
   age_days: number;
 }
 
-const initialBoeRows: BoeItem[] = [
-  {
-    id: 'boe-1',
-    boe_number: 'BOE/DEL/2024/9910',
-    boe_date: '02-03-2024',
-    port_code: 'ININD1 (Delhi Air)',
-    customs_taxable: 1850000,
-    gst_taxable: 1850000,
-    igst_customs: 333000,
-    igst_2b: 333000,
-    difference: 0,
-    status: 'Matched',
-    root_cause_category: 'None',
-    confidence_score: 100,
-    recommended_action: 'None required. Fully reconciled.',
-    why_occurred: 'Transmission completed successfully across customs gate and GST portal with matched valuation.',
-    evidence: 'ICEGATE transmission status ACK_SUCCESS; GSTN database sequence verified.',
-    resolution_path: 'No action required. Credit fully safe to claim.',
-    recovery_probability: 100,
-    priority_group: 'None',
-    age_days: 90
-  },
-  {
-    id: 'boe-2',
-    boe_number: 'BOE/MUM/2024/4512',
-    boe_date: '06-03-2024',
-    port_code: 'INBOM1 (Mumbai Sea)',
-    customs_taxable: 3420000,
-    gst_taxable: 3400000,
-    igst_customs: 615600,
-    igst_2b: 612000,
-    difference: 3600,
-    status: 'Value Mismatch',
-    root_cause_category: 'Customs Data Issue',
-    confidence_score: 94,
-    recommended_action: 'Approve difference as exchange rate variance, or request custom broker review.',
-    why_occurred: 'Discrepancy is caused by ICEGATE system applying CBIC statutory exchange rate (notified fortnightly) instead of transaction-date spot conversion rates.',
-    evidence: 'Customs assessment sheets show exchange rate conversion applied at ₹83.45/USD, whereas GSTR-2B data registered ₹82.96/USD.',
-    resolution_path: 'No credit recovery required. Approve discrepancy as currency valuation variance in working papers.',
-    recovery_probability: 100,
-    priority_group: 'Likely to Self-Resolve',
-    age_days: 86
-  },
-  {
-    id: 'boe-3',
-    boe_number: 'BOE/MUM/2024/4811',
-    boe_date: '10-03-2024',
-    port_code: 'INBOM1 (Mumbai Sea)',
-    customs_taxable: 950000,
-    gst_taxable: 0,
-    igst_customs: 171000,
-    igst_2b: 0,
-    difference: 171000,
-    status: 'Missing in 2B',
-    root_cause_category: 'ICEGATE Delay',
-    confidence_score: 89,
-    recommended_action: 'Lodge support ticket on ICEGATE helpdesk to force queue transmission.',
-    why_occurred: 'ICEGATE transmission server experienced gateway timeout. The payload packet was registered but transmission to GSTN was blocked.',
-    evidence: 'ICEGATE integration node logs show packet status code: Transmission_Fail_Code_504.',
-    resolution_path: 'Submit automated ICEGATE grievance draft. Re-transmission typically clears sync block in 48 hours.',
-    recovery_probability: 95,
-    priority_group: 'Requires Follow-up',
-    age_days: 82
-  },
-  {
-    id: 'boe-4',
-    boe_number: 'BOE/MAA/2024/0741',
-    boe_date: '14-03-2024',
-    port_code: 'INMAA1 (Chennai Sea)',
-    customs_taxable: 1200000,
-    gst_taxable: 1200000,
-    igst_customs: 216000,
-    igst_2b: 216000,
-    difference: 0,
-    status: 'Matched',
-    root_cause_category: 'None',
-    confidence_score: 100,
-    recommended_action: 'None required.',
-    why_occurred: 'Perfect reconciliation. Custom assessment and GST ledger values align.',
-    evidence: 'ICEGATE status matching token OK; GSTR-2B transmission logs verified.',
-    resolution_path: 'No action required. Claims approved.',
-    recovery_probability: 100,
-    priority_group: 'None',
-    age_days: 78
-  },
-  {
-    id: 'boe-5',
-    boe_number: 'BOE/DEL/2024/1043',
-    boe_date: '18-03-2024',
-    port_code: 'ININD1 (Delhi Air)',
-    customs_taxable: 540000,
-    gst_taxable: 0,
-    igst_customs: 97200,
-    igst_2b: 0,
-    difference: 97200,
-    status: 'Missing in 2B',
-    root_cause_category: 'GSTIN Mismatch',
-    confidence_score: 98,
-    recommended_action: 'File customs amendment (Form BOE-A) via CHA to correct the importer GSTIN.',
-    why_occurred: 'The Bill of Entry was mistakenly filed under an expired branch GSTIN ending in Z2 instead of client\'s primary GSTIN ending in Z5.',
-    evidence: 'Bill of Entry physical header lists GSTIN ending in A1Z2, while corporate registry specifies primary GSTIN ending in A1Z5.',
-    resolution_path: 'Contact custom house agent (CHA) to request amendment. File form BOE-A with Customs Commissioner to update GSTIN mapping.',
-    recovery_probability: 85,
-    priority_group: 'Requires Amendment',
-    age_days: 74
-  },
-  {
-    id: 'boe-6',
-    boe_number: 'BOE/MAA/2024/7721',
-    boe_date: '28-03-2024',
-    port_code: 'INMAA1 (Chennai Sea)',
-    customs_taxable: 1733000,
-    gst_taxable: 0,
-    igst_customs: 312000,
-    igst_2b: 0,
-    difference: 312000,
-    status: 'Missing in 2B',
-    root_cause_category: 'BOE Not Yet Reflected',
-    confidence_score: 92,
-    recommended_action: 'No manual action needed. Allow 24-48 hours for regular batch sync cycle.',
-    why_occurred: 'Filing date (28-03-2024) is within the active auto-synchronization window. The GST portal updates imported records in scheduled batches.',
-    evidence: 'Filing timestamp was less than 72 hours from the current GSTR-2B lock period. Customs gateway status is ACK_BY_PORT.',
-    resolution_path: 'Re-trigger GSTR-2B sync during the next daily batch execution. It should clear without manual intervention.',
-    recovery_probability: 99,
-    priority_group: 'Likely to Self-Resolve',
-    age_days: 3
-  },
-  {
-    id: 'boe-7',
-    boe_number: 'BOE/KOL/2024/1088',
-    boe_date: '12-03-2024',
-    port_code: 'INKCC1 (Kolkata Sea)',
-    customs_taxable: 250000,
-    gst_taxable: 150000,
-    igst_customs: 45000,
-    igst_2b: 15000,
-    difference: 30000,
-    status: 'Value Mismatch',
-    root_cause_category: 'Invalid Import Data',
-    confidence_score: 82,
-    recommended_action: 'Request customs broker check for HSN validation tags on import invoices.',
-    why_occurred: 'Missing HSN classification tags caused the GST portal to auto-populate a default 5% rate instead of the custom 18% IGST assessed at customs.',
-    evidence: 'GSTR-2B itemized sheet shows HSN field as blank/error, triggering automatic fallback tax bracket rates.',
-    resolution_path: 'Submit HSN invoice details on GST portal under table 4B reconciliation or rectify via annual GSTR-9 filing.',
-    recovery_probability: 70,
-    priority_group: 'Requires Amendment',
-    age_days: 80
-  },
-  {
-    id: 'boe-8',
-    boe_number: 'BOE/MUM/2024/0089',
-    boe_date: '08-03-2024',
-    port_code: 'INBOM1 (Mumbai Sea)',
-    customs_taxable: 666000,
-    gst_taxable: 288000,
-    igst_customs: 120000,
-    igst_2b: 52000,
-    difference: 68000,
-    status: 'Value Mismatch',
-    root_cause_category: 'Partial Reflection',
-    confidence_score: 78,
-    recommended_action: 'Manually claim remaining credits in GSTR-3B by submitting bill of lading proof.',
-    why_occurred: 'Split shipment cargo assessed separately. The first customs transmission block was synchronized, but cargo packet B remains unreflected.',
-    evidence: 'Bill of entry lists split shipments (A & B). GSTR-2B only shows cargo clearance for code BL-MUM-A91.',
-    resolution_path: 'Consolidate cargo bill of entry receipts. Manually override tax claim in table 4(A)(5) and back with working sheets.',
-    recovery_probability: 90,
-    priority_group: 'Requires Follow-up',
-    age_days: 84
-  }
-];
-
 export default function BoeIntelligenceCenter() {
-  const [activeStep, setActiveStep] = useState<number>(5); // Default to review for convenience, but full workflow enabled
-  const [boeRows, setBoeRows] = useState<BoeItem[]>(initialBoeRows);
+  const [activeStep, setActiveStep] = useState<number>(1); // Default to review for convenience, but full workflow enabled
+  const [boeRows, setBoeRows] = useState<BoeItem[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('2024-03');
@@ -371,12 +200,71 @@ export default function BoeIntelligenceCenter() {
     ];
 
     checkRules.forEach((rule, index) => {
-      setTimeout(() => {
+      setTimeout(async () => {
         setAnalysisLogs(prev => [...prev, `[SYSTEM] ${rule}`]);
         if (index === checkRules.length - 1) {
           setAnalyzing(false);
           setActiveStep(5);
           triggerToast('🎉 Import ITC analysis complete! Findings workspace compiled.');
+          if (boeFile && gstr2bFile) {
+            const formData = new FormData();
+            formData.append("file_boe", boeFile);
+            formData.append("file_2b", gstr2bFile);
+            try {
+              const res = await fetch(`${API_BASE}/api/reconcile/import-boe`, { method: "POST", body: formData });
+              if (res.ok) {
+                const data = await res.json();
+                // Map real API results to BoeItem format
+                const mapped: BoeItem[] = [
+                  ...(data.matches || []).map((m: any, i: number) => ({
+                    id: `boe-match-${i}`,
+                    boe_number: m.invoice_number || `BOE/${i}`,
+                    boe_date: m.invoice_date || new Date().toISOString().split('T')[0],
+                    port_code: "IMPORT PORT",
+                    customs_taxable: m.taxable_value || 0,
+                    gst_taxable: m.taxable_value || 0,
+                    igst_customs: (m.taxable_value || 0) * 0.18,
+                    igst_2b: (m.taxable_value || 0) * 0.18,
+                    difference: 0,
+                    status: "Matched" as const,
+                    root_cause_category: "None" as const,
+                    confidence_score: 100,
+                    recommended_action: "None required.",
+                    why_occurred: "Matched successfully.",
+                    evidence: "Verified.",
+                    resolution_path: "No action required.",
+                    recovery_probability: 100,
+                    priority_group: "None" as const,
+                    age_days: 0
+                  })),
+                  ...(data.mismatches || []).map((m: any, i: number) => ({
+                    id: `boe-mismatch-${i}`,
+                    boe_number: m.invoice_number || `BOE-M/${i}`,
+                    boe_date: m.invoice_date || new Date().toISOString().split('T')[0],
+                    port_code: "IMPORT PORT",
+                    customs_taxable: m.taxable_value || 0,
+                    gst_taxable: m.issue === "MISSING_IN_2B" ? 0 : m.taxable_value || 0,
+                    igst_customs: (m.taxable_value || 0) * 0.18,
+                    igst_2b: m.issue === "MISSING_IN_2B" ? 0 : (m.taxable_value || 0) * 0.18,
+                    difference: m.issue === "MISSING_IN_2B" ? (m.taxable_value || 0) * 0.18 : 0,
+                    status: m.issue === "MISSING_IN_2B" ? "Missing in 2B" : "Value Mismatch" as any,
+                    root_cause_category: "ICEGATE Delay" as const,
+                    confidence_score: 85,
+                    recommended_action: m.recommended_action || "Review discrepancy.",
+                    why_occurred: m.likely_cause || "BOE mismatch detected.",
+                    evidence: "Automated reconciliation result.",
+                    resolution_path: m.recommended_action || "Manual review required.",
+                    recovery_probability: 80,
+                    priority_group: "Requires Follow-up" as const,
+                    age_days: 0
+                  }))
+                ];
+                if (mapped.length > 0) setBoeRows(mapped);
+              }
+            } catch (apiErr) {
+              console.error("Import BOE API call failed:", apiErr);
+            }
+          }
         }
       }, (index + 1) * 400);
     });
