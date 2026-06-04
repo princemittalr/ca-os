@@ -16,6 +16,27 @@ import {
   X
 } from 'lucide-react';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+function formatTimeAgo(dateString: string) {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  } catch {
+    return '';
+  }
+}
+
 export default function TopBar({
   onMenuClick,
 }: {
@@ -40,6 +61,16 @@ export default function TopBar({
     }
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    fetch(`${API_BASE}/api/notifications/`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setNotifications(data))
+      .catch(() => setNotifications([]));
+  }, []);
+
   // Messages Dataset
   const [messages, setMessages] = useState([
     { id: 'm1', sender: 'TechNova Solutions', text: 'Uploaded the Q4 purchase ledger Excel sheet.', time: '10m ago', unread: true },
@@ -49,12 +80,7 @@ export default function TopBar({
   ]);
 
   // Notifications Dataset
-  const [notifications, setNotifications] = useState([
-    { id: 'n1', title: 'GST Filing Due', description: 'GSTR-1 return filing deadline for Sharma Traders is in 3 days.', time: '5m ago', type: 'warning', unread: true },
-    { id: 'n2', title: 'Reconciliation Completed', description: 'Matched 1,102 invoices for TechNova Solutions. ₹42.3L ITC protected.', time: '30m ago', type: 'success', unread: true },
-    { id: 'n3', title: 'Client Upload Pending', description: 'Apex Innovations has not uploaded their GSTR-2B JSON file.', time: '2h ago', type: 'info', unread: true },
-    { id: 'n4', title: 'Risk Alert', description: 'High compliance risk detected for Wayne Enterprises (mismatched supplier filing status).', time: '1d ago', type: 'error', unread: true }
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   const messagesRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -96,11 +122,13 @@ export default function TopBar({
 
   // Handlers for Notifications
   const handleMarkNotificationRead = (id: string) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, unread: false } : n));
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    fetch(`${API_BASE}/api/notifications/${id}/read`, { method: "POST" }).catch(() => {});
   };
 
   const handleMarkAllNotificationsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, unread: false })));
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    fetch(`${API_BASE}/api/notifications/read-all`, { method: "POST" }).catch(() => {});
   };
 
   const handleClearNotifications = () => {
@@ -137,7 +165,7 @@ export default function TopBar({
   };
 
   const unreadMessagesCount = messages.filter(m => m.unread).length;
-  const unreadNotificationsCount = notifications.filter(n => n.unread).length;
+  const unreadNotificationsCount = notifications.filter(n => !n.is_read).length;
 
   return (
     <div className="h-16 w-full flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white/80 backdrop-blur-md border-b border-slate-200/60 flex-shrink-0 relative z-50"
@@ -444,7 +472,7 @@ export default function TopBar({
                       key={notif.id}
                       onClick={() => handleMarkNotificationRead(notif.id)}
                       className={`p-3 rounded-xl transition-all duration-200 cursor-pointer relative hover:bg-slate-50 flex gap-3 items-start border ${
-                        notif.unread 
+                        !notif.is_read 
                           ? 'bg-indigo-50/50 border-indigo-100 shadow-sm' 
                           : 'bg-transparent border-slate-100 hover:border-slate-200'
                       }`}
@@ -454,12 +482,16 @@ export default function TopBar({
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-1">
                           <span className="text-[12.5px] font-bold text-slate-900 truncate leading-none mt-0.5">{notif.title}</span>
-                          <span className="text-[9.5px] text-muted whitespace-nowrap leading-none mt-0.5">{notif.time}</span>
+                          <span className="text-[9.5px] text-muted whitespace-nowrap leading-none mt-0.5">
+                            {notif.time || (notif.created_at ? formatTimeAgo(notif.created_at) : '')}
+                          </span>
                         </div>
-                        <p className="text-[11.5px] text-secondary leading-relaxed mt-1.5">{notif.description}</p>
+                        <p className="text-[11.5px] text-secondary leading-relaxed mt-1.5">
+                          {notif.description || notif.message}
+                        </p>
                       </div>
                       
-                      {notif.unread && (
+                      {!notif.is_read && (
                         <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#4F46E5] shadow-sm" />
                       )}
                     </div>
