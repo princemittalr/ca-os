@@ -1,8 +1,11 @@
 import uuid
 from datetime import datetime, date, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, cast
+from supabase import Client
 
-from config.supabase import supabase_client, is_supabase_active
+from config.supabase import supabase_client as _raw_client, is_supabase_active
+
+supabase_client: Client = cast(Client, _raw_client)
 
 # -------------------------------------------------------------------------
 # CLIENTS CRUD ABSTRACTION
@@ -556,8 +559,10 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
                 payload["due_date"] = payload["due_date"].isoformat()
             if isinstance(payload["hearing_date"], (date, datetime)):
                 payload["hearing_date"] = payload["hearing_date"].isoformat()
-            payload["created_at"] = payload["created_at"].isoformat()
-            payload["updated_at"] = payload["updated_at"].isoformat()
+            if isinstance(payload["created_at"], (date, datetime)):
+                payload["created_at"] = payload["created_at"].isoformat()
+            if isinstance(payload["updated_at"], (date, datetime)):
+                payload["updated_at"] = payload["updated_at"].isoformat()
             
             res = supabase_client.table("gst_notices").insert(payload).execute()
             if res.data:
