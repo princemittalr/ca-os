@@ -137,159 +137,13 @@ export default function ComplianceOperationsCenter() {
         filings_completed_this_month: filed
       });
     } catch (err) {
-      console.error("Compliance fetch failed, using fallback:", err);
-      // Fallback Mock Compliance Data
-      const dummyToday = new Date(2026, 4, 31);
-      const formatOffset = (days: number) => {
-        const d = new Date(dummyToday);
-        d.setDate(dummyToday.getDate() + days);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-      };
-
-      const mockTasks: ComplianceRecord[] = [
-        {
-          compliance_id: "comp-1",
-          client_id: "client-1",
-          compliance_type: "GSTR-1",
-          filing_period: "March 2024",
-          due_date: formatOffset(2),
-          status: "Upcoming",
-          assigned_to: "Aditya Rao",
-          escalation_level: 0,
-          risk_level: "LOW",
-          risk_score: 15.0
-        },
-        {
-          compliance_id: "comp-2",
-          client_id: "client-1",
-          compliance_type: "GSTR-3B",
-          filing_period: "March 2024",
-          due_date: formatOffset(-4),
-          status: "Escalated",
-          assigned_to: "Aditya Rao",
-          escalation_level: 2,
-          risk_level: "HIGH",
-          risk_score: 95.0
-        },
-        {
-          compliance_id: "comp-3",
-          client_id: "client-2",
-          compliance_type: "TDS Returns",
-          filing_period: "Q4 2023-24",
-          due_date: formatOffset(0),
-          status: "Due Today",
-          assigned_to: "Neha Sharma",
-          escalation_level: 0,
-          risk_level: "MEDIUM",
-          risk_score: 45.0
-        },
-        {
-          compliance_id: "comp-4",
-          client_id: "client-2",
-          compliance_type: "Advance Tax",
-          filing_period: "Q4 FY24",
-          due_date: formatOffset(-1),
-          status: "Overdue",
-          assigned_to: "Neha Sharma",
-          escalation_level: 1,
-          risk_level: "HIGH",
-          risk_score: 75.0
-        },
-        {
-          compliance_id: "comp-5",
-          client_id: "client-3",
-          compliance_type: "MCA Compliance",
-          filing_period: "FY 2023-24",
-          due_date: formatOffset(12),
-          status: "Upcoming",
-          assigned_to: "Rohan Mehta",
-          escalation_level: 0,
-          risk_level: "LOW",
-          risk_score: 15.0
-        },
-        {
-          compliance_id: "comp-6",
-          client_id: "client-3",
-          compliance_type: "GSTR-1",
-          filing_period: "March 2024",
-          due_date: formatOffset(-10),
-          status: "Filed",
-          assigned_to: "Rohan Mehta",
-          escalation_level: 0,
-          risk_level: "LOW",
-          risk_score: 0.0
-        },
-        {
-          compliance_id: "comp-7",
-          client_id: "client-4",
-          compliance_type: "ITR Filing",
-          filing_period: "AY 2024-25",
-          due_date: formatOffset(25),
-          status: "Upcoming",
-          assigned_to: "Aditya Rao",
-          escalation_level: 0,
-          risk_level: "LOW",
-          risk_score: 15.0
-        },
-        {
-          compliance_id: "comp-8",
-          client_id: "client-4",
-          compliance_type: "ROC Filing",
-          filing_period: "FY 2023-24",
-          due_date: formatOffset(-8), // Overdue by > 7 days -> Escalation Level 3
-          status: "Escalated",
-          assigned_to: "Neha Sharma",
-          escalation_level: 3,
-          risk_level: "HIGH",
-          risk_score: 95.0
-        },
-        {
-          compliance_id: "comp-9",
-          client_id: "client-5",
-          compliance_type: "GSTR-3B",
-          filing_period: "March 2024",
-          due_date: formatOffset(1),
-          status: "Upcoming",
-          assigned_to: "Kunal Sen",
-          escalation_level: 0,
-          risk_level: "LOW",
-          risk_score: 15.0
-        },
-        {
-          compliance_id: "comp-10",
-          client_id: "client-5",
-          compliance_type: "TDS Returns",
-          filing_period: "Q4 2023-24",
-          due_date: formatOffset(-2),
-          status: "Overdue",
-          assigned_to: "Kunal Sen",
-          escalation_level: 1,
-          risk_level: "HIGH",
-          risk_score: 75.0
-        },
-        {
-          compliance_id: "comp-12",
-          client_id: "client-3",
-          compliance_type: "ITR Filing",
-          filing_period: "AY 2024-25",
-          due_date: formatOffset(-14), // Overdue by 14 days -> Level 3
-          status: "Escalated",
-          assigned_to: "Rohan Mehta",
-          escalation_level: 3,
-          risk_level: "HIGH",
-          risk_score: 99.0
-        }
-      ];
-
-      setTasks(mockTasks);
+      console.error("Compliance fetch failed:", err);
+      setTasks([]);
       setStats({
-        upcoming_filings: 4,
-        overdue_filings: 6,
-        high_risk_clients: 4,
-        filings_completed_this_month: 1
+        upcoming_filings: 0,
+        overdue_filings: 0,
+        high_risk_clients: 0,
+        filings_completed_this_month: 0
       });
     } finally {
       setIsLoading(false);
@@ -437,6 +291,7 @@ export default function ComplianceOperationsCenter() {
         filings_completed_this_month: prev.filings_completed_this_month + 1
       }));
       showToast("✓ Return marked as FILED locally.");
+      await loadCompliance();
     }
   };
 
@@ -452,6 +307,7 @@ export default function ComplianceOperationsCenter() {
       console.error(err);
       setTasks(prev => prev.map(t => t.compliance_id === compId ? { ...t, assigned_to: staff } : t));
       showToast(`✓ Re-assigned to ${staff} locally.`);
+      await loadCompliance();
     }
   };
 
@@ -495,22 +351,8 @@ export default function ComplianceOperationsCenter() {
       setIsCreateModalOpen(false);
       await loadCompliance();
     } catch (err) {
-      console.error(err);
-      const newTask: ComplianceRecord = {
-        compliance_id: `comp-mock-${Date.now()}`,
-        client_id: formClientId,
-        compliance_type: formType,
-        filing_period: formPeriod,
-        due_date: formDueDate,
-        status: "Upcoming",
-        assigned_to: formAssignedTo,
-        escalation_level: 0,
-        risk_level: "LOW",
-        risk_score: 15.0
-      };
-      setTasks(prev => [newTask, ...prev]);
-      setStats(prev => ({ ...prev, upcoming_filings: prev.upcoming_filings + 1 }));
-      showToast("✓ Added filing task successfully in workspace.");
+      console.error("Create deadline failed:", err);
+      showToast("⚠ Failed to create filing task. Check API connection.");
       setIsCreateModalOpen(false);
     }
   };
