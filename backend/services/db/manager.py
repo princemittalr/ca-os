@@ -14,7 +14,7 @@ def get_clients() -> List[Dict[str, Any]]:
     if is_supabase_active():
         try:
             res = supabase_client.table("clients").select("*").eq("is_deleted", False).execute()
-            return res.data
+            return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
             
@@ -28,7 +28,7 @@ def get_client_by_id(client_id: str) -> Optional[Dict[str, Any]]:
             # Handle both UUID and string IDs
             res = supabase_client.table("clients").select("*").eq("id", client_id).eq("is_deleted", False).execute()
             if res.data:
-                return res.data[0]
+                return cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
 
@@ -62,7 +62,7 @@ def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
             }
             res = supabase_client.table("clients").insert(payload).execute()
             if res.data:
-                return res.data[0]
+                return cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
@@ -96,7 +96,7 @@ def get_reconciliations(client_id: str) -> List[Dict[str, Any]]:
     if is_supabase_active():
         try:
             res = supabase_client.table("reconciliation_runs").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
-            return res.data
+            return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
 
@@ -136,7 +136,7 @@ def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, An
             supabase_client.table("reconciliation_runs").update({"is_deleted": True}).eq("client_id", client_id).eq("filing_period", payload["filing_period"]).execute()
             res = supabase_client.table("reconciliation_runs").insert(payload).execute()
             if res.data:
-                ret = res.data[0]
+                ret = cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
@@ -169,8 +169,8 @@ def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, An
         cw.MOCK_RECON_HISTORY = MOCK_RECON_HISTORY
         ret = new_run
 
-    sync_reconciliation_to_action_engine(client_id, ret)
-    return ret
+    sync_reconciliation_to_action_engine(client_id, cast(Dict[str, Any], ret))
+    return cast(Dict[str, Any], ret)
 
 # -------------------------------------------------------------------------
 # COMPLIANCE DEADLINES CRUD ABSTRACTION
@@ -191,7 +191,8 @@ def get_compliance(client_id: Optional[str] = None,
             if assigned_to:
                 q = q.eq("assigned_to", assigned_to)
             res = q.execute()
-            return res.data
+            from services.compliance_engine import evaluate_status_and_risk
+            return [evaluate_status_and_risk(task) for task in cast(List[Dict[str, Any]], res.data)]
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
 
@@ -217,7 +218,7 @@ def create_compliance(data: Dict[str, Any]) -> Dict[str, Any]:
             }
             res = supabase_client.table("compliance_tasks").insert(payload).execute()
             if res.data:
-                return res.data[0]
+                return cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
@@ -230,7 +231,7 @@ def update_compliance_status(comp_id: str, new_status: str) -> Optional[Dict[str
         try:
             res = supabase_client.table("compliance_tasks").update({"status": new_status}).eq("compliance_id", comp_id).execute()
             if res.data:
-                return res.data[0]
+                return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
@@ -243,7 +244,7 @@ def update_compliance_assignment(comp_id: str, staff: str) -> Optional[Dict[str,
         try:
             res = supabase_client.table("compliance_tasks").update({"assigned_to": staff}).eq("compliance_id", comp_id).execute()
             if res.data:
-                return res.data[0]
+                return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
@@ -258,7 +259,7 @@ def get_communications(client_id: str) -> List[Dict[str, Any]]:
     if is_supabase_active():
         try:
             res = supabase_client.table("communications").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
-            return res.data
+            return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
 
@@ -284,7 +285,7 @@ def create_communication(data: Dict[str, Any]) -> Dict[str, Any]:
             }
             res = supabase_client.table("communications").insert(payload).execute()
             if res.data:
-                return res.data[0]
+                return cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
@@ -312,7 +313,7 @@ def get_action_items() -> List[Dict[str, Any]]:
         try:
             res = supabase_client.table("action_items").select("*").eq("status", "PENDING").eq("is_deleted", False).execute()
             # Sort by risk score descending
-            data = res.data
+            data = cast(List[Dict[str, Any]], res.data)
             data.sort(key=lambda x: float(x.get("risk_score", 0.0)), reverse=True)
             return data
         except Exception as e:
@@ -327,7 +328,7 @@ def resolve_action_item(action_id: str) -> Optional[Dict[str, Any]]:
         try:
             res = supabase_client.table("action_items").update({"status": "RESOLVED"}).eq("action_id", action_id).execute()
             if res.data:
-                return res.data[0]
+                return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
@@ -380,7 +381,7 @@ def get_jobs() -> List[Dict[str, Any]]:
     if is_supabase_active():
         try:
             res = supabase_client.table("jobs").select("*").order("created_at", desc=True).execute()
-            return res.data
+            return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
     return MOCK_JOBS
@@ -390,7 +391,7 @@ def get_job_by_id(job_id: str) -> Optional[Dict[str, Any]]:
         try:
             res = supabase_client.table("jobs").select("*").eq("job_id", job_id).execute()
             if res.data:
-                return res.data[0]
+                return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
     for j in MOCK_JOBS:
@@ -411,9 +412,9 @@ def create_job(job_type: str, status: str = "PENDING") -> Dict[str, Any]:
     }
     if is_supabase_active():
         try:
-            res = supabase_client.table("jobs").insert(new_job).execute()
+            res = supabase_client.table("jobs").insert(cast(Any, new_job)).execute()
             if res.data:
-                return res.data[0]
+                return cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
     
@@ -425,7 +426,7 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
         try:
             res = supabase_client.table("jobs").update(updates).eq("job_id", job_id).execute()
             if res.data:
-                return res.data[0]
+                return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
             
@@ -443,7 +444,7 @@ def get_notifications_log() -> List[Dict[str, Any]]:
     if is_supabase_active():
         try:
             res = supabase_client.table("notifications_log").select("*").order("sent_at", desc=True).execute()
-            return res.data
+            return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
     return MOCK_NOTIFICATIONS
@@ -460,9 +461,9 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
     }
     if is_supabase_active():
         try:
-            res = supabase_client.table("notifications_log").insert(new_notif).execute()
+            res = supabase_client.table("notifications_log").insert(cast(Any, new_notif)).execute()
             if res.data:
-                return res.data[0]
+                return cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
             
@@ -482,7 +483,7 @@ def get_notices(client_id: Optional[str] = None) -> List[Dict[str, Any]]:
             if client_id:
                 q = q.eq("client_id", client_id)
             res = q.order("risk_level", desc=True).execute()
-            return res.data
+            return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
     
@@ -495,7 +496,7 @@ def get_notice_by_id(notice_id: str) -> Optional[Dict[str, Any]]:
         try:
             res = supabase_client.table("gst_notices").select("*").eq("id", notice_id).eq("is_deleted", False).execute()
             if res.data:
-                return res.data[0]
+                return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
             
@@ -564,9 +565,9 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(payload["updated_at"], (date, datetime)):
                 payload["updated_at"] = payload["updated_at"].isoformat()
             
-            res = supabase_client.table("gst_notices").insert(payload).execute()
+            res = supabase_client.table("gst_notices").insert(cast(Any, payload)).execute()
             if res.data:
-                ret = res.data[0]
+                ret = cast(Dict[str, Any], res.data[0])
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
             
@@ -574,8 +575,8 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
         MOCK_NOTICES.insert(0, new_notice)
         ret = new_notice
 
-    sync_notice_to_action_engine(ret)
-    return ret
+    sync_notice_to_action_engine(cast(Dict[str, Any], ret))
+    return cast(Dict[str, Any], ret)
 
 def update_notice_status(notice_id: str, new_status: str) -> Optional[Dict[str, Any]]:
     ret = None
@@ -596,8 +597,8 @@ def update_notice_status(notice_id: str, new_status: str) -> Optional[Dict[str, 
                 break
                 
     if ret:
-        sync_notice_to_action_engine(ret)
-    return ret
+        sync_notice_to_action_engine(cast(Dict[str, Any], ret))
+    return cast(Optional[Dict[str, Any]], ret)
 
 
 # -------------------------------------------------------------------------
