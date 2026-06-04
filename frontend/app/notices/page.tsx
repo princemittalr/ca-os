@@ -62,13 +62,6 @@ interface NoticeDossier {
   questions_for_client: string[];
 }
 
-const MOCK_CLIENTS = [
-  { id: 'client-1', business_name: 'TechNova Solutions Pvt Ltd', gstin: '27AAACT1234A1Z5' },
-  { id: 'client-2', business_name: 'Apex Innovations Pvt Ltd', gstin: '29AABCA5678B1Z3' },
-  { id: 'client-3', business_name: 'Wayne Enterprises Ltd', gstin: '07AABCW9012C1Z1' },
-  { id: 'client-4', business_name: 'Global Trade LLC', gstin: '24AABCG3456D1Z7' },
-  { id: 'client-5', business_name: 'Sharma Traders', gstin: '09AABCS7890E1Z9' }
-];
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -82,6 +75,7 @@ export default function NoticeIntelligenceCenter() {
   const [uploadClientId, setUploadClientId] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [uploadClients, setUploadClients] = useState<{id: string; business_name: string; gstin: string}[]>([]);
 
   // Response drafting states
   const [isDrafting, setIsDrafting] = useState(false);
@@ -104,6 +98,13 @@ export default function NoticeIntelligenceCenter() {
 
   useEffect(() => {
     fetchNotices();
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/clients/`)
+      .then(r => r.json())
+      .then(data => setUploadClients(data))
+      .catch(() => setUploadClients([]));
   }, []);
 
   // Initialize checklists when selectedNotice changes
@@ -142,85 +143,8 @@ export default function NoticeIntelligenceCenter() {
       const data = await res.json();
       setNotices(data);
     } catch (err) {
-      console.error(err);
-      // Fallback local structures
-      const fallbackNotices: NoticeDossier[] = [
-        {
-          id: "notice-1",
-          client_id: "client-1",
-          client_name: "TechNova Solutions Pvt Ltd",
-          notice_number: "GST/TNV/2026/DRC-01/108",
-          issuing_authority: "Deputy Commissioner of Central Tax, Mumbai",
-          section_references: ["Section 73", "Section 16(4)"],
-          notice_type: "DRC-01",
-          tax_amount: 185000.0,
-          due_date: "2026-06-15",
-          hearing_date: "2026-06-10",
-          summary: "Show cause notice under Section 73 regarding input tax credit mismatches between Books and GSTR-2B register for FY 2025-26.",
-          risk_level: "HIGH",
-          risk_score: 85.0,
-          complexity_score: "Complex",
-          recommended_next_action: "Obtain Vendor Confirmation",
-          interest_exposure_est: 33300.0,
-          penalty_exposure_est: 18500.0,
-          total_exposure_est: 236800.0,
-          required_action: "Verify matching invoices from Sharma Traders and submit reply before June 15.",
-          status: "PENDING",
-          file_path: "/uploads/notices/technova_drc01.pdf",
-          raw_ocr_text: "OFFICE OF THE DEPUTY COMMISSIONER OF CENTRAL TAX... SHOW CAUSE NOTICE UNDER SECTION 73... GSTIN: 27AAACT1234A1Z5... REFERENCE NO: GST/TNV/2026/DRC-01/108...",
-          gstin: "27AAACT1234A1Z5",
-          supporting_evidence: [
-            "Purchase Register Matching GSTR-2B",
-            "Original Purchase Tax Invoices",
-            "Vendor Payment Proofs (Bank Statement)"
-          ],
-          missing_documents: [
-            "Supplier GSTR-1 Filing Confirmation",
-            "E-way bill copies for transport verification"
-          ],
-          questions_for_client: [
-            "Have payments to the vendor been made within 180 days of the invoice date?",
-            "Can you confirm physical receipt of goods for the disputed invoices?"
-          ]
-        },
-        {
-          id: "notice-2",
-          client_id: "client-5",
-          client_name: "Sharma Traders",
-          notice_number: "GST/SHR/2026/ASMT-10/409",
-          issuing_authority: "State Tax Officer, Uttar Pradesh",
-          section_references: ["Section 61", "Section 50"],
-          notice_type: "ASMT-10",
-          tax_amount: 45000.0,
-          due_date: "2026-06-05",
-          hearing_date: null,
-          summary: "Scrutiny notice under Section 61 for tax discrepancies on GSTR-1 vs GSTR-3B filings for Q3 FY 2025-26.",
-          risk_level: "MEDIUM",
-          risk_score: 45.0,
-          complexity_score: "Moderate",
-          recommended_next_action: "Request Documents",
-          interest_exposure_est: 8100.0,
-          penalty_exposure_est: 10000.0,
-          total_exposure_est: 63100.0,
-          required_action: "Reconcile out-of-period sales reports and file DRC-03 if tax liability is confirmed.",
-          status: "DRAFTED",
-          file_path: "/uploads/notices/sharma_asmt10.pdf",
-          raw_ocr_text: "DEPARTMENT OF STATE TAX, UTTAR PRADESH... SCRUTINY OF RETURN UNDER SECTION 61... REFERENCE NO: GST/SHR/2026/ASMT-10/409...",
-          gstin: "09AABCS7890E1Z9",
-          supporting_evidence: [
-            "Reconciliation Statement GSTR-2B vs Books",
-            "Tax Purchase Ledger Entries"
-          ],
-          missing_documents: [
-            "GSTR-1 upload receipts from the supplier"
-          ],
-          questions_for_client: [
-            "Do we have tax invoices matching these discrepancy values?",
-            "Are there any out-of-period sales invoices filed in Q4 that belonged to Q3?"
-          ]
-        }
-      ];
-      setNotices(fallbackNotices);
+      console.error("Notices fetch failed:", err);
+      setNotices([]);
     } finally {
       setIsLoading(false);
     }
@@ -336,59 +260,11 @@ For ${selectedNotice?.client_name}`;
       setUploadClientId("");
       setSelectedNotice(newNotice);
     } catch (err) {
-      console.error(err);
-      
-      // Load fallback notice dossier
-      const clientProfile = MOCK_CLIENTS.find(c => c.id === uploadClientId);
-      const randTax = Math.floor(Math.random() * 120000) + 40000;
-      const randInterest = Math.round(randTax * 0.18);
-      const randPenalty = Math.max(10000, Math.round(randTax * 0.10));
-      const randTotal = randTax + randInterest + randPenalty;
-      const randNo = Math.floor(Math.random() * 800) + 100;
-      
-      const mockResult: NoticeDossier = {
-        id: `notice-${Date.now()}`,
-        client_id: uploadClientId,
-        client_name: clientProfile?.business_name || "TechNova Solutions",
-        notice_number: `GST/REF/2026/ASMT-10/${randNo}`,
-        issuing_authority: "Assistant Commissioner of Central Tax, GST Audit Commissionerate",
-        section_references: ["Section 61", "Section 50"],
-        notice_type: "ASMT-10",
-        tax_amount: randTax,
-        due_date: "2026-06-25",
-        hearing_date: "2026-06-20",
-        summary: `Scrutiny notice under Section 61 identifying a mismatch in tax liability between GSTR-1 outward files and GSTR-3B filings for current fiscal quarter.`,
-        risk_level: randTax > 100000 ? "HIGH" : "MEDIUM",
-        risk_score: randTax > 100000 ? 78 : 52,
-        complexity_score: randTax > 100000 ? "Complex" : "Moderate",
-        recommended_next_action: "Prepare Reply",
-        interest_exposure_est: randInterest,
-        penalty_exposure_est: randPenalty,
-        total_exposure_est: randTotal,
-        required_action: "Verify books and compile sales report mismatch reconciliations.",
-        status: "PENDING",
-        file_path: `/uploads/notices/${uploadFile.name}`,
-        raw_ocr_text: `GOVERNMENT OF INDIA... DEPARTMENT OF REVENUE... NOTICE REFERRING SECTION 61...`,
-        gstin: clientProfile?.gstin || "27AAACT1234A1Z5",
-        supporting_evidence: [
-          "Purchase Ledger Entries",
-          "GST Reconciliation Statement"
-        ],
-        missing_documents: [
-          "GSTR-1 upload receipts from the supplier"
-        ],
-        questions_for_client: [
-          "Do we have tax invoices matching these discrepancy values?",
-          "Are there any out-of-period sales invoices filed in Q4 that belonged to Q3?"
-        ]
-      };
-
-      setNotices(prev => [mockResult, ...prev]);
-      setShowUploadModal(false);
-      setFile(null);
-      setUploadClientId("");
-      setSelectedNotice(mockResult);
-      showToast("✓ Fallback simulation processed in 1.4s.");
+      console.error("Notice upload failed:", err);
+      showToast("⚠ Notice parsing failed. Please check the file and try again.");
+      clearInterval(progTimer);
+      setUploadProgress(0);
+      setIsUploading(false);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -667,7 +543,7 @@ For ${selectedNotice?.client_name}`;
                 className="w-full bg-white border border-slate-200/80 rounded-lg px-2 py-1 text-[10px] font-bold text-slate-700 focus:outline-none cursor-pointer"
               >
                 <option value="ALL">All Clients</option>
-                {MOCK_CLIENTS.map(c => (
+                {uploadClients.map(c => (
                   <option key={c.id} value={c.id}>{c.business_name.split(' ')[0]}</option>
                 ))}
               </select>
@@ -1349,7 +1225,7 @@ For ${selectedNotice?.client_name}`;
                   className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-4 text-[11px] font-bold text-slate-700 focus:outline-none focus:border-[#4F46E5]/40 transition-all cursor-pointer"
                 >
                   <option value="" disabled>Choose a business client...</option>
-                  {MOCK_CLIENTS.map(c => (
+                  {uploadClients.map(c => (
                     <option key={c.id} value={c.id}>{c.business_name} ({c.gstin})</option>
                   ))}
                 </select>
