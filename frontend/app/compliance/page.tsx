@@ -28,7 +28,8 @@ import {
   CheckSquare,
   ShieldAlert,
   Sparkles,
-  FileWarning
+  FileWarning,
+  Check
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -1229,61 +1230,90 @@ export default function ComplianceOperationsCenter() {
                 </div>
               </div>
 
-              <div className="space-y-3.5 max-h-[315px] overflow-y-auto pr-1">
-                {tasks.filter(t => t.status !== 'Filed').slice(0, 5).map(task => {
-                  const style = getStatusStyle(task.status);
-                  const clientName = clientsMap[task.client_id] || CLIENTS_LOOKUP[task.client_id] || "Client Firm";
-                  const level = getEscalationLevel(task);
+              <div className="data-table-shell">
+                <div className="overflow-x-auto hidden-scrollbar">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>Client Entity</th>
+                        <th>Period</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th className="text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tasks.filter(t => t.status !== 'Filed').slice(0, 5).length > 0 ? (
+                        tasks.filter(t => t.status !== 'Filed').slice(0, 5).map(task => {
+                          const clientName = clientsMap[task.client_id] || CLIENTS_LOOKUP[task.client_id] || "Client Firm";
+                          const level = getEscalationLevel(task);
 
-                  return (
-                    <div key={task.compliance_id} className="p-3.5 border border-slate-200/80 bg-slate-50/10 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all hover:bg-slate-50/50">
-                      <div className="flex items-center gap-3 w-full sm:w-auto">
-                        {/* [badge] column */}
-                        <div className="flex flex-col gap-1 shrink-0 items-center justify-center">
-                          <span className="bg-slate-100 border border-slate-200 text-slate-700 px-2 py-0.5 rounded text-[8.5px] font-black uppercase tracking-wider font-mono text-center block w-full">
-                            {task.compliance_type}
-                          </span>
-                          {level >= 2 ? (
-                            <span className="status-badge status-badge-error" style={{ minWidth: '70px', height: '18px', padding: '0 4px', fontSize: '8.5px' }}>
-                              OVERDUE
-                            </span>
-                          ) : level === 1 ? (
-                            <span className="status-badge status-badge-warning" style={{ minWidth: '70px', height: '18px', padding: '0 4px', fontSize: '8.5px' }}>
-                              DUE SOON
-                            </span>
-                          ) : (
-                            <span className="status-badge status-badge-neutral" style={{ minWidth: '70px', height: '18px', padding: '0 4px', fontSize: '8.5px' }}>
-                              UPCOMING
-                            </span>
-                          )}
-                        </div>
-
-                        {/* [client name + period + due date] column */}
-                        <div className="space-y-0.5 min-w-0">
-                          <h4 className="text-[12px] font-black text-slate-800 truncate max-w-[200px]" title={clientName}>{clientName}</h4>
-                          <span className="text-[10px] text-secondary block font-mono">
-                            Period: {task.filing_period} · Due: {task.due_date}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
-                        <button
-                          onClick={() => handleMarkAsFiled(task.compliance_id)}
-                          className="btn btn-success btn-sm"
-                        >
-                          Mark Filed
-                        </button>
-                        <button
-                          onClick={() => handleGenerateReminder(task)}
-                          className="btn btn-secondary btn-sm"
-                        >
-                          Outreach
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                          return (
+                            <tr key={task.compliance_id}>
+                              <td>
+                                <span className="bg-slate-100 border border-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider font-mono">
+                                  {task.compliance_type}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="font-bold text-slate-800">{clientName}</span>
+                              </td>
+                              <td>
+                                <span className="font-mono text-[12px]">{task.filing_period}</span>
+                              </td>
+                              <td>
+                                <span className="font-mono text-[12px]">{task.due_date}</span>
+                              </td>
+                              <td>
+                                {level >= 2 ? (
+                                  <span className="status-badge status-badge-error">
+                                    OVERDUE
+                                  </span>
+                                ) : level === 1 ? (
+                                  <span className="status-badge status-badge-warning">
+                                    DUE SOON
+                                  </span>
+                                ) : (
+                                  <span className="status-badge status-badge-neutral">
+                                    UPCOMING
+                                  </span>
+                                )}
+                              </td>
+                              <td className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => handleMarkAsFiled(task.compliance_id)}
+                                    className="action-btn"
+                                    title="Mark Filed"
+                                  >
+                                    <Check />
+                                  </button>
+                                  <button
+                                    onClick={() => handleGenerateReminder(task)}
+                                    className="action-btn"
+                                    title="Outreach Email"
+                                  >
+                                    <Mail />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={6}>
+                            <div className="flex flex-col items-center justify-center py-8 gap-2">
+                              <CheckCircle2 size={20} className="text-[#D1D5DB]" />
+                              <span className="text-[13px] text-[#6B7280]">No records found</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

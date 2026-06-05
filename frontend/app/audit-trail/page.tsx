@@ -378,11 +378,11 @@ export default function AuditTrailPage() {
                 <th>Action Code</th>
                 <th>Entity Target</th>
                 <th style={{ maxWidth: 400 }}>Detailed Event Description</th>
-                <th className="text-right">IP Address</th>
+                <th className="num-col">IP Address</th>
                 <th style={{ width: 32 }}></th>
               </tr>
             </thead>
-            <tbody className="font-sans">
+            <tbody>
               {isLoadingLogs ? (
                 <tr><td colSpan={7} className="text-center py-12 text-secondary text-xs font-bold">Loading audit logs...</td></tr>
               ) : filteredLogs.length > 0 ? (
@@ -395,21 +395,20 @@ export default function AuditTrailPage() {
                       <tr
                         id={`row-${log.id}`}
                         onClick={() => toggleRowExpand(log.id)}
-                        className="data-table-row-clickable group"
-                        style={{ verticalAlign: 'middle' }}
+                        className={`data-table-row-clickable ${isExpanded ? 'selected' : ''}`}
                       >
                         {/* ── Timestamp: two-line ── */}
-                        <td style={{ verticalAlign: 'middle' }}>
+                        <td>
                           <div className="audit-timestamp-primary">{dateLabel}</div>
                           <div className="audit-timestamp-secondary">{timeLabel}</div>
                         </td>
 
                         {/* ── User Profile: avatar + name, or em dash ── */}
-                        <td style={{ verticalAlign: 'middle' }}>
+                        <td>
                           {log.user ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <span className="audit-avatar">{getInitial(log.user)}</span>
-                              <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+                              <span style={{ fontWeight: 500 }}>
                                 {log.user}
                               </span>
                             </div>
@@ -418,20 +417,20 @@ export default function AuditTrailPage() {
                           )}
                         </td>
 
-                        {/* ── Action Code — Phase 4 badge ── */}
-                        <td style={{ verticalAlign: 'middle' }}>
+                        {/* ── Action Code ── */}
+                        <td>
                           <span className={`status-badge status-badge-action ${getActionBadgeStyle(log.action)}`}>
                             {log.action}
                           </span>
                         </td>
 
                         {/* ── Entity Target ── */}
-                        <td style={{ verticalAlign: 'middle' }}>
+                        <td>
                           <span className="audit-entity">{log.entity}</span>
                         </td>
 
-                        {/* ── Detailed Description — truncated, title for tooltip ── */}
-                        <td style={{ verticalAlign: 'middle' }}>
+                        {/* ── Detailed Description ── */}
+                        <td>
                           <span
                             className="audit-desc-cell"
                             title={log.details}
@@ -440,24 +439,25 @@ export default function AuditTrailPage() {
                           </span>
                         </td>
 
-                        {/* ── IP Address — monospace ── */}
-                        <td className="text-right" style={{ verticalAlign: 'middle' }}>
-                          <span className="audit-ip">{log.ip_address}</span>
+                        {/* ── IP Address ── */}
+                        <td className="num-col">
+                          <span>{log.ip_address}</span>
                         </td>
 
                         {/* ── Chevron toggle ── */}
-                        <td style={{ verticalAlign: 'middle', paddingLeft: 4, paddingRight: 12 }}>
-                          <ChevronDown
-                            id={`chevron-${log.id}`}
-                            size={15}
-                            className={`audit-row-chevron${isExpanded ? ' open' : ''}`}
-                          />
+                        <td className="text-right">
+                          <button className="action-btn" aria-label="Toggle Log details">
+                            <ChevronDown
+                              id={`chevron-${log.id}`}
+                              className={`audit-row-chevron${isExpanded ? ' open' : ''}`}
+                            />
+                          </button>
                         </td>
                       </tr>
 
                       {/* ── 5. Expanded detail row ── */}
-                      <tr>
-                        <td colSpan={7} style={{ padding: 0, borderBottom: isExpanded ? '1px solid var(--color-border)' : undefined }}>
+                      <tr className={isExpanded ? 'selected' : ''}>
+                        <td colSpan={7} style={{ padding: 0 }}>
                           <div className={`audit-detail-row${isExpanded ? ' expanded' : ''}`}>
                             <div className="audit-detail-inner">
                               <p className="audit-detail-desc">{log.details}</p>
@@ -476,10 +476,9 @@ export default function AuditTrailPage() {
                 /* ── 6. EMPTY STATE ── */
                 <tr>
                   <td colSpan={7}>
-                    <div className="audit-empty-state">
-                      <Shield size={64} className="audit-empty-icon" strokeWidth={1.4} />
-                      <h3 className="audit-empty-title">No audit events found</h3>
-                      <p className="audit-empty-sub">Adjust filters or date range</p>
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                      <Shield size={20} className="text-[#D1D5DB]" />
+                      <span className="text-[13px] text-[#6B7280]">No records found</span>
                     </div>
                   </td>
                 </tr>

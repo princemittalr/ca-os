@@ -579,237 +579,101 @@ export default function SmartActionCenter() {
                 <div key={i} className="h-44 bg-slate-50 border border-slate-100 rounded-[24px] animate-pulse"></div>
               ))}
             </div>
-          ) : filteredActions.length > 0 ? (
-            <div className="space-y-5">
-              {filteredActions.map((act) => {
-                // Determine layout accent colors based on priority level
-                const cardBorderClass = act.priority === 'HIGH' 
-                  ? 'card-variant-critical' 
-                  : act.priority === 'MEDIUM' 
-                    ? 'card-variant-warning' 
-                    : '';
-
-                // Attempt to extract currency amount from narrative block
-                const matches = act.description.match(/₹([0-9.,L]+)/);
-                const exposureString = matches ? matches[0] : null;
-
-                return (
-                  <div 
-                    key={act.action_id}
-                    className={`std-card ${cardBorderClass} hover:border-slate-300 hover:shadow-card-hover transition-all duration-300 flex flex-col justify-between relative`}
-                  >
-                    
-                    {/* Header Row: Client details, severity, status */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 mb-4">
-                      
-                      {/* Client Meta Block */}
-                      <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block font-mono">CLIENT PORTFOLIO</span>
-                        <div className="flex items-center gap-2">
-                          <Link href={`/clients/${act.client_id}`}>
-                            <span className="text-[12px] uppercase font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary-light)] transition-colors cursor-pointer leading-tight">
-                              {act.client_name}
-                            </span>
-                          </Link>
-                          <span 
-                            className="text-[11px] font-bold text-[var(--color-error)] bg-[var(--color-error-soft)] rounded-[var(--radius-full)] font-mono"
-                            style={{ padding: '2px 8px' }}
-                          >
-                            {act.risk_score.toFixed(0)}/100
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Status, Severity & Risk badges */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={`status-badge ${getUnifiedBadgeClass(act.priority === 'HIGH' ? 'ERROR' : act.priority === 'MEDIUM' ? 'WARNING' : 'NEUTRAL')}`}>
-                          {act.priority} SEVERITY
-                        </span>
-                        <span className={`status-badge ${getUnifiedBadgeClass(act.status)}`}>
-                          {act.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Middle Row: Content and Narrative Details */}
-                    <div className="space-y-3.5">
-                      
-                      {/* Title block */}
-                      <div>
-                        <h3 className="text-[16px] font-semibold text-[var(--color-text-primary)] mt-2 mb-1 leading-snug">
-                          {act.title}
-                        </h3>
-                        <p className="text-[14px] text-[var(--color-text-secondary)] leading-[1.5] font-normal">
-                          {act.description}
-                        </p>
-                      </div>
-
-                      {/* Recommended action box (explicit callout) */}
-                      <div className="flex flex-col my-3">
-                        <span 
-                          className="text-[11px] uppercase tracking-[0.08em] text-[var(--color-primary-light)] font-bold"
-                          style={{
-                            borderLeft: '3px solid var(--color-primary-light)',
-                            paddingLeft: '10px',
-                            margin: '12px 0 6px 0'
-                          }}
-                        >
-                          RECOMMENDED WORKFLOW ACTION
-                        </span>
-                        <span className="text-[14px] font-medium text-[var(--color-text-primary)] leading-normal">
-                          {act.recommended_action}
-                        </span>
-                      </div>
-
-                      {/* Financial Impact & AI Summary desk */}
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 pt-3 border-t border-slate-100">
-                        
-                        {/* Left: Financial exposure (Explicit Callout) */}
-                        <div className="md:col-span-2 flex flex-col justify-center space-y-1">
-                          <span className="text-[9px] font-black text-slate-400 tracking-wider uppercase block font-mono">FINANCIAL EXPOSURE</span>
-                          {exposureString || act.category === 'RECONCILIATION' || act.category === 'VENDOR' ? (
-                            <div 
-                              className="inline-flex items-center gap-1.5 w-fit font-mono"
-                              style={{
-                                background: 'var(--color-error-soft)',
-                                borderRadius: 'var(--radius-full)',
-                                padding: '4px 12px',
-                                fontSize: '13px',
-                                fontWeight: 700,
-                                color: 'var(--color-error)'
-                              }}
-                            >
-                              <AlertTriangle size={12} className="text-[var(--color-error)]" />
-                              <span className="leading-none">
-                                {exposureString || "High value mismatched"}
-                              </span>
-                            </div>
-                          ) : (
-                            <div 
-                              className="inline-flex items-center gap-1.5 w-fit"
-                              style={{
-                                background: 'var(--color-surface-hover)',
-                                borderRadius: 'var(--radius-full)',
-                                padding: '4px 12px',
-                                fontSize: '13px',
-                                fontWeight: 500,
-                                color: 'var(--color-text-secondary)'
-                              }}
-                            >
-                              <HelpCircle size={12} />
-                              <span className="leading-none">Material assessment</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Right: AI narrative insight & impact summary */}
-                        <div 
-                          className="md:col-span-3 flex flex-col justify-center space-y-1.5"
-                          style={{
-                            background: 'var(--color-surface)',
-                            borderRadius: 'var(--radius-md)',
-                            padding: '12px',
-                            margin: '12px 0'
-                          }}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Sparkles size={12} className="text-[var(--color-primary-light)]" />
-                            <span className="text-[11px] uppercase font-semibold text-[var(--color-primary-light)]">
-                              AI PREDICTION INSIGHT
-                            </span>
-                          </div>
-                          <p 
-                            className="text-[13px] text-[var(--color-text-secondary)] leading-[1.5]"
-                            style={{ fontStyle: 'normal' }}
-                          >
-                            {act.ai_summary}
-                          </p>
-                          <div className="flex items-center gap-1">
-                            <CheckCircle2 size={13} className="shrink-0 text-[var(--color-success)]" />
-                            <span className="text-[13px] font-semibold text-[var(--color-success)]">
-                              Impact Resolve: {act.predicted_impact}
-                            </span>
-                          </div>
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* Footer Row: Assign staff dropdown, deadlines and resolve buttons */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 mt-5 pt-4 border-t border-slate-100">
-                      
-                      <div className="flex items-center gap-3">
-                        {/* Deadline timestamp */}
-                        <div className="flex items-center gap-1.5 text-slate-400 font-bold text-[11px] font-mono">
-                          <Calendar size={12} className="text-slate-400" />
-                          <span>Deadline: {act.deadline}</span>
-                        </div>
-
-                        {/* Assign Picker Dropdown */}
-                        <div className="relative flex items-center bg-[var(--color-surface)] border border-[var(--color-border-strong)] rounded-lg px-2 py-0.5 text-slate-700">
-                          <div className="w-4 h-4 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] flex items-center justify-center mr-1.5 shrink-0">
-                            <User size={8} className="text-[var(--color-primary-light)]" />
-                          </div>
-                          <select 
-                            onChange={(e) => handleAssignStaff(act.action_id, e.target.value)}
-                            className="bg-transparent border-none text-[11px] font-bold text-[var(--color-text-secondary)] focus:outline-none cursor-pointer max-w-[7.5rem] pr-2.5 truncate"
-                            defaultValue="Aditya Rao"
-                            aria-label={`Assign ${act.client_name}`}
-                          >
-                            <option value="Aditya Rao">Aditya Rao</option>
-                            <option value="Neha Sharma">Neha Sharma</option>
-                            <option value="Rohan Mehta">Rohan Mehta</option>
-                            <option value="Kunal Sen">Kunal Sen</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Interactive Trigger Drawer */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* Dynamic category-based workflow options */}
-                        {act.category === 'VENDOR' && (
-                          <button 
-                            onClick={() => handleGenerateOutreach(act)}
-                            className="btn btn-secondary btn-sm flex items-center gap-1"
-                          >
-                            <Copy size={10} />
-                            <span>Outreach</span>
-                          </button>
-                        )}
-
-                        {/* Open target Workspace context link */}
-                        <Link href={act.category === 'RECONCILIATION' ? `/gst-recon?client=${act.client_id}` : `/clients/${act.client_id}`}>
-                          <button 
-                            className="btn btn-ghost btn-sm flex items-center gap-1"
-                          >
-                            <span>Open</span>
-                            <ExternalLink size={10} />
-                          </button>
-                        </Link>
-
-                        {/* Standard Action Resolve */}
-                        <button 
-                          onClick={() => handleResolveAction(act.action_id)}
-                          className="btn btn-success btn-sm flex items-center gap-1"
-                        >
-                          <Check size={10} />
-                          <span>Resolve</span>
-                        </button>
-                      </div>
-
-                    </div>
-
-                  </div>
-                );
-              })}
-            </div>
           ) : (
-            <div className="std-card p-16 text-center space-y-4">
-              <CheckCircle2 size={42} className="mx-auto text-[var(--color-success)]" />
-              <div>
-                <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider block font-mono">Queue Cleared</h4>
-                <p className="text-[11px] text-slate-400 font-medium mt-1">Excellent work! No unresolved action items found inside this folder.</p>
+            <div className="data-table-shell">
+              <div className="overflow-x-auto hidden-scrollbar">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Severity</th>
+                      <th>Client Portfolio</th>
+                      <th>Action Required</th>
+                      <th className="num-col">Exposure</th>
+                      <th>Deadline</th>
+                      <th>Staff</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredActions.length > 0 ? (
+                      filteredActions.map((act) => {
+                        const matches = act.description.match(/₹([0-9.,L]+)/);
+                        const exposureString = matches ? matches[0] : null;
+
+                        return (
+                          <tr key={act.action_id}>
+                            <td>
+                              <span className={`status-badge ${getUnifiedBadgeClass(act.priority === 'HIGH' ? 'ERROR' : act.priority === 'MEDIUM' ? 'WARNING' : 'NEUTRAL')}`}>
+                                {act.priority}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="font-semibold text-slate-900">{act.client_name}</div>
+                              <div className="text-[11px] text-slate-400 mt-0.5 font-mono">Risk: {act.risk_score.toFixed(0)}%</div>
+                            </td>
+                            <td>
+                              <div className="font-semibold text-slate-800 line-clamp-1">{act.title}</div>
+                              <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{act.description}</div>
+                            </td>
+                            <td className="num-col">
+                              {exposureString || "Material"}
+                            </td>
+                            <td className="font-mono text-[12px]">
+                              {act.deadline}
+                            </td>
+                            <td>
+                              <select 
+                                onChange={(e) => handleAssignStaff(act.action_id, e.target.value)}
+                                className="bg-transparent border-none text-[12px] text-slate-600 focus:outline-none cursor-pointer font-medium"
+                                defaultValue="Aditya Rao"
+                                aria-label={`Assign ${act.client_name}`}
+                              >
+                                <option value="Aditya Rao">Aditya Rao</option>
+                                <option value="Neha Sharma">Neha Sharma</option>
+                                <option value="Rohan Mehta">Rohan Mehta</option>
+                                <option value="Kunal Sen">Kunal Sen</option>
+                              </select>
+                            </td>
+                            <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                {act.category === 'VENDOR' && (
+                                  <button 
+                                    onClick={() => handleGenerateOutreach(act)}
+                                    className="action-btn"
+                                    title="Outreach"
+                                  >
+                                    <Copy />
+                                  </button>
+                                )}
+                                <Link href={act.category === 'RECONCILIATION' ? `/gst-recon?client=${act.client_id}` : `/clients/${act.client_id}`} title="Open Workspace">
+                                  <button className="action-btn">
+                                    <ExternalLink />
+                                  </button>
+                                </Link>
+                                <button 
+                                  onClick={() => handleResolveAction(act.action_id)}
+                                  className="action-btn"
+                                  title="Resolve"
+                                >
+                                  <Check />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={7}>
+                          <div className="flex flex-col items-center justify-center py-8 gap-2">
+                            <Inbox size={20} className="text-[#D1D5DB]" />
+                            <span className="text-[13px] text-[#6B7280]">No records found</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

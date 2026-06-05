@@ -1009,24 +1009,24 @@ ${clientInfo?.business_name || 'Our Company'}`;
                 <div className="pt-3">
                   <span className="text-[9px] font-black uppercase text-slate-450 tracking-wider block mb-2 font-mono">Live Mapping Ingest Preview</span>
                   <div className="bg-slate-50 border border-slate-200/80 rounded-2xl overflow-hidden p-1 shadow-inner">
-                    <table className="w-full text-left text-[11px] font-mono">
-                      <thead className="text-slate-500 h-8 border-b border-slate-200">
+                    <table className="data-table">
+                      <thead>
                         <tr>
-                          <th className="pl-3.5 py-1 font-semibold text-[10px] uppercase">Invoice ID</th>
-                          <th className="py-1 font-semibold text-[10px] uppercase">Vendor GSTIN</th>
-                          <th className="pr-3.5 text-right py-1 font-semibold text-[10px] uppercase">Taxable Value</th>
+                          <th>Invoice ID</th>
+                          <th>Vendor GSTIN</th>
+                          <th className="num-col">Taxable Value</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-150 text-slate-700">
-                        <tr className="h-8">
-                          <td className="pl-3.5 text-slate-900 font-bold">INV/2024/00891</td>
-                          <td className="tracking-wide">27AAACG5678A1Z9</td>
-                          <td className="pr-3.5 text-right font-bold text-slate-900">₹1,50,000</td>
+                      <tbody>
+                        <tr>
+                          <td>INV/2024/00891</td>
+                          <td>27AAACG5678A1Z9</td>
+                          <td className="num-col">₹1,50,000</td>
                         </tr>
-                        <tr className="h-8">
-                          <td className="pl-3.5 text-slate-900 font-bold">INV/2024/00892</td>
-                          <td className="tracking-wide">27AAACG5678A1Z9</td>
-                          <td className="pr-3.5 text-right font-bold text-slate-900">₹75,000</td>
+                        <tr>
+                          <td>INV/2024/00892</td>
+                          <td>27AAACG5678A1Z9</td>
+                          <td className="num-col">₹75,000</td>
                         </tr>
                       </tbody>
                     </table>
@@ -1510,21 +1510,21 @@ ${clientInfo?.business_name || 'Our Company'}`;
 
                 {/* Table Component */}
                 <div className="overflow-x-auto border border-slate-100 rounded-2xl">
-                  <table className="w-full text-left border-collapse">
+                  <table className="data-table">
                     <thead>
-                      <tr className="text-[9.5px] font-black text-slate-400 uppercase tracking-wider h-10 border-b border-slate-200 bg-slate-50/50">
+                      <tr>
                         <th className="pl-4 w-9"><input type="checkbox" className="rounded border-slate-300 text-indigo-700" /></th>
-                        <th className="py-2.5">Supplier GSTIN</th>
-                        <th className="py-2.5">Invoice No</th>
-                        <th className="py-2.5">Date</th>
-                        <th className="py-2.5 text-right">2B Portal</th>
-                        <th className="py-2.5 text-right">PR Books</th>
-                        <th className="py-2.5 text-right">Diff Gap</th>
-                        <th className="py-2.5 pl-6">Status</th>
-                        <th className="pr-4 py-2.5 text-right">Actions</th>
+                        <th>Supplier GSTIN</th>
+                        <th>Invoice No</th>
+                        <th>Date</th>
+                        <th className="num-col">2B Portal</th>
+                        <th className="num-col">PR Books</th>
+                        <th className="num-col">Diff Gap</th>
+                        <th className="pl-6">Status</th>
+                        <th className="text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-[11.5px] font-mono text-slate-750">
+                    <tbody>
                       {filteredRows.length > 0 ? (
                         filteredRows.map((row) => {
                           const isReviewed = reviewedRows.includes(row.id);
@@ -1534,36 +1534,34 @@ ${clientInfo?.business_name || 'Our Company'}`;
                           return (
                             <tr
                               key={row.id}
-                              className={`hover:bg-slate-50/80 transition-all h-13 cursor-pointer ${
-                                isSelected ? 'bg-indigo-50/30' : ''
-                              } ${isReviewed ? 'opacity-50' : ''}`}
+                              className={`${isSelected ? 'selected' : ''} ${isReviewed ? 'opacity-50' : ''}`}
                               onClick={() => setSelectedRow(row)}
                             >
                               <td className="pl-4 relative" onClick={(e) => e.stopPropagation()}>
                                 <div className={`absolute top-0 bottom-0 left-0 w-[3px] ${
                                   row.status === 'matched' ? 'bg-emerald-500' :
                                   row.status === 'value_mismatch' ? 'bg-amber-500' :
-                                  row.status === 'missing_in_2b' ? 'bg-rose-500 animate-pulse' :
+                                  row.status === 'missing_in_2b' ? 'bg-rose-500' :
                                   row.status === 'gstin_mismatch' ? 'bg-amber-500' : 'bg-violet-500'
                                 }`}></div>
                                 <input type="checkbox" className="rounded border-slate-300 text-indigo-700" />
                               </td>
 
-                              <td className="py-2.5 text-slate-800 font-semibold tracking-tight">{row.supplier_gstin}</td>
-                              <td className="py-2.5 text-slate-900 font-extrabold">{row.invoice_number}</td>
-                              <td className="py-2.5 text-slate-500">{row.invoice_date}</td>
+                              <td className="text-slate-800 font-semibold tracking-tight">{row.supplier_gstin}</td>
+                              <td className="text-slate-900 font-extrabold">{row.invoice_number}</td>
+                              <td className="text-slate-500">{row.invoice_date}</td>
 
-                              <td className="py-2.5 text-right text-slate-800 font-semibold">
+                              <td className="num-col">
                                 {row.taxable_value_2b > 0 ? formatCurrency(row.taxable_value_2b) : '—'}
                               </td>
-                              <td className="py-2.5 text-right text-slate-800 font-semibold">
+                              <td className="num-col">
                                 {row.taxable_value_pr > 0 ? formatCurrency(row.taxable_value_pr) : '—'}
                               </td>
-                              <td className="py-2.5 text-right text-rose-600 font-extrabold">
+                              <td className="num-col text-rose-600 font-extrabold">
                                 {row.difference > 0 ? formatCurrency(row.difference) : '—'}
                               </td>
 
-                              <td className="py-2.5 pl-6">
+                              <td className="pl-6">
                                 <span className={`status-badge ${getUnifiedBadgeClass(
                                   row.status === 'matched' ? 'MATCHED' :
                                   row.status === 'value_mismatch' ? 'VALUE MISMATCH' :
@@ -1579,22 +1577,23 @@ ${clientInfo?.business_name || 'Our Company'}`;
                                 </span>
                               </td>
 
-                              <td className="pr-4 py-2.5 text-right" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-end gap-1.5 font-sans">
+                              <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-end gap-1 font-sans">
                                   {row.status === 'missing_in_2b' && (
                                     <button
                                       onClick={() => handleCopyEmail(row)}
-                                      className="h-7 px-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 hover:bg-slate-100 transition-all cursor-pointer font-sans"
+                                      className="action-btn"
+                                      title="Copy Supplier Outreach Email"
                                     >
-                                      <Mail size={10} className="text-slate-400" />
-                                      <span>Copy Outreach</span>
+                                      <Mail />
                                     </button>
                                   )}
                                   <button
                                     onClick={() => setSelectedRow(row)}
-                                    className="w-7 h-7 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 hover:text-indigo-700 hover:border-indigo-200 flex items-center justify-center transition-all cursor-pointer"
+                                    className="action-btn"
+                                    title="Open AI Explainer & Details"
                                   >
-                                    <ChevronRight size={12} />
+                                    <ChevronRight />
                                   </button>
                                 </div>
                               </td>
@@ -1603,8 +1602,11 @@ ${clientInfo?.business_name || 'Our Company'}`;
                         })
                       ) : (
                         <tr>
-                          <td colSpan={9} className="text-center py-10 font-sans text-xs font-bold text-slate-400">
-                            No ledger entries match selected filter keys.
+                          <td colSpan={9}>
+                            <div className="flex flex-col items-center justify-center py-8 gap-2">
+                              <FileSpreadsheet size={20} className="text-[#D1D5DB]" />
+                              <span className="text-[13px] text-[#6B7280]">No records found</span>
+                            </div>
                           </td>
                         </tr>
                       )}

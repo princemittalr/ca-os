@@ -582,11 +582,10 @@ export default function ClientPortfolioPage() {
           })}
         </div>
       );
-    } else {
-      return (
+    } else {      return (
         <div className="data-table-shell p-4">
           <div className="overflow-x-auto hidden-scrollbar">
-            <table className="data-table data-table-striped-6plus">
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Client Entity</th>
@@ -595,134 +594,138 @@ export default function ClientPortfolioPage() {
                   <th>Risk Profile</th>
                   <th>Status desk</th>
                   <th>Pending Issues</th>
-                  <th className="text-right">At-Risk Input Credit</th>
+                  <th className="num-col">At-Risk Input Credit</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {clientsList.map((client) => {
-                  const isCopied = copiedId === client.id;
-                  const healthScore = client.health_score || 100;
-                  
-                  let healthColorClass = 'text-emerald-500';
-                  if (healthScore < 60) healthColorClass = 'text-[#EF4444]';
-                  else if (healthScore < 80) healthColorClass = 'text-[#F59E0B]';
-                  else if (healthScore < 95) healthColorClass = 'text-[#7C3AED]';
+                {clientsList.length > 0 ? (
+                  clientsList.map((client) => {
+                    const isCopied = copiedId === client.id;
+                    const healthScore = client.health_score || 100;
+                    
+                    let healthColorClass = 'text-emerald-500';
+                    if (healthScore < 60) healthColorClass = 'text-[#EF4444]';
+                    else if (healthScore < 80) healthColorClass = 'text-[#F59E0B]';
+                    else if (healthScore < 95) healthColorClass = 'text-[#7C3AED]';
 
-                  let riskPillClass = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-                  if (client.risk_level === 'High') riskPillClass = 'bg-red-50 text-[#EF4444] border-red-100';
-                  else if (client.risk_level === 'Medium') riskPillClass = 'bg-amber-50 text-[#F59E0B] border-amber-100';
-
-                  return (
-                    <tr
-                      key={client.id}
-                      className={`group ${
-                        client.risk_level === 'High' ? 'bg-red-50/10' : ''
-                      }`}
-                    >
-                      <td>
-                        <div className="flex items-center gap-4">
-                          <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold text-sm shadow-sm"
-                            style={{ backgroundColor: client.avatar_color }}
-                          >
-                            {client.initials}
+                    return (
+                      <tr
+                        key={client.id}
+                        className={client.risk_level === 'High' ? 'selected' : ''}
+                      >
+                        <td>
+                          <div className="flex items-center gap-4">
+                            <div
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold text-sm shadow-sm"
+                              style={{ backgroundColor: client.avatar_color }}
+                            >
+                              {client.initials}
+                            </div>
+                            <div className="min-w-0 max-w-xs">
+                              <div className="text-card-title text-slate-900 group-hover:text-[#4F46E5] transition-colors line-clamp-1">{client.business_name}</div>
+                              <div className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{client.email}</div>
+                            </div>
                           </div>
-                          <div className="min-w-0 max-w-xs">
-                            <div className="text-card-title text-slate-900 group-hover:text-[#4F46E5] transition-colors line-clamp-1">{client.business_name}</div>
-                            <div className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{client.email}</div>
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="data-table-secondary font-mono tracking-wide font-semibold">
-                        <div className="flex items-center gap-2">
-                          <span 
-                            onClick={() => handleCopyGstin(client.id, client.gstin)}
-                            className="hover:text-[#4F46E5] cursor-pointer flex items-center gap-1 hover:underline"
-                            title="Click to copy corporate GSTIN"
-                          >
-                            {client.gstin}
-                            {isCopied ? (
-                              <Check size={11} className="text-emerald-500" strokeWidth={3} />
-                            ) : (
-                              <Copy size={11} className="opacity-0 group-hover:opacity-60 transition-opacity ml-0.5" />
+                        <td className="data-table-secondary font-mono tracking-wide font-semibold">
+                          <div className="flex items-center gap-2">
+                            <span 
+                              onClick={() => handleCopyGstin(client.id, client.gstin)}
+                              className="hover:text-[#4F46E5] cursor-pointer flex items-center gap-1 hover:underline"
+                              title="Click to copy corporate GSTIN"
+                            >
+                              {client.gstin}
+                              {isCopied ? (
+                                <Check size={11} className="text-emerald-500" strokeWidth={3} />
+                              ) : (
+                                <Copy size={11} className="opacity-0 group-hover:opacity-60 transition-opacity ml-0.5" />
+                              )}
+                            </span>
+                            <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-sans uppercase">
+                              {client.state}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td>
+                          <span className={`text-sm font-black font-mono ${healthColorClass}`}>
+                            {healthScore}%
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className={`status-badge ${getUnifiedBadgeClass(client.risk_level)}`}>
+                            {renderBadgeDot(client.risk_level)}
+                            {client.risk_level}
+                          </span>
+                        </td>
+
+                        <td>
+                          <span className={`status-badge ${getUnifiedBadgeClass(client.status === 'In Progress' ? 'RUNNING' : client.status)}`}>
+                            {client.status === 'In Progress' && renderBadgeDot('RUNNING')}
+                            <span>{client.status === 'In Progress' ? 'Recon Running' : client.status === 'Never Run' ? 'Pending' : client.status}</span>
+                          </span>
+                        </td>
+
+                        <td>
+                          <div className="flex flex-wrap gap-1">
+                            {client.open_notices_count > 0 && (
+                              <span className="status-badge status-badge-error">
+                                {client.open_notices_count} Notice{client.open_notices_count > 1 ? 's' : ''}
+                              </span>
                             )}
+                            {client.compliance_issues_count > 0 && (
+                              <span className="status-badge status-badge-warning">
+                                {client.compliance_issues_count} Compliance
+                              </span>
+                            )}
+                            {client.mismatch_count > 0 && (
+                              <span className="status-badge status-badge-info">
+                                {client.mismatch_count} Mismatch
+                              </span>
+                            )}
+                            {client.open_notices_count === 0 && client.compliance_issues_count === 0 && client.mismatch_count === 0 && (
+                              <span className="text-slate-400 font-medium font-sans">None</span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="num-col">
+                          <span className={client.itc_at_risk > 0 ? 'text-[#EF4444]' : 'text-slate-900'}>
+                            {formatCurrency(client.itc_at_risk)}
                           </span>
-                          <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-sans uppercase">
-                            {client.state}
-                          </span>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td>
-                        <span className={`text-sm font-black font-mono ${healthColorClass}`}>
-                          {healthScore}%
-                        </span>
-                      </td>
+                        <td className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Link href={`/gst-recon?client=${client.id}`} title="Run AI Recon">
+                              <button className="action-btn">
+                                <Zap />
+                              </button>
+                            </Link>
 
-                      <td>
-                        <span className={`status-badge ${getUnifiedBadgeClass(client.risk_level)}`}>
-                          {renderBadgeDot(client.risk_level)}
-                          {client.risk_level}
-                        </span>
-                      </td>
-
-                      <td>
-                        <span className={`status-badge ${getUnifiedBadgeClass(client.status === 'In Progress' ? 'RUNNING' : client.status)}`}>
-                          {client.status === 'In Progress' && renderBadgeDot('RUNNING')}
-                          <span>{client.status === 'In Progress' ? 'Recon Running' : client.status === 'Never Run' ? 'Pending' : client.status}</span>
-                        </span>
-                      </td>
-
-                      <td>
-                        <div className="flex flex-wrap gap-1 text-[8.5px] font-black uppercase tracking-wider">
-                          {client.open_notices_count > 0 && (
-                            <span className="bg-red-50 border border-red-100 text-[#EF4444] px-2 py-0.5 rounded-md">
-                              {client.open_notices_count} Notice{client.open_notices_count > 1 ? 's' : ''}
-                            </span>
-                          )}
-                          {client.compliance_issues_count > 0 && (
-                            <span className="bg-amber-50 border border-amber-100 text-[#F59E0B] px-2 py-0.5 rounded-md">
-                              {client.compliance_issues_count} compliance
-                            </span>
-                          )}
-                          {client.mismatch_count > 0 && (
-                            <span className="bg-indigo-50 border border-indigo-100 text-[#4F46E5] px-2 py-0.5 rounded-md">
-                              {client.mismatch_count} Mismatch
-                            </span>
-                          )}
-                          {client.open_notices_count === 0 && client.compliance_issues_count === 0 && client.mismatch_count === 0 && (
-                            <span className="text-slate-400 font-bold font-sans">None</span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="py-4 text-right text-[13.5px] font-mono font-bold">
-                        <span className={client.itc_at_risk > 0 ? 'text-[#EF4444]' : 'text-slate-400'}>
-                          {formatCurrency(client.itc_at_risk)}
-                        </span>
-                      </td>
-
-                      <td className="pr-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-3">
-                          <Link href={`/gst-recon?client=${client.id}`}>
-                            <button className="btn btn-primary btn-sm">
-                              <Zap size={11} fill="currentColor" />
-                              <span>AI Recon</span>
-                            </button>
-                          </Link>
-
-                          <Link href={`/clients/${client.id}`} title="Open Client Workspace">
-                            <button className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-slate-900 flex items-center justify-center hover:border-slate-300 transition-all cursor-pointer">
-                              <ArrowRight size={14} />
-                            </button>
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <Link href={`/clients/${client.id}`} title="Open Client Workspace">
+                              <button className="action-btn">
+                                <ArrowRight />
+                              </button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={8}>
+                      <div className="flex flex-col items-center justify-center py-8 gap-2">
+                        <Users size={20} className="text-[#D1D5DB]" />
+                        <span className="text-[13px] text-[#6B7280]">No records found</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

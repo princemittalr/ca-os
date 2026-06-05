@@ -587,75 +587,78 @@ For ${selectedNotice?.client_name}`;
                 <div key={i} className="h-32 bg-slate-100/50 border border-slate-200 rounded-3xl animate-pulse"></div>
               ))}
             </div>
-          ) : filteredNotices.length > 0 ? (
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 hidden-scrollbar">
-              {filteredNotices.map((notice) => {
-                const isSelected = selectedNotice?.id === notice.id;
-
-                const complexityColors: Record<string, string> = {
-                  Complex: "border-l-4 border-l-red-500",
-                  Moderate: "border-l-4 border-l-amber-500",
-                  Simple: "border-l-4 border-l-emerald-500"
-                };
-
-                const riskColors: Record<string, string> = {
-                  HIGH: "bg-red-50 text-red-700 border-red-100",
-                  MEDIUM: "bg-amber-50 text-amber-700 border-amber-100",
-                  LOW: "bg-emerald-50 text-emerald-700 border-emerald-100"
-                };
-
-                const statusColors: Record<string, string> = {
-                  PENDING: "bg-indigo-50 text-[#4F46E5] border-indigo-100",
-                  DRAFTED: "bg-violet-50 text-[#7C3AED] border-violet-100",
-                  RESOLVED: "bg-emerald-50 text-emerald-700 border-emerald-100"
-                };
-
-                return (
-                  <div
-                    key={notice.id}
-                    onClick={() => setSelectedNotice(notice)}
-                    className={`bg-white border rounded-2xl p-5 shadow-sm space-y-3 hover:border-slate-300 transition-all cursor-pointer ${
-                      isSelected ? 'border-[#4F46E5] ring-2 ring-[#4F46E5]/5' : 'border-slate-200/80'
-                    } ${complexityColors[notice.complexity_score] || 'border-l-4 border-l-slate-200'}`}
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[9px] font-extrabold text-[#5B6478] tracking-wide block truncate max-w-[130px] font-mono">{notice.client_name}</span>
-                          <span className={`status-badge ${getCompoundBadgeClass(notice.risk_level, notice.status)}`}>
-                            {notice.risk_level} RISK · {notice.status}
-                          </span>
-                        </div>
-                        <h4 className="text-xs font-black text-slate-800 mt-1 tracking-tight truncate">{notice.notice_number}</h4>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="block text-[8px] font-black text-[#5B6478] uppercase tracking-wider font-mono">Disputed Principal</span>
-                        <span className="text-xs font-black text-slate-800 font-mono">{formatCurrency(notice.tax_amount)}</span>
-                      </div>
-                    </div>
-
-                    <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{notice.summary}</p>
-
-                    <div className="flex justify-between items-center text-[9.5px] text-slate-400 pt-2 border-t border-slate-100">
-                      <span className="truncate max-w-[200px]">Type: <span className="text-slate-600 font-bold">{notice.notice_type}</span></span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[8.5px] font-bold text-slate-400">Next:</span>
-                        <span className="bg-indigo-50 border border-indigo-100/50 text-[#4F46E5] font-black text-[8px] px-1.5 py-0.2 rounded uppercase">
-                          {notice.recommended_next_action}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center space-y-4 shadow-sm">
-              <CheckCircle2 size={32} className="mx-auto text-emerald-500" />
-              <div>
-                <h4 className="text-xs font-bold text-slate-800">Litigation Center Dossiers Clear</h4>
-                <p className="text-[10px] text-slate-500 mt-1">There are no pending GST notices recorded under the active filters.</p>
+            <div className="data-table-shell">
+              <div className="overflow-x-auto hidden-scrollbar">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Notice Details</th>
+                      <th className="num-col">Disputed Principal</th>
+                      <th>Status</th>
+                      <th className="text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredNotices.length > 0 ? (
+                      filteredNotices.map((notice) => {
+                        const isSelected = selectedNotice?.id === notice.id;
+
+                        return (
+                          <tr
+                            key={notice.id}
+                            onClick={() => setSelectedNotice(notice)}
+                            className={`data-table-row-clickable ${isSelected ? 'selected' : ''}`}
+                          >
+                            <td>
+                              <div className="font-semibold text-slate-800 line-clamp-1">{notice.notice_number}</div>
+                              <div className="text-[11px] text-slate-400 mt-0.5 font-sans truncate max-w-[120px]">{notice.client_name}</div>
+                            </td>
+                            <td className="num-col">
+                              {formatCurrency(notice.tax_amount)}
+                            </td>
+                            <td>
+                              <span className={`status-badge ${getUnifiedBadgeClass(notice.status)}`}>
+                                {notice.status === 'PENDING' && renderBadgeDot('PENDING')}
+                                <span>{notice.status}</span>
+                              </span>
+                            </td>
+                            <td className="text-right" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                {notice.status === 'PENDING' && (
+                                  <button
+                                    onClick={() => handleDraftResponse(notice.id)}
+                                    disabled={isDrafting}
+                                    className="action-btn"
+                                    title="Compile AI Response"
+                                  >
+                                    <Sparkles />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => setSelectedNotice(notice)}
+                                  className="action-btn"
+                                  title="View Details"
+                                >
+                                  <ChevronRight />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan={4}>
+                          <div className="flex flex-col items-center justify-center py-8 gap-2">
+                            <FileText size={20} className="text-[#D1D5DB]" />
+                            <span className="text-[13px] text-[#6B7280]">No records found</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
