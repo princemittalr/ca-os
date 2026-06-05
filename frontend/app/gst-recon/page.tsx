@@ -997,7 +997,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
                       <select
                         value={mappings[mapper.key as keyof typeof mappings]}
                         onChange={(e) => setMappings({ ...mappings, [mapper.key]: e.target.value })}
-                        className="h-8.5 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-semibold text-slate-800 w-44 focus:outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
+                        className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
                       >
                         {mapper.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
@@ -1481,7 +1481,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
                   <div className="flex flex-wrap items-center gap-3">
                     {/* Search Field */}
                     <div className="relative w-full sm:w-56">
-                      <Search size={13} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
                         placeholder="Search invoice or GSTIN..."
