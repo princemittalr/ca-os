@@ -309,16 +309,16 @@ function SettingsContent() {
   // Real-time password strength indicator computed locally inside modal
 
   return (
-    <div className="space-y-10 pb-16 animate-in fade-in duration-500 relative">
+    <div className="space-y-10 pb-16 relative">
       
       {/* Toast Alert */}
       {toastMsg && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-6 py-4 rounded-[20px] shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3">
+        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-6 py-4 rounded-[3px] shadow-sm z-[100] max-w-sm flex items-center gap-3">
           {toastType === 'success' && (
-            <CheckCircle2 className="text-[#10B981] flex-shrink-0 animate-bounce" size={18} />
+            <CheckCircle2 className="text-[#10B981] flex-shrink-0" size={18} />
           )}
           {toastType === 'error' && (
-            <AlertTriangle className="text-[#EF4444] flex-shrink-0 animate-pulse" size={18} />
+            <AlertTriangle className="text-[#EF4444] flex-shrink-0" size={18} />
           )}
           {toastType === 'warning' && (
             <AlertTriangle className="text-[#F59E0B] flex-shrink-0" size={18} />
@@ -329,10 +329,9 @@ function SettingsContent() {
 
       {/* Remove Confirmation Modal */}
       {showConfirmRemove && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-fintech-lg animate-in zoom-in-95 duration-200 relative overflow-hidden">
-            {/* Background Glow */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#EF4444]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-[3px] max-w-md w-full p-6 shadow-sm relative overflow-hidden">
+            {/* Background Glow removed */}
             
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-full bg-[#EF4444]/10 flex items-center justify-center text-[#EF4444] flex-shrink-0">
@@ -350,7 +349,7 @@ function SettingsContent() {
               <button 
                 type="button"
                 onClick={() => setShowConfirmRemove(false)}
-                className="px-4 py-2.5 rounded-xl bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold text-[12.5px] transition-all cursor-pointer"
+                className="px-4 py-2.5 rounded-[3px] bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold text-[12.5px] cursor-pointer"
               >
                 Cancel
               </button>
@@ -361,7 +360,7 @@ function SettingsContent() {
                   setShowConfirmRemove(false);
                   triggerToast("✓ Profile photo removed successfully.");
                 }}
-                className="px-4 py-2.5 rounded-xl bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-bold text-[12.5px] transition-all cursor-pointer shadow-lg shadow-[#EF4444]/20"
+                className="px-4 py-2.5 rounded-[3px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-bold text-[12.5px] cursor-pointer shadow-sm"
               >
                 Confirm Removal
               </button>
@@ -484,7 +483,7 @@ function SettingsContent() {
               PANEL 1: MY PROFILE (USER-SPECIFIC)
               ========================================== */}
           {activeTab === 'profile' && (
-            <div className="space-y-8 animate-in fade-in duration-300">
+            <div className="space-y-8">
               <div className="border-b border-slate-200 pb-5">
                 <h3 style={{ fontSize: 20, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>My Profile</h3>
                 <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginTop: 6, marginBottom: 0 }}>Configure your personal Chartered Accountant registration profile details.</p>
@@ -523,7 +522,7 @@ function SettingsContent() {
                         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', pointerEvents: 'none' }}
                       />
                     ) : (
-                      <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg,#4F46E5,#7C3AED)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', userSelect: 'none' }}>
+                      <div style={{ width: '100%', height: '100%', background: '#1B4F8A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', userSelect: 'none' }}>
                         {getInitials(profileData.fullName)}
                       </div>
                     )}
@@ -658,7 +657,20 @@ function SettingsContent() {
                   </button>
                 </div>
               </form>
-                      {/* ── 6. SYSTEM PASSWORD & CREDENTIALS CARD — Phase 5 std-card ── */}
+            </div>
+          )}
+
+          {/* ==========================================
+              PANEL 2: LOGIN & SECURITY
+              ========================================== */}
+          {activeTab === 'security' && (
+            <div className="space-y-8">
+              <div className="border-b border-slate-200 pb-5">
+                <h3 style={{ fontSize: 20, fontWeight: 600, color: 'var(--color-text-primary)', margin: 0 }}>Login & Security</h3>
+                <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginTop: 6, marginBottom: 0 }}>Manage your password, two-factor authentication, and active sessions.</p>
+              </div>
+
+              {/* ── 6. SYSTEM PASSWORD & CREDENTIALS CARD — Phase 5 std-card ── */}
               <div className="std-card" style={{ padding: 24 }}>
                 {/* Card header: flex space-between */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
@@ -712,11 +724,9 @@ function SettingsContent() {
 
               {/* Redesigned Premium Glassmorphic Password Update Modal */}
               {showPasswordModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                  <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-8 shadow-fintech-lg animate-in zoom-in-95 duration-200 relative overflow-hidden">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+                  <div className="bg-white border border-slate-200 rounded-[3px] max-w-lg w-full p-8 shadow-sm relative overflow-hidden">
                     {/* Background Glow Ring */}
-                    <div className="absolute top-0 right-0 w-44 h-44 bg-[#4F46E5]/5 rounded-full blur-3xl pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 w-44 h-44 bg-[#7C3AED]/5 rounded-full blur-3xl pointer-events-none" />
 
                     {/* Header & Step Tracker */}
                     <div className="space-y-1">
@@ -747,7 +757,7 @@ function SettingsContent() {
                       
                       {/* STEP 1: IDENTITY VERIFICATION */}
                       {modalStep === 1 && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5">
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-slate-900">Step 1: Multi-Factor Authentication</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
@@ -938,7 +948,7 @@ function SettingsContent() {
 
                       {/* STEP 2: ENTER NEW PASSWORD */}
                       {modalStep === 2 && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5">
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-slate-900">Step 2: Establish New Password</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
@@ -1074,7 +1084,7 @@ function SettingsContent() {
 
                       {/* STEP 3: CONFIRM PASSWORD */}
                       {modalStep === 3 && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5">
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-slate-900">Step 3: Verification Confirm</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
@@ -1158,8 +1168,8 @@ function SettingsContent() {
 
                       {/* STEP 4: SUCCESS SUMMARY STATE */}
                       {modalStep === 4 && (
-                        <div className="space-y-5 animate-in zoom-in-95 duration-300 text-center py-2">
-                          <div className="w-14 h-14 rounded-full bg-[#10B981]/15 text-[#10B981] flex items-center justify-center mx-auto shadow-lg shadow-[#10B981]/10 border border-[#10B981]/30 animate-bounce">
+                        <div className="space-y-5 text-center py-2">
+                          <div className="w-14 h-14 rounded-[3px] bg-[#10B981]/15 text-[#10B981] flex items-center justify-center mx-auto shadow-sm border border-[#10B981]/30">
                             <CheckCircle2 size={32} />
                           </div>
                           
@@ -1172,8 +1182,8 @@ function SettingsContent() {
 
                           {/* Audit details container */}
                           <div className="bg-[#F8FAFC] rounded-xl p-4.5 border border-slate-200 font-mono text-[11px] text-[#10B981]/90 text-left space-y-1 shadow-inner relative overflow-hidden select-all w-full">
-                            <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 text-[9px] uppercase font-bold tracking-widest text-[#10B981] bg-[#10B981]/10 border border-[#10B981]/20 px-2 py-0.5 rounded">
-                              <Activity size={10} className="animate-pulse" />
+                            <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 text-[9px] uppercase font-bold tracking-widest text-[#10B981] bg-[#10B981]/10 border border-[#10B981]/20 px-2 py-0.5 rounded-[3px]">
+                              <Activity size={10} />
                               SECURE LOG
                             </div>
                             <div>[TRACE] {new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC</div>
@@ -1267,7 +1277,7 @@ function SettingsContent() {
                       }`}
                     >
                       <div
-                        className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                        className={`w-5 h-5 rounded-full bg-white shadow-md transform ${
                           is2FAEnabled ? 'translate-x-7' : 'translate-x-0'
                         }`}
                       ></div>
@@ -1294,10 +1304,9 @@ function SettingsContent() {
                 </div>
 
                 {is2FAEnabled && (
-                  <div className="bg-[#F8FAFC]/60 border border-[#10B981]/20 rounded-2xl p-5 flex flex-col sm:flex-row gap-5 items-center animate-in zoom-in-95 duration-200 shadow-inner relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-[#10B981]/5 rounded-full blur-2xl pointer-events-none" />
+                  <div className="bg-[#F8FAFC]/60 border border-[#10B981]/20 rounded-[3px] p-5 flex flex-col sm:flex-row gap-5 items-center shadow-sm relative overflow-hidden">
                     
-                    <div className="w-12 h-12 rounded-xl bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center text-[#10B981] flex-shrink-0 shadow-md">
+                    <div className="w-12 h-12 rounded-[3px] bg-[#10B981]/10 border border-[#10B981]/20 flex items-center justify-center text-[#10B981] flex-shrink-0 shadow-sm">
                       <ShieldCheck size={24} />
                     </div>
                     
@@ -1326,10 +1335,8 @@ function SettingsContent() {
 
               {/* Two-Factor Authentication Setup Modal */}
               {show2FAModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                  <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-8 shadow-fintech-lg animate-in zoom-in-95 duration-200 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-44 h-44 bg-[#F59E0B]/5 rounded-full blur-3xl pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 w-44 h-44 bg-[#7C3AED]/5 rounded-full blur-3xl pointer-events-none" />
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+                  <div className="bg-white border border-slate-200 rounded-[3px] max-w-lg w-full p-8 shadow-sm relative overflow-hidden">
 
                     {/* Header */}
                     <div className="space-y-1">
@@ -1361,7 +1368,7 @@ function SettingsContent() {
 
                       {/* STEP 1: IDENTITY VERIFICATION */}
                       {twoFactorStep === 1 && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5">
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-white">Step 1: Security Handshake</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
@@ -1417,7 +1424,7 @@ function SettingsContent() {
 
                       {/* STEP 2: CHOOSE METHOD */}
                       {twoFactorStep === 2 && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5">
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-white">Step 2: Choose Verification Channel</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
@@ -1429,42 +1436,42 @@ function SettingsContent() {
                             {/* Method A: Authenticator App */}
                             <div 
                               onClick={() => setTwoFactorMethod('authenticator')}
-                              className={`p-4 rounded-2xl border transition-all cursor-pointer flex gap-4 items-center group relative overflow-hidden ${
+                              className={`p-4 rounded-[3px] border cursor-pointer flex gap-4 items-center group relative overflow-hidden ${
                                 twoFactorMethod === 'authenticator' 
                                   ? 'bg-[#F59E0B]/5 border-[#F59E0B]/30' 
-                                  : 'bg-[#F8FAFC] border-slate-200 hover:border-slate-200'
+                                  : 'bg-[#F8FAFC] border-slate-200'
                               }`}
                             >
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                twoFactorMethod === 'authenticator' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' : 'bg-white text-slate-400 group-hover:text-white'
+                              <div className={`w-10 h-10 rounded-[3px] flex items-center justify-center flex-shrink-0 ${
+                                twoFactorMethod === 'authenticator' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' : 'bg-white text-slate-400'
                               }`}>
                                 <QrCode size={18} />
                               </div>
                               <div className="space-y-0.5 flex-1">
                                 <div className="text-[13.5px] font-bold text-white flex items-center gap-2">
                                   <span>Authenticator App</span>
-                                  <span className="text-[8px] font-extrabold uppercase text-[#10B981] bg-[#10B981]/10 px-1.5 py-0.5 rounded border border-[#10B981]/20">Recommended</span>
+                                  <span className="text-[8px] font-extrabold uppercase text-[#10B981] bg-[#10B981]/10 px-1.5 py-0.5 rounded-[3px] border border-[#10B981]/20">Recommended</span>
                                 </div>
                                 <div className="text-[11.5px] text-slate-500">Google Authenticator, Microsoft Auth, or 1Password codes.</div>
                               </div>
-                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                              <div className={`w-4 h-4 rounded-[3px] border flex items-center justify-center flex-shrink-0 ${
                                 twoFactorMethod === 'authenticator' ? 'border-[#F59E0B] bg-[#F59E0B]/20' : 'border-slate-200'
                               }`}>
-                                {twoFactorMethod === 'authenticator' && <div className="w-1.5 h-1.5 bg-[#F59E0B] rounded-full animate-ping" />}
+                                {twoFactorMethod === 'authenticator' && <div className="w-1.5 h-1.5 bg-[#F59E0B] rounded-[3px]" />}
                               </div>
                             </div>
 
                             {/* Method B: SMS text */}
                             <div 
                               onClick={() => setTwoFactorMethod('sms')}
-                              className={`p-4 rounded-2xl border transition-all cursor-pointer flex gap-4 items-center group relative overflow-hidden ${
+                              className={`p-4 rounded-[3px] border cursor-pointer flex gap-4 items-center group relative overflow-hidden ${
                                 twoFactorMethod === 'sms' 
                                   ? 'bg-[#F59E0B]/5 border-[#F59E0B]/30' 
-                                  : 'bg-[#F8FAFC] border-slate-200 hover:border-slate-200'
+                                  : 'bg-[#F8FAFC] border-slate-200'
                               }`}
                             >
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                twoFactorMethod === 'sms' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' : 'bg-white text-slate-400 group-hover:text-white'
+                              <div className={`w-10 h-10 rounded-[3px] flex items-center justify-center flex-shrink-0 ${
+                                twoFactorMethod === 'sms' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' : 'bg-white text-slate-400'
                               }`}>
                                 <Smartphone size={18} />
                               </div>
@@ -1472,24 +1479,24 @@ function SettingsContent() {
                                 <div className="text-[13.5px] font-bold text-white">Secure SMS Texting</div>
                                 <div className="text-[11.5px] text-slate-500">Send compliance dynamic codes to: +91 98765 *****</div>
                               </div>
-                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                              <div className={`w-4 h-4 rounded-[3px] border flex items-center justify-center flex-shrink-0 ${
                                 twoFactorMethod === 'sms' ? 'border-[#F59E0B] bg-[#F59E0B]/20' : 'border-slate-200'
                               }`}>
-                                {twoFactorMethod === 'sms' && <div className="w-1.5 h-1.5 bg-[#F59E0B] rounded-full" />}
+                                {twoFactorMethod === 'sms' && <div className="w-1.5 h-1.5 bg-[#F59E0B] rounded-[3px]" />}
                               </div>
                             </div>
 
                             {/* Method C: Email OTP */}
                             <div 
                               onClick={() => setTwoFactorMethod('email')}
-                              className={`p-4 rounded-2xl border transition-all cursor-pointer flex gap-4 items-center group relative overflow-hidden ${
+                              className={`p-4 rounded-[3px] border cursor-pointer flex gap-4 items-center group relative overflow-hidden ${
                                 twoFactorMethod === 'email' 
                                   ? 'bg-[#F59E0B]/5 border-[#F59E0B]/30' 
-                                  : 'bg-[#F8FAFC] border-slate-200 hover:border-slate-200'
+                                  : 'bg-[#F8FAFC] border-slate-200'
                               }`}
                             >
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                twoFactorMethod === 'email' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' : 'bg-white text-slate-400 group-hover:text-white'
+                              <div className={`w-10 h-10 rounded-[3px] flex items-center justify-center flex-shrink-0 ${
+                                twoFactorMethod === 'email' ? 'bg-[#F59E0B]/15 text-[#F59E0B]' : 'bg-white text-slate-400'
                               }`}>
                                 <Mail size={18} />
                               </div>
@@ -1497,10 +1504,10 @@ function SettingsContent() {
                                 <div className="text-[13.5px] font-bold text-white">Compliance Email Alerts</div>
                                 <div className="text-[11.5px] text-slate-500">Secure codes dispatched directly to: rahul.s*****@reckon.ai</div>
                               </div>
-                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                              <div className={`w-4 h-4 rounded-[3px] border flex items-center justify-center flex-shrink-0 ${
                                 twoFactorMethod === 'email' ? 'border-[#F59E0B] bg-[#F59E0B]/20' : 'border-slate-200'
                               }`}>
-                                {twoFactorMethod === 'email' && <div className="w-1.5 h-1.5 bg-[#F59E0B] rounded-full" />}
+                                {twoFactorMethod === 'email' && <div className="w-1.5 h-1.5 bg-[#F59E0B] rounded-[3px]" />}
                               </div>
                             </div>
                           </div>
@@ -1509,14 +1516,14 @@ function SettingsContent() {
                             <button
                               type="button"
                               onClick={() => setTwoFactorStep(1)}
-                              className="flex-1 h-11 rounded-xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px]"
+                              className="flex-1 h-11 rounded-[3px] bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px]"
                             >
                               Back
                             </button>
                             <button
                               type="button"
                               onClick={() => setTwoFactorStep(3)}
-                              className="flex-2 h-11 rounded-xl bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] shadow-lg shadow-[#F59E0B]/20"
+                              className="flex-2 h-11 rounded-[3px] bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] shadow-sm"
                             >
                               Configure Setup
                             </button>
@@ -1526,7 +1533,7 @@ function SettingsContent() {
 
                       {/* STEP 3: SETUP CONFIGURATION */}
                       {twoFactorStep === 3 && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5">
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-white">Step 3: Setup Security Target</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
@@ -1536,22 +1543,19 @@ function SettingsContent() {
 
                           {/* Authenticator QR Setup Card */}
                           {twoFactorMethod === 'authenticator' && (
-                            <div className="bg-[#F8FAFC] p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row gap-5 items-center relative overflow-hidden shadow-inner">
-                              {/* Background Glow */}
-                              <div className="absolute top-0 right-0 w-32 h-32 bg-[#F59E0B]/5 rounded-full blur-3xl pointer-events-none" />
+                            <div className="bg-[#F8FAFC] p-5 rounded-[3px] border border-slate-200 flex flex-col sm:flex-row gap-5 items-center relative overflow-hidden shadow-sm">
                               
                               {/* Mock QR Target */}
-                              <div className="w-28 h-28 bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-center p-1.5 shadow-lg relative group flex-shrink-0">
-                                <div className="absolute inset-0 bg-gradient-to-tr from-[#F59E0B]/20 to-[#7C3AED]/20 rounded-2xl blur-md pointer-events-none group-hover:opacity-100 opacity-60 transition-opacity" />
-                                <div className="w-full h-full border border-dashed border-[#F59E0B]/30 rounded-xl flex flex-col items-center justify-center bg-[#F8FAFC] text-[#F59E0B] p-2 text-center select-none font-bold text-[10px]">
-                                  <QrCode size={36} className="text-[#F59E0B] mb-1 animate-pulse" />
+                              <div className="w-28 h-28 bg-slate-100 rounded-[3px] border border-slate-200 flex items-center justify-center p-1.5 shadow-sm relative group flex-shrink-0">
+                                <div className="w-full h-full border border-dashed border-[#F59E0B]/30 rounded-[3px] flex flex-col items-center justify-center bg-[#F8FAFC] text-[#F59E0B] p-2 text-center select-none font-bold text-[10px]">
+                                  <QrCode size={36} className="text-[#F59E0B] mb-1" />
                                   <span className="text-[7.5px] uppercase tracking-wider text-slate-400">Scan Secure Target</span>
                                 </div>
                               </div>
 
                               <div className="space-y-2 text-center sm:text-left flex-1">
                                 <div className="text-[13.5px] font-bold text-white">Manually Enter Setup Secret:</div>
-                                <div className="bg-white border border-slate-200 px-3 py-2 rounded-xl font-mono text-[11.5px] text-slate-500 tracking-wider text-center sm:text-left select-all font-bold shadow-md break-all">
+                                <div className="bg-white border border-slate-200 px-3 py-2 rounded-[3px] font-mono text-[11.5px] text-slate-500 tracking-wider text-center sm:text-left select-all font-bold shadow-sm break-all">
                                   RCK-RECON-MFA-SHARMA-VAULT
                                 </div>
                                 <button
@@ -1570,8 +1574,8 @@ function SettingsContent() {
 
                           {/* SMS Setup Details */}
                           {twoFactorMethod === 'sms' && (
-                            <div className="bg-[#F8FAFC] p-5 rounded-2xl border border-slate-200 text-center space-y-3">
-                              <div className="w-10 h-10 rounded-full bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] mx-auto">
+                            <div className="bg-[#F8FAFC] p-5 rounded-[3px] border border-slate-200 text-center space-y-3">
+                              <div className="w-10 h-10 rounded-[3px] bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] mx-auto">
                                 <Smartphone size={18} />
                               </div>
                               <div className="space-y-1">
@@ -1585,8 +1589,8 @@ function SettingsContent() {
 
                           {/* Email Setup Details */}
                           {twoFactorMethod === 'email' && (
-                            <div className="bg-[#F8FAFC] p-5 rounded-2xl border border-slate-200 text-center space-y-3">
-                              <div className="w-10 h-10 rounded-full bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] mx-auto">
+                            <div className="bg-[#F8FAFC] p-5 rounded-[3px] border border-slate-200 text-center space-y-3">
+                              <div className="w-10 h-10 rounded-[3px] bg-[#F59E0B]/10 flex items-center justify-center text-[#F59E0B] mx-auto">
                                 <Mail size={18} />
                               </div>
                               <div className="space-y-1">
@@ -1602,7 +1606,7 @@ function SettingsContent() {
                             <button
                               type="button"
                               onClick={() => setTwoFactorStep(2)}
-                              className="flex-1 h-11 rounded-xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px]"
+                              className="flex-1 h-11 rounded-[3px] bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px]"
                             >
                               Back
                             </button>
@@ -1612,7 +1616,7 @@ function SettingsContent() {
                                 setTwoFactorStep(4);
                                 triggerToast("✉ Transmitted mock Setup verification code factor.");
                               }}
-                              className="flex-2 h-11 rounded-xl bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] shadow-lg shadow-[#F59E0B]/20"
+                              className="flex-2 h-11 rounded-[3px] bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] shadow-sm"
                             >
                               Continue to Verification
                             </button>
@@ -1622,7 +1626,7 @@ function SettingsContent() {
 
                       {/* STEP 4: ENTER VERIFICATION CODE */}
                       {twoFactorStep === 4 && (
-                        <div className="space-y-5 animate-in fade-in duration-300">
+                        <div className="space-y-5">
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-white">Step 4: Verify Factor Connection</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
@@ -1656,7 +1660,7 @@ function SettingsContent() {
                                         document.getElementById(`tf-otp-${idx - 1}`)?.focus();
                                       }
                                     }}
-                                    className="w-10 h-12 bg-[#F8FAFC] border border-slate-200 rounded-lg text-center font-bold text-lg text-white focus:outline-none focus:border-[#F59E0B] transition-all focus:ring-1 focus:ring-[#F59E0B]/30"
+                                    className="w-10 h-12 bg-[#F8FAFC] border border-slate-200 rounded-[3px] text-center font-bold text-lg text-white focus:outline-none focus:border-[#F59E0B] focus:ring-1 focus:ring-[#F59E0B]/30"
                                   />
                                 ))}
                               </div>
@@ -1679,7 +1683,7 @@ function SettingsContent() {
                               <button
                                 type="button"
                                 onClick={() => setTwoFactorStep(3)}
-                                className="flex-1 h-11 rounded-xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px]"
+                                className="flex-1 h-11 rounded-[3px] bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px]"
                               >
                                 Back
                               </button>
@@ -1697,7 +1701,7 @@ function SettingsContent() {
                                     triggerToast("❌ Onboarding Mismatch: Invalid dynamic authentication token code!");
                                   }
                                 }}
-                                className="flex-2 h-11 rounded-xl bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#F59E0B]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="flex-2 h-11 rounded-[3px] bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 {modalLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
                                 <span>Verify & Finalize</span>
@@ -1709,9 +1713,9 @@ function SettingsContent() {
 
                       {/* STEP 5: SUCCESS & RECOVERY CODES */}
                       {twoFactorStep === 5 && (
-                        <div className="space-y-5 animate-in zoom-in-95 duration-300">
+                        <div className="space-y-5">
                           <div className="text-center space-y-2">
-                            <div className="w-12 h-12 rounded-full bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 flex items-center justify-center mx-auto shadow-lg shadow-[#10B981]/10">
+                            <div className="w-12 h-12 rounded-[3px] bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30 flex items-center justify-center mx-auto shadow-sm">
                               <ShieldCheck size={26} />
                             </div>
                             <h4 className="text-[18px] font-extrabold text-white">2FA Protections Operational!</h4>
@@ -1788,9 +1792,8 @@ function SettingsContent() {
 
               {/* Secure 2FA Disablement Verification Modal */}
               {showDisable2FAModal && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                  <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-8 shadow-fintech-lg animate-in zoom-in-95 duration-200 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#EF4444]/5 rounded-full blur-3xl pointer-events-none" />
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[150] flex items-center justify-center p-4">
+                  <div className="bg-white border border-slate-200 rounded-[3px] max-w-lg w-full p-8 shadow-sm relative overflow-hidden">
                     
                     {/* Header */}
                     <div className="space-y-1">
@@ -1814,7 +1817,7 @@ function SettingsContent() {
                             value={disablePasswordInput}
                             onChange={(e) => setDisablePasswordInput(e.target.value)}
                             placeholder="••••••••"
-                            className="w-full h-11 bg-[#F8FAFC] border border-slate-200 focus:border-[#EF4444]/40 rounded-xl pl-4 pr-10 text-[13.5px] text-white focus:outline-none focus:ring-2 focus:ring-[#EF4444]/20 transition-all placeholder:text-gray-600"
+                            className="w-full h-11 bg-[#F8FAFC] border border-slate-200 focus:border-[#EF4444]/40 rounded-[3px] pl-4 pr-10 text-[13.5px] text-white focus:outline-none focus:ring-2 focus:ring-[#EF4444]/20 placeholder:text-gray-600"
                           />
                           <button
                             type="button"
@@ -1841,7 +1844,7 @@ function SettingsContent() {
                               setDisableOtpTimer(60);
                               triggerToast("✉ Dynamic secure override OTP alert dispatched to rahul.sharma@reckon.ai");
                             }}
-                            className="w-full h-11 bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white rounded-xl text-[12.5px] font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full h-11 bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white rounded-[3px] text-[12.5px] font-bold shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <span>Transmit Verification Code OTP</span>
                           </button>
@@ -1852,7 +1855,7 @@ function SettingsContent() {
                               value={disableOtpInput}
                               onChange={(e) => setDisableOtpInput(e.target.value)}
                               placeholder="Input 6-Digit OTP (Demo: 123456)"
-                              className="w-full h-11 bg-[#F8FAFC] border border-slate-200 focus:border-[#EF4444]/40 rounded-xl px-4 text-[13.5px] text-white focus:outline-none focus:ring-2 focus:ring-[#EF4444]/20 transition-all placeholder:text-gray-600"
+                              className="w-full h-11 bg-[#F8FAFC] border border-slate-200 focus:border-[#EF4444]/40 rounded-[3px] px-4 text-[13.5px] text-white focus:outline-none focus:ring-2 focus:ring-[#EF4444]/20 placeholder:text-gray-600"
                             />
                             
                             <div className="flex justify-between items-center text-[11px] px-1 pt-1.5">
@@ -1891,7 +1894,7 @@ function SettingsContent() {
                         <button
                           type="button"
                           onClick={() => setShowDisable2FAModal(false)}
-                          className="flex-1 h-11 rounded-xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px] transition-all cursor-pointer"
+                          className="flex-1 h-11 rounded-[3px] bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white font-bold text-[13px] cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -1910,7 +1913,7 @@ function SettingsContent() {
                               triggerToast("❌ Verification Failed: Invalid current master password or OTP security code!");
                             }
                           }}
-                          className="flex-1 h-11 rounded-xl bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#EF4444]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="flex-1 h-11 rounded-[3px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {disableLoading ? <Loader2 size={15} className="animate-spin text-white" /> : <Lock size={14} />}
                           <span>Purge 2FA Protections</span>
@@ -1991,7 +1994,7 @@ function SettingsContent() {
               PANEL 3: NOTIFICATIONS
               ========================================== */}
           {activeTab === 'notifications' && (
-            <div className="space-y-8 animate-in fade-in duration-300">
+            <div className="space-y-8">
               <div className="border-b border-slate-200 pb-5">
                 <h3 className="text-[20px] font-bold text-white tracking-tight">Notification Settings</h3>
                 <p className="text-[13.5px] text-slate-400 mt-1">Configure alert triggers for tax run finishes, client exposures, and filing compliance windows.</p>
@@ -2105,15 +2108,12 @@ function SettingsContent() {
           )}
 
           {activeTab === 'billing' && (
-            <div className="space-y-10 animate-in fade-in duration-500 relative overflow-hidden pb-8">
-              {/* Blurred glowing background orbs inside billing panel */}
-              <div className="absolute top-[10%] left-[20%] w-[380px] h-[380px] bg-gradient-to-br from-[#4F46E5]/10 to-[#7C3AED]/5 rounded-full blur-[110px] pointer-events-none -z-10 animate-pulse duration-[8000ms]" />
-              <div className="absolute bottom-[20%] right-[10%] w-[350px] h-[350px] bg-gradient-to-tr from-[#7C3AED]/10 to-[#4F46E5]/5 rounded-full blur-[100px] pointer-events-none -z-10 animate-pulse duration-[6000ms]" />
+            <div className="space-y-10 relative overflow-hidden pb-8">
 
               <div className="border-b border-slate-200 pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <h3 className="text-[22px] font-black text-white tracking-tight flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4F46E5]/10 to-[#4F46E5]/5 border border-[#4F46E5]/20 flex items-center justify-center text-[#4F46E5]">
+                    <div className="w-10 h-10 rounded-[3px] bg-[#1B4F8A]/10 border border-[#1B4F8A]/20 flex items-center justify-center text-[#1B4F8A]">
                       <CreditCard size={18} />
                     </div>
                     <span>Plans & Billing</span>
@@ -2122,7 +2122,7 @@ function SettingsContent() {
                 </div>
                 
                 <span className="text-[10px] font-extrabold uppercase text-[#10B981] tracking-widest bg-[#10B981]/10 border border-[#10B981]/20 px-3.5 py-1.5 rounded-full shadow-[0_0_15px_rgba(50,213,131,0.1)] flex items-center gap-1.5 w-fit">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-ping" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                   Active Subscription Node
                 </span>
               </div>
@@ -2130,7 +2130,7 @@ function SettingsContent() {
               {/* Usage stats limits meters */}
               <div className="space-y-4 pt-2">
                 <div className="flex items-center gap-2 px-1">
-                  <Activity size={14} className="text-[#4F46E5] animate-pulse" />
+                  <Activity size={14} className="text-[#1B4F8A]" />
                   <h4 className="text-[11.5px] font-extrabold uppercase text-slate-400 tracking-wider">Active Workspace Quota Monitors</h4>
                 </div>
                 
@@ -2200,7 +2200,7 @@ function SettingsContent() {
                     }`}
                   >
                     <span>Annual Billing</span>
-                    <span className="text-[10px] font-extrabold uppercase bg-white/25 text-white px-2.5 py-0.5 rounded-full border border-slate-200 animate-pulse tracking-wide">
+                    <span className="text-[10px] font-extrabold uppercase bg-[#1B4F8A]/20 text-[#1B4F8A] px-2.5 py-0.5 rounded-[3px] border border-[#1B4F8A]/30 tracking-wide">
                       Save 20%
                     </span>
                   </button>
@@ -2214,9 +2214,7 @@ function SettingsContent() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch pt-4 relative z-20">
                 
                 {/* 1. STARTER CARD */}
-                <div className="group relative bg-slate-100/40 backdrop-blur-md border border-slate-200 rounded-3xl p-8 flex flex-col justify-between transition-all duration-500 ease-out hover:-translate-y-2 hover:scale-[1.02] hover:border-slate-300 hover:shadow-[0_25px_60px_rgba(0,0,0,0.6)] overflow-hidden">
-                  {/* Visual Background Glow */}
-                  <div className="absolute -top-12 -right-12 w-40 h-40 bg-[#4F46E5]/5 rounded-full blur-[40px] opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500 pointer-events-none" />
+                <div className="group relative bg-white border border-slate-200 rounded-[3px] p-8 flex flex-col justify-between overflow-hidden">
                   
                   <div className="space-y-6">
                     <div className="space-y-3">
@@ -2289,14 +2287,11 @@ function SettingsContent() {
                 </div>
 
                 {/* 2. PROFESSIONAL CARD (HIGHLIGHTED, GLOWS, LARGER SCALE) */}
-                <div className="group relative bg-[#1E2230]/80 backdrop-blur-md border-2 border-[#4F46E5]/40 rounded-3xl p-8 flex flex-col justify-between transition-all duration-500 ease-out scale-[1.03] lg:scale-[1.04] z-10 shadow-[0_0_40px_rgba(255,122,69,0.12)] hover:shadow-[0_0_55px_rgba(255,122,69,0.22)] hover:border-[#4F46E5]/60 hover:-translate-y-2.5 overflow-hidden">
-                  {/* Glowing decorative backgrounds inside premium highlighted card */}
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-[#4F46E5]/15 rounded-full blur-[45px] pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-                  <div className="absolute bottom-0 left-0 w-36 h-36 bg-[#7C3AED]/5 rounded-full blur-[40px] pointer-events-none" />
+                <div className="group relative bg-[#1E2230]/80 backdrop-blur-md border-2 border-[#1B4F8A] rounded-[3px] p-8 flex flex-col justify-between z-10 shadow-sm overflow-hidden">
 
                   {/* Shimmering Active Ribbon */}
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-[#1B4F8A] text-white px-5 py-1.5 rounded-full text-[10px] uppercase font-black tracking-widest border border-slate-200 shadow-[0_4px_20px_rgba(255,122,69,0.4)] whitespace-nowrap block animate-pulse">
+                    <span className="bg-[#1B4F8A] text-white px-5 py-1.5 rounded-[3px] text-[10px] uppercase font-black tracking-widest border border-slate-200 shadow-sm whitespace-nowrap block">
                       ★ Most Popular
                     </span>
                   </div>
@@ -2368,7 +2363,7 @@ function SettingsContent() {
                       onClick={() => {
                         triggerToast("✓ Initializing payment gateway for Reckon Pro CA plan. Secure connection active...");
                       }}
-                      className="w-full py-4 rounded-2xl bg-[#1B4F8A] text-white font-black text-[13.5px] text-center shadow-[0_4px_20px_rgba(255,122,69,0.3)] hover:shadow-[0_4px_30px_rgba(255,122,69,0.5)] transition-all hover:scale-[1.02] cursor-pointer"
+                      className="w-full py-4 rounded-[3px] bg-[#1B4F8A] text-white font-black text-[13.5px] text-center shadow-sm cursor-pointer"
                     >
                       Upgrade to Pro CA
                     </button>
@@ -2376,9 +2371,7 @@ function SettingsContent() {
                 </div>
 
                 {/* 3. ENTERPRISE CARD */}
-                <div className="group relative bg-slate-100/40 backdrop-blur-md border border-slate-200 rounded-3xl p-8 flex flex-col justify-between transition-all duration-500 ease-out hover:-translate-y-2 hover:scale-[1.02] hover:border-[#7C3AED]/30 hover:shadow-[0_25px_60px_rgba(108,99,255,0.06)] overflow-hidden">
-                  {/* Visual Background Glow */}
-                  <div className="absolute -top-12 -right-12 w-40 h-40 bg-[#7C3AED]/5 rounded-full blur-[40px] opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500 pointer-events-none" />
+                <div className="group relative bg-white border border-slate-200 rounded-[3px] p-8 flex flex-col justify-between shadow-sm overflow-hidden">
                   
                   <div className="space-y-6">
                     <div className="space-y-3">
@@ -2447,7 +2440,7 @@ function SettingsContent() {
                       onClick={() => {
                         triggerToast("✉ Transmitting custom Enterprise quote requests to Reckon partnership nodes...");
                       }}
-                      className="w-full py-4 rounded-2xl bg-[#F8FAFC] hover:bg-slate-50 text-white border border-[#7C3AED]/30 hover:border-[#7C3AED]/60 font-black text-[13.5px] text-center cursor-pointer transition-all hover:scale-[1.02] shadow-[0_4px_20px_rgba(108,99,255,0.05)] hover:shadow-[0_4px_25px_rgba(108,99,255,0.15)] duration-300"
+                      className="w-full py-4 rounded-[3px] bg-[#F8FAFC] hover:bg-slate-50 text-[#1B4F8A] border border-[#1B4F8A]/30 font-black text-[13.5px] text-center cursor-pointer shadow-sm"
                     >
                       Contact Sales
                     </button>
@@ -2462,7 +2455,7 @@ function SettingsContent() {
               PANEL 5: DATA & STORAGE
               ========================================== */}
           {activeTab === 'data' && (
-            <div className="space-y-8 animate-in fade-in duration-300">
+            <div className="space-y-8">
               <div className="border-b border-slate-200 pb-5">
                 <h3 className="text-[20px] font-bold text-white tracking-tight">Data & Storage Settings</h3>
                 <p className="text-[13.5px] text-slate-400 mt-1">Export ledgers, coordinate data longevity mandates, and manage compliance purges.</p>
@@ -2515,7 +2508,7 @@ function SettingsContent() {
               PANEL 6: FIRM SETTINGS & TEAM (FIRM-SPECIFIC)
               ========================================== */}
           {activeTab === 'firm' && (
-            <div className="space-y-8 animate-in fade-in duration-300">
+            <div className="space-y-8">
               <div className="border-b border-slate-200 pb-5">
                 <h3 className="text-[20px] font-bold text-white tracking-tight">Firm Settings & Team</h3>
                 <p className="text-[13.5px] text-slate-400 mt-1">Configure business configurations, CA registration numbers, office coordinates, and manage CA assistant seats.</p>
@@ -2670,7 +2663,7 @@ function SettingsContent() {
                               {m.status === 'Active' ? (
                                 <span className={`status-badge ${getUnifiedBadgeClass('ACTIVE')}`}>Active</span>
                               ) : (
-                                <span className={`status-badge ${getUnifiedBadgeClass('PENDING INVITE')} animate-pulse`}>Pending</span>
+                                  <span className="status-badge status-badge-warning">Pending</span>
                               )}
                             </td>
                             <td className="pr-5 text-right">

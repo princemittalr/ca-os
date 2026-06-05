@@ -72,35 +72,33 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-      {/* Background decorative blurs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-100/50 rounded-full filter blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-100/50 rounded-full filter blur-[100px] pointer-events-none"></div>
+      {/* Background decorative blurs removed */}
 
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3.5">
-          <CheckCircle2 className="text-[#10B981] flex-shrink-0 animate-bounce" size={20} />
+        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-[3px] shadow-sm z-[100] max-w-sm flex items-center gap-3.5">
+          <CheckCircle2 className="text-[#10B981] flex-shrink-0" size={20} />
           <span className="text-[13px] font-bold tracking-wide">{toastMessage}</span>
         </div>
       )}
 
       {/* Main Panel */}
-      <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-10 shadow-fintech-lg relative z-10 space-y-8 animate-in scale-in duration-300">
+      <div className="bg-white border border-slate-200 rounded-[3px] max-w-[640px] w-full p-10 shadow-sm relative z-10 space-y-8">
 
         {/* Brand identity */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[#4F46E5] text-white flex items-center justify-center mx-auto shadow-md shadow-indigo-200">
+          <div className="w-12 h-12 rounded-[3px] bg-[#1B4F8A] text-white flex items-center justify-center mx-auto shadow-sm">
             <Building size={20} />
           </div>
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-900 mt-3">Reckon CA-OS</h2>
-            <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.25em] uppercase mt-0.5 block">Audit Operating System</span>
+            <span className="text-[10px] font-black text-[#1B4F8A] tracking-[0.25em] uppercase mt-0.5 block">Audit Operating System</span>
           </div>
         </div>
 
         {/* Info card */}
-        <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl text-[11px] text-slate-500 leading-relaxed flex items-start gap-2.5">
-          <ShieldAlert size={16} className="text-[#4F46E5] flex-shrink-0" />
+        <div className="bg-slate-50 border border-slate-100 p-4 rounded-[3px] text-[11px] text-slate-500 leading-relaxed flex items-start gap-2.5">
+          <ShieldAlert size={16} className="text-[#1B4F8A] flex-shrink-0" />
           <p>
             Secure, encrypted workspace portal authorized for Chartered Accountants. Row-level security partitions enabled across all corporate client registers.
           </p>
@@ -109,28 +107,27 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-4 font-sans">
           {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-[#EF4444] flex items-center gap-2">
-              <AlertCircle size={14} />
-              <span>{errorMessage}</span>
+            <div className="text-[11px] text-[#B91C1C] mt-[3px]">
+              {errorMessage}
             </div>
           )}
 
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Firm Email Address</label>
+            <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Firm Email Address</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="e.g. aditya@firm.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
+              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
             />
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider">Access Password</label>
+            <div className="flex justify-between items-center mb-[4px]">
+              <label className="block text-[12px] font-medium text-[#374151]">Access Password</label>
               <Link href="/forgot-password">
-                <span className="text-[10px] text-[#4F46E5] hover:underline cursor-pointer">Forgot?</span>
+                <span className="text-[12px] text-[#1B4F8A] hover:underline cursor-pointer">Forgot?</span>
               </Link>
             </div>
             <input
@@ -138,21 +135,21 @@ export default function LoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••••••"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
+              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
             />
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="btn btn-primary btn-md w-full"
+            className="w-full h-[32px] bg-[#1B4F8A] text-[#FFFFFF] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              <div className="w-[12px] h-[12px] border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
             ) : (
               <>
                 <span>Authenticate Session</span>
-                <ArrowRight size={14} />
+                <ArrowRight size={12} />
               </>
             )}
           </button>

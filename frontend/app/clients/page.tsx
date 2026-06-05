@@ -400,7 +400,7 @@ export default function ClientPortfolioPage() {
   const renderClientsList = (clientsList: any[]) => {
     if (clientsList.length === 0) {
       return (
-        <div className="bg-white border border-slate-200/60 rounded-3xl p-8 text-center text-slate-400 py-10 shadow-sm">
+        <div className="bg-white border border-slate-200/60 rounded-[3px] p-8 text-center text-slate-400 py-10 shadow-sm">
           <p className="text-xs font-semibold">No clients in this category match the filters.</p>
         </div>
       );
@@ -451,8 +451,8 @@ export default function ClientPortfolioPage() {
                       </p>
                     </div>
                   </div>
-                  {client.risk_level === 'High' && (
-                    <span className="status-badge status-badge-error animate-pulse shrink-0 text-[9px] py-0 px-2 min-w-0 h-[22px]">
+                      {client.risk_level === 'High' && (
+                    <span className="status-badge status-badge-error shrink-0 text-[9px] py-0 px-2 min-w-0 h-[22px]">
                       {renderBadgeDot('CRITICAL')}
                       CRITICAL ALERT
                     </span>
@@ -460,7 +460,7 @@ export default function ClientPortfolioPage() {
                 </div>
 
                 {/* GSTIN Row: monospace font, 13px, color var(--color-text-secondary), copy icon button (16px) */}
-                <div className="mt-3 bg-slate-50 hover:bg-slate-100/60 border border-[var(--color-border)] rounded-xl px-3 py-1.5 flex items-center justify-between">
+                <div className="mt-3 bg-slate-50 hover:bg-slate-100/60 border border-[var(--color-border)] rounded-[3px] px-3 py-1.5 flex items-center justify-between">
                   <div 
                     className="flex items-center gap-2 text-[13px] text-[var(--color-text-secondary)] font-semibold"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
@@ -473,7 +473,7 @@ export default function ClientPortfolioPage() {
                   <button
                     type="button"
                     onClick={() => handleCopyGstin(client.id, client.gstin)}
-                    className="p-1 rounded-md text-slate-400 hover:text-[var(--color-primary-light)] hover:bg-slate-200/50 transition-colors cursor-pointer border-none flex items-center justify-center shrink-0"
+                    className="p-1 rounded-[3px] text-slate-400 hover:text-[var(--color-primary-light)] hover:bg-slate-200/50 transition-colors cursor-pointer border-none flex items-center justify-center shrink-0"
                     title="Copy GSTIN"
                     style={{ width: '24px', height: '24px', padding: '4px' }}
                   >
@@ -571,7 +571,7 @@ export default function ClientPortfolioPage() {
                   </Link>
 
                   <Link href={`/clients/${client.id}`} title="Open Client Audit Workspace">
-                    <button className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-400 hover:text-[#4F46E5] flex items-center justify-center transition-all cursor-pointer border-none">
+                    <button className="w-10 h-10 rounded-[3px] bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 text-slate-400 hover:text-[#4F46E5] flex items-center justify-center cursor-pointer border-none">
                       <ArrowRight size={14} />
                     </button>
                   </Link>
@@ -617,7 +617,7 @@ export default function ClientPortfolioPage() {
                         <td>
                           <div className="flex items-center gap-4">
                             <div
-                              className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-extrabold text-sm shadow-sm"
+                              className="w-10 h-10 rounded-[3px] flex items-center justify-center text-white font-extrabold text-sm shadow-sm"
                               style={{ backgroundColor: client.avatar_color }}
                             >
                               {client.initials}
@@ -735,7 +735,7 @@ export default function ClientPortfolioPage() {
   };
 
   return (
-    <div className="space-y-8 pb-16 animate-in fade-in duration-500 relative font-sans text-slate-800">
+    <div className="space-y-8 pb-16 relative font-sans text-slate-800">
       <PageHeader
         sectionLabel="Enterprise Portfolio"
         title="Client Directory"
@@ -753,7 +753,7 @@ export default function ClientPortfolioPage() {
 
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 metric-grid">
-        <div className="std-card metric-card hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between group">
+        <div className="std-card metric-card flex items-center justify-between group">
           <div className="space-y-1">
             <span className="metric-label block">Total Clients</span>
             <div className="metric-value">
@@ -761,12 +761,12 @@ export default function ClientPortfolioPage() {
             </div>
             <span className="metric-sub-label text-emerald-500 font-bold block mt-1">● Active GSTIN Monitoring</span>
           </div>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundColor: 'var(--color-accent-soft)', color: 'var(--color-primary-light)' }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--color-accent-soft)', color: 'var(--color-primary-light)' }}>
             <Users size={18} />
           </div>
         </div>
 
-        <div className="std-card metric-card hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between group">
+        <div className="std-card metric-card flex items-center justify-between group">
           <div className="space-y-1">
             <span className="metric-label block">Active Jobs Run</span>
             <div className="metric-value">
@@ -774,12 +774,12 @@ export default function ClientPortfolioPage() {
             </div>
             <span className="metric-sub-label text-[#7C3AED] font-bold block mt-1">↗ Across 5 core zones</span>
           </div>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundColor: 'var(--color-accent-soft)', color: 'var(--color-primary-light)' }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--color-accent-soft)', color: 'var(--color-primary-light)' }}>
             <Activity size={18} />
           </div>
         </div>
 
-        <div className="std-card metric-card card-variant-warning hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between group">
+        <div className="std-card metric-card card-variant-warning flex items-center justify-between group">
           <div className="space-y-1">
             <span className="metric-label block">Total Mismatches</span>
             <div className="metric-value font-mono" style={{ color: 'var(--color-warning)' }}>
@@ -787,12 +787,12 @@ export default function ClientPortfolioPage() {
             </div>
             <span className="metric-sub-label block mt-1">Pending CA reconciliation</span>
           </div>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundColor: 'var(--color-warning-soft)', color: 'var(--color-warning)' }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--color-warning-soft)', color: 'var(--color-warning)' }}>
             <AlertTriangle size={18} />
           </div>
         </div>
 
-        <div className="std-card metric-card card-variant-critical hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-between group">
+        <div className="std-card metric-card card-variant-critical flex items-center justify-between group">
           <div className="space-y-1">
             <span className="metric-label block">Critical Risk ITC</span>
             <div className="metric-value font-mono" style={{ color: 'var(--color-error)' }}>
@@ -802,7 +802,7 @@ export default function ClientPortfolioPage() {
               ⚠ {dashboardSummary.high_risk_clients} High-Risk profiles
             </span>
           </div>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform" style={{ backgroundColor: 'var(--color-error-soft)', color: 'var(--color-error)' }}>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--color-error-soft)', color: 'var(--color-error)' }}>
             <TrendingUp size={18} />
           </div>
         </div>
@@ -813,7 +813,7 @@ export default function ClientPortfolioPage() {
         
         {/* Welcome message & Firm Overview Card */}
         <div className="dark-card p-7 flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(79,70,229,0.15),transparent_60%)] pointer-events-none"></div>
+          {/* Backdrop radial gradient removed */}
           
           <div className="space-y-3">
             <div className="flex items-center gap-2">
@@ -821,7 +821,7 @@ export default function ClientPortfolioPage() {
                 System Briefing
               </span>
               <span className="text-[10px] text-indigo-200/60 font-semibold flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                 <span>Live Client Monitoring</span>
               </span>
             </div>
@@ -887,7 +887,7 @@ export default function ClientPortfolioPage() {
                 return (
                   <div 
                     key={client.id} 
-                    className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-b-0 hover:bg-slate-50 transition-all group"
+                    className="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-b-0 hover:bg-slate-50 group"
                     style={{ borderLeft: `3px solid ${rankColor}`, paddingLeft: '12px' }}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -917,7 +917,7 @@ export default function ClientPortfolioPage() {
                           {client.itc_at_risk > 0 ? formatCurrency(client.itc_at_risk) : '₹0 ITC'}
                         </span>
                       </div>
-                      <ChevronRight size={13} className="text-slate-300 group-hover:text-[var(--color-primary-light)] group-hover:translate-x-0.5 transition-all" />
+                      <ChevronRight size={13} className="text-slate-300 group-hover:text-[var(--color-primary-light)]" />
                     </div>
                   </div>
                 );
@@ -973,10 +973,10 @@ export default function ClientPortfolioPage() {
             </select>
 
             {/* View Mode Toggle Buttons */}
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="flex bg-slate-100 p-1 rounded-[3px] border border-slate-200">
               <button
                 onClick={() => setViewMode('grid')}
-                className="rounded-lg transition-all flex items-center justify-center p-0"
+                className="rounded-lg flex items-center justify-center p-0"
                 style={{
                   width: '32px',
                   height: '32px',
@@ -989,7 +989,7 @@ export default function ClientPortfolioPage() {
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className="rounded-lg transition-all flex items-center justify-center p-0"
+                className="rounded-lg flex items-center justify-center p-0"
                 style={{
                   width: '32px',
                   height: '32px',
@@ -1075,8 +1075,8 @@ export default function ClientPortfolioPage() {
           </div>
 
           {/* Jurisdictional State Selector */}
-          <div className="relative flex items-center bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-3.5 h-10 w-full md:w-48 transition-colors cursor-pointer group shrink-0">
-            <Filter size={13} className="text-slate-400 mr-2 group-hover:text-[#4F46E5] transition-colors" />
+          <div className="relative flex items-center bg-white border border-slate-200 hover:border-slate-300 rounded-[3px] px-3.5 h-10 w-full md:w-48 group shrink-0">
+            <Filter size={13} className="text-slate-400 mr-2 group-hover:text-[#4F46E5]" />
             <select
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value)}
@@ -1098,15 +1098,15 @@ export default function ClientPortfolioPage() {
 
       {/* Main Content Sections */}
       { (sortedCriticalClients.length > 0 || sortedHealthyClients.length > 0 || sortedRecentlyActiveClients.length > 0) ? (
-        <div className="space-y-10 animate-in fade-in duration-500">
+        <div className="space-y-10">
           
           {/* 1. Critical Clients Section */}
           {sortedCriticalClients.length > 0 && (
-            <div className="space-y-4 bg-red-50/30 p-6 rounded-[28px] border border-red-100/50">
+            <div className="space-y-4 bg-red-50/30 p-6 rounded-[3px] border border-red-100/50">
               <div className="flex items-center justify-between border-b border-red-100/60 pb-3">
                 <div className="flex items-center">
                   <span 
-                    className="rounded-full bg-[var(--color-error)] animate-pulse shrink-0" 
+                    className="rounded-full bg-[var(--color-error)] shrink-0" 
                     style={{ width: '8px', height: '8px', marginRight: '8px' }} 
                   />
                   <h2 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--color-text-primary)' }}>
@@ -1126,7 +1126,7 @@ export default function ClientPortfolioPage() {
 
           {/* 2. Healthy Clients Section */}
           {sortedHealthyClients.length > 0 && (
-            <div className="space-y-4 bg-emerald-50/[0.08] p-6 rounded-[28px] border border-emerald-100/30">
+            <div className="space-y-4 bg-emerald-50/[0.08] p-6 rounded-[3px] border border-emerald-100/30">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 border-b border-emerald-100/40 pb-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></span>
@@ -1147,7 +1147,7 @@ export default function ClientPortfolioPage() {
 
           {/* 3. Recently Active Clients Section */}
           {sortedRecentlyActiveClients.length > 0 && (
-            <div className="space-y-4 bg-violet-50/[0.08] p-6 rounded-[28px] border border-violet-100/30">
+            <div className="space-y-4 bg-violet-50/[0.08] p-6 rounded-[3px] border border-violet-100/30">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 border-b border-violet-100/40 pb-3">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]"></span>
@@ -1170,7 +1170,7 @@ export default function ClientPortfolioPage() {
       ) : (
         /* Empty directory view */
         <div className="std-card p-12 text-center space-y-4">
-          <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center text-slate-400 mx-auto">
+          <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-[3px] flex items-center justify-center text-slate-400 mx-auto">
             <Building size={24} />
           </div>
           <div className="space-y-1.5">
@@ -1189,49 +1189,39 @@ export default function ClientPortfolioPage() {
       {/* Onboarding intake Modal Dialog Redesign */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200/80 w-full max-w-lg rounded-[28px] p-8 flex flex-col gap-6 relative shadow-card-lg animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-slate-200/80 w-full max-w-[480px] rounded-[3px] flex flex-col relative shadow-sm overflow-hidden">
 
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-800 transition-colors cursor-pointer w-8 h-8 rounded-full hover:bg-slate-50 flex items-center justify-center border border-slate-100"
-            >
-              <X size={16} />
-            </button>
-
-            <div>
-              <span className="text-[10px] font-black text-[#4F46E5] tracking-[0.2em] uppercase">CA Operations Intake</span>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight mt-1 flex items-center gap-2">
-                <Building size={22} className="text-[#4F46E5]" />
-                <span>Onboard Corporate Client</span>
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">Register a new client entity to activate automated GSTR reconciliation audits.</p>
+            {/* Header: height 48px, border-bottom 1px solid #E5E7EB, title 14px weight 600 #111827 */}
+            <div className="h-[48px] border-b border-[#E5E7EB] flex items-center justify-between px-5">
+              <h3 className="text-[14px] font-semibold text-[#111827]">Onboard Corporate Client</h3>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            <form onSubmit={handleAddClient} className="space-y-4">
+            {/* Body: padding 20px */}
+            <div className="p-[20px] space-y-[16px]">
+              <p className="text-[11px] text-slate-500">Register a new client entity to activate automated GSTR reconciliation audits.</p>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Business Legal Name *</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                    <Building size={14} className="text-slate-400" />
-                  </div>
+              <form onSubmit={handleAddClient} className="space-y-[16px]">
+
+                <div>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Business Legal Name *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. TechNova Solutions Pvt Ltd"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/5 transition-all"
+                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">GSTIN Identification Number *</label>
-                <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none font-mono text-[9px] text-[#4F46E5] font-black">
-                    GST
-                  </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">GSTIN Identification Number *</label>
                   <input
                     type="text"
                     required
@@ -1240,19 +1230,17 @@ export default function ClientPortfolioPage() {
                     placeholder="e.g. 27AAACT1234A1Z5"
                     value={newGstin}
                     onChange={(e) => setNewGstin(e.target.value)}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 font-mono text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/5 transition-all uppercase"
+                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] uppercase"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Corporate Jurisdiction</label>
-                  <div className="relative flex items-center bg-slate-50 border border-slate-200 rounded-xl px-3 h-11 transition-all focus-within:bg-white focus-within:border-[#4F46E5] focus-within:ring-4 focus-within:ring-[#4F46E5]/5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-[12px] gap-y-[16px]">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Corporate Jurisdiction</label>
                     <select
                       value={newState}
                       onChange={(e) => setNewState(e.target.value)}
-                      className="w-full bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer appearance-none pr-5"
+                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
                     >
                       <option value="Maharashtra">Maharashtra</option>
                       <option value="Karnataka">Karnataka</option>
@@ -1262,63 +1250,50 @@ export default function ClientPortfolioPage() {
                       <option value="Tamil Nadu">Tamil Nadu</option>
                       <option value="Telangana">Telangana</option>
                     </select>
-                    <div className="absolute right-3.5 pointer-events-none text-slate-400">
-                      ▼
-                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Finance Contact Email</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                      <Mail size={14} className="text-slate-400" />
-                    </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Finance Contact Email</label>
                     <input
                       type="email"
                       placeholder="e.g. accounts@domain.com"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
-                      className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/5 transition-all"
+                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Finance Contact Mobile</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                    <Phone size={14} className="text-slate-400" />
-                  </div>
+                <div>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Finance Contact Mobile</label>
                   <input
                     type="text"
                     placeholder="e.g. +91 98765 43210"
                     value={newPhone}
                     onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full h-11 bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#4F46E5] focus:ring-4 focus:ring-[#4F46E5]/5 transition-all"
+                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
                   />
                 </div>
-              </div>
 
-              <div className="pt-4 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-500 hover:text-slate-800 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
+                {/* Footer: height 52px, border-top 1px solid #E5E7EB, padding 0 20px, flex row-reverse gap-2 */}
+                <div className="h-[52px] border-t border-[#E5E7EB] -mx-[20px] -mb-[20px] px-[20px] flex flex-row-reverse gap-2 items-center bg-slate-50">
+                  <button
+                    type="submit"
+                    className="h-[32px] bg-[#1B4F8A] text-[#FFFFFF] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center hover:bg-[#163F6E] cursor-pointer"
+                  >
+                    Initialize Workspace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="h-[32px] bg-[#FFFFFF] border border-[#D1D5DB] text-[#374151] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center hover:bg-[#F9FAFB] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
 
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#1B4F8A] hover:bg-[#163F6E] text-xs font-bold text-white transition-all shadow-md shadow-[#4F46E5]/10 cursor-pointer"
-                >
-                  Initialize Workspace
-                </button>
-              </div>
-
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
