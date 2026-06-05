@@ -338,7 +338,7 @@ export default function ClientWorkspacePortal() {
             <div className={`rounded-2xl p-4 flex flex-col justify-center items-center text-center border transition-all ${
               activeRisk === "HIGH" ? 'bg-[#FCE8E6] border-[#FCA5A5] text-[#C5221F]' : 'bg-[#F8FAFC] border-slate-100 text-slate-500'
             }`}>
-              <ShieldAlert size={18} className={activeRisk === "HIGH" ? 'animate-bounce' : ''} />
+              <ShieldAlert size={18} />
               <span className="text-[11px] font-black uppercase mt-1.5 block">HIGH</span>
             </div>
             
@@ -362,7 +362,7 @@ export default function ClientWorkspacePortal() {
           <div className="bg-[#F8FAFC] border border-slate-100 rounded-xl p-4 flex justify-between items-center text-xs">
             <span className="text-slate-500 font-bold">Aggregate Exposed ITC:</span>
             <span className={`font-mono font-black ${exposedRiskAmount > 0 ? 'text-[#EF4444]' : 'text-slate-800'}`}>
-              {formatCurrency(exposedRiskAmount * 0.18)}
+              {formatCurrency(exposedRiskAmount)}
             </span>
           </div>
         </div>
