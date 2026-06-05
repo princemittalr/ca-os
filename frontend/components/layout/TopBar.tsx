@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { 
   Search, 
   MessageSquare, 
@@ -11,9 +12,7 @@ import {
   CheckCircle2, 
   AlertCircle,
   MessageCircle,
-  Sparkles,
-  Menu,
-  X
+  Menu
 } from 'lucide-react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -42,11 +41,33 @@ export default function TopBar({
 }: {
   onMenuClick?: () => void;
 }) {
+  const pathname = usePathname() || '';
   const [isMessageOpen, setIsMessageOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
-  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [userInitials, setUserInitials] = useState("U");
+
+  const getBreadcrumb = (path: string) => {
+    if (!path || path === '/' || path === '/dashboard') return 'Dashboard';
+    
+    const routeNames: Record<string, string> = {
+      'dashboard': 'Dashboard',
+      'clients': 'Client Portfolio',
+      'gst-recon': 'GST Recon',
+      'import-recon': 'Import Recon',
+      'notices': 'Notice Desk',
+      'compliance': 'Compliance Operations Center',
+      'action-center': 'Action Center',
+      'automation': 'Automation',
+      'audit-trail': 'Audit Trail',
+      'settings': 'Settings',
+      'support': 'Support',
+    };
+
+    const segments = path.split('/').filter(Boolean);
+    return segments
+      .map(seg => routeNames[seg.toLowerCase()] || seg.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '))
+      .join(' / ');
+  };
 
   useEffect(() => {
     const fullName = localStorage.getItem("full_name");
@@ -135,396 +156,259 @@ export default function TopBar({
     setNotifications([]);
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'warning':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-amber-50 text-[#F59E0B] flex items-center justify-center flex-shrink-0 border border-amber-200">
-            <AlertTriangle size={15} />
-          </div>
-        );
-      case 'success':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-[#10B981] flex items-center justify-center flex-shrink-0 border border-emerald-200">
-            <CheckCircle2 size={15} />
-          </div>
-        );
-      case 'error':
-        return (
-          <div className="w-8 h-8 rounded-lg bg-red-50 text-[#EF4444] flex items-center justify-center flex-shrink-0 border border-red-200">
-            <AlertCircle size={15} />
-          </div>
-        );
-      default:
-        return (
-          <div className="w-8 h-8 rounded-lg bg-indigo-50 text-[#4F46E5] flex items-center justify-center flex-shrink-0 border border-indigo-200">
-            <MessageCircle size={15} />
-          </div>
-        );
-    }
-  };
-
   const unreadMessagesCount = messages.filter(m => m.unread).length;
   const unreadNotificationsCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="h-12 w-full flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white border-b border-slate-200/60 flex-shrink-0 relative z-50"
+    <div 
+      className="w-full flex items-center justify-between px-4 bg-white flex-shrink-0 relative z-50"
       style={{
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        height: '48px',
+        borderBottom: '1px solid #E5E7EB',
+        boxShadow: '0 1px 0 #E5E7EB',
       }}
     >
-      {/* Mobile Search Overlay */}
-      {isMobileSearchOpen && (
-        <div className="absolute inset-0 bg-white px-4 flex items-center gap-3 z-[60]">
-          <div className="flex-1 relative flex items-center h-[40px] rounded-xl border border-[#4F46E5] bg-[#FFFFFF] shadow-[0_0_0_3px_rgba(79,70,229,0.1)]">
-            <div className="flex items-center pl-3.5 pointer-events-none gap-2">
-              <Search size={16} className="text-[#4F46E5]" />
-              <Sparkles size={13} className="text-[#7C3AED] animate-pulse" />
-            </div>
-            <input 
-              type="text" 
-              autoFocus
-              placeholder="Search clients, GSTIN, invoices..." 
-              style={{ height: '40px', border: 'none', outline: 'none', background: 'transparent', fontSize: '13px', fontWeight: 500 }}
-              className="w-full pl-2.5 pr-12 text-slate-900 placeholder:text-slate-400"
-            />
-            {/* AI badge */}
-            <div className="absolute right-3 pointer-events-none">
-              <span className="text-[9px] font-black uppercase tracking-widest text-[#7C3AED] bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-md">
-                AI
-              </span>
-            </div>
-          </div>
-          <button 
-            onClick={() => setIsMobileSearchOpen(false)}
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex-shrink-0"
-            aria-label="Close search overlay"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      )}
-
-      {/* Hamburger button */}
-      <button
-        onClick={onMenuClick}
-        data-tooltip="Open Menu"
-        className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 mr-2 flex-shrink-0"
-        style={{ color: 'var(--color-text-primary)' }}
-        aria-label="Open navigation menu"
-      >
-        <Menu size={20} />
-      </button>
-      
-      {/* Left side search block */}
-      <div className="flex items-center flex-1 max-w-xl">
-        {/* Mobile search icon trigger */}
+      {/* Left side: Hamburger (mobile only) + Breadcrumb */}
+      <div className="flex items-center gap-2 min-w-0">
         <button
-          onClick={() => setIsMobileSearchOpen(true)}
-          data-tooltip="Search"
-          className="md:hidden w-10 h-10 rounded-xl flex items-center justify-center text-muted hover:text-[#4F46E5] hover:bg-indigo-50 active:scale-95 transition-all duration-200 mr-2"
-          aria-label="Open search overlay"
+          onClick={onMenuClick}
+          className="md:hidden flex items-center justify-center rounded-[3px] text-[#6B7280] hover:bg-[#F3F4F6] transition-colors duration-150 flex-shrink-0 cursor-pointer"
+          style={{ width: '28px', height: '28px' }}
+          aria-label="Open navigation menu"
         >
-          <Search size={18} />
+          <Menu size={15} />
         </button>
-
-        {/* Search bar */}
         <div 
-          className="relative max-w-md w-full transition-all duration-300 ease-out group hidden md:block"
+          className="select-none truncate font-normal"
+          style={{
+            fontSize: '13px',
+            color: '#4B5563',
+          }}
         >
-          {/* Outer container */}
-          <div 
-            className="relative flex items-center w-full h-[40px] rounded-xl transition-all duration-200 ease-out border overflow-hidden"
-            style={{
-              background: isFocused 
-                ? '#FFFFFF' 
-                : '#F1F5F9',
-              borderColor: isFocused 
-                ? '#4F46E5' 
-                : '#E2E8F0',
-              boxShadow: isFocused 
-                ? '0 0 0 3px rgba(79, 70, 229, 0.1)' 
-                : 'none',
-            }}
-          >
-            {/* Left Side: Search icon */}
-            <div className="flex items-center pl-3.5 z-10 pointer-events-none gap-2">
-              <div className="relative flex items-center justify-center">
-                <Search 
-                  size={16} 
-                  className="relative transition-all duration-200"
-                  style={{
-                    color: isFocused ? '#4F46E5' : '#64748B',
-                  }}
-                />
-              </div>
-              
-              {/* AI Sparkle on focus */}
-              <div 
-                className="flex items-center transition-all duration-200 overflow-hidden"
-                style={{
-                  width: isFocused ? '16px' : '0px',
-                  opacity: isFocused ? 1 : 0,
-                  marginRight: isFocused ? '2px' : '-8px',
-                }}
-              >
-                <Sparkles 
-                  size={13} 
-                  className="text-[#7C3AED] animate-pulse"
-                />
-              </div>
-            </div>
-
-            {/* Actual Input */}
-            <input 
-              type="text" 
-              placeholder="Search clients, GSTIN, invoices or ask AI..." 
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              className="w-full h-full bg-transparent pl-2.5 pr-20 text-[13px] font-medium text-slate-900 placeholder:text-muted focus:outline-none transition-all duration-200 search-input"
-              style={{
-                letterSpacing: '-0.01em',
-              }}
-            />
-
-            {/* Right Side: Shortcut & AI Badge */}
-            <div className="absolute right-3 flex items-center gap-1.5 pointer-events-none z-10">
-              {/* Keyboard shortcut hint */}
-              <div 
-                className="search-shortcut flex items-center gap-0.5 border border-slate-200 tracking-widest transition-all duration-200"
-                style={{
-                  opacity: isFocused ? 0 : 1,
-                  transform: isFocused ? 'translateX(6px)' : 'translateX(0)',
-                }}
-              >
-                <span className="text-[10px]">⌘</span>K
-              </div>
-
-              {/* AI badge */}
-              <div 
-                className="flex items-center gap-1 transition-all duration-200"
-                style={{
-                  opacity: isFocused ? 1 : 0.5,
-                  transform: isFocused ? 'scale(1)' : 'scale(0.95)',
-                }}
-              >
-                <span className="text-[9px] font-black uppercase tracking-widest text-[#7C3AED] bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded-md">
-                  AI
-                </span>
-              </div>
-            </div>
-          </div>
+          {getBreadcrumb(pathname)}
         </div>
       </div>
 
-      {/* Right side interaction buttons */}
-      <div className="flex items-center gap-3">
-        
-        {/* Messages Dropdown & Button */}
-        <div ref={messagesRef} className="relative">
-          <button 
-            onClick={() => {
-              setIsMessageOpen(!isMessageOpen);
-              setIsNotificationOpen(false);
-            }}
-            aria-haspopup="true"
-            aria-expanded={isMessageOpen}
-            aria-label="Toggle messages panel"
-            data-tooltip="Communications"
-            className={`w-10 h-10 rounded-xl flex items-center justify-center text-muted hover:text-[#7C3AED] hover:bg-violet-50 active:scale-95 group cursor-pointer relative transition-all duration-200 ${
-              isMessageOpen ? 'text-[#7C3AED] bg-violet-50' : 'hover:bg-slate-100'
-            }`}
-            style={{
-              border: isMessageOpen ? '1px solid #DDD6FE' : '1px solid transparent',
-            }}
-          >
-            <MessageSquare size={18} className={`transition-colors ${isMessageOpen ? 'text-[#7C3AED]' : ''}`} />
-            {unreadMessagesCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#7C3AED] text-[8.5px] font-black text-white flex items-center justify-center border-2 border-white shadow-sm">
-                {unreadMessagesCount}
-              </div>
-            )}
-          </button>
-
-          {isMessageOpen && (
-            <div 
-              role="menu"
-              aria-label="Messages Dropdown"
-              className="absolute right-0 mt-2 w-[380px] border border-slate-200 rounded-2xl shadow-fintech-lg p-5 z-[9999] animate-in slide-in-from-top-2 fade-in duration-200 ease-out flex flex-col bg-white"
-            >
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
-                <div>
-                  <h4 className="text-[14px] font-bold text-slate-900 tracking-tight">Recent Communications</h4>
-                  <p className="text-[10px] text-muted">CA communications & AI alerts</p>
-                </div>
-                {messages.length > 0 && (
-                  <button 
-                    onClick={handleClearMessages}
-                    className="text-[10px] font-extrabold text-[#EF4444] hover:underline cursor-pointer flex items-center gap-1"
-                  >
-                    <Trash2 size={11} />
-                    <span>Clear</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Message scroll list */}
-              <div className="max-h-[280px] overflow-y-auto space-y-2 hidden-scrollbar">
-                {messages.length > 0 ? (
-                  messages.map((msg) => (
-                    <div 
-                      key={msg.id}
-                      onClick={() => handleMarkMessageRead(msg.id)}
-                      className={`p-3 rounded-xl transition-all duration-200 cursor-pointer relative hover:bg-slate-50 flex flex-col gap-1 border ${
-                        msg.unread 
-                          ? 'bg-indigo-50/50 border-indigo-100 shadow-sm' 
-                          : 'bg-transparent border-slate-100 hover:border-slate-200'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <span className="text-[13px] font-bold text-slate-900 tracking-tight leading-none">{msg.sender}</span>
-                        <span className="text-[9.5px] text-muted whitespace-nowrap leading-none">{msg.time}</span>
-                      </div>
-                      <p className="text-[12px] text-secondary leading-relaxed truncate-3-lines mt-1">{msg.text}</p>
-                      
-                      {msg.unread && (
-                        <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#4F46E5] shadow-sm" />
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-12 flex flex-col items-center justify-center text-center gap-2.5">
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-[#4F46E5]">
-                      <MessageSquare size={16} />
-                    </div>
-                    <div>
-                      <h5 className="text-[12.5px] font-bold text-slate-900">All Conversations Read</h5>
-                      <p className="text-[11px] text-muted mt-0.5">Inbox is completely clear.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+      {/* Right side: Search + Utility Buttons + User Avatar */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {/* Search bar (hidden on very small screens, 200px wide on sm and up) */}
+        <div 
+          className="hidden sm:flex relative items-center bg-white"
+          style={{
+            height: '28px',
+            width: '200px',
+            border: '1px solid #D1D5DB',
+            borderRadius: '3px',
+          }}
+        >
+          <Search 
+            size={15} 
+            className="absolute left-2.5 text-[#6B7280] pointer-events-none" 
+          />
+          <input 
+            type="text" 
+            placeholder="Search..." 
+            className="w-full h-full bg-transparent pl-8 pr-2 focus:outline-none text-[12px] text-slate-900 placeholder:text-[#9CA3AF]"
+          />
         </div>
 
-        {/* Notifications Dropdown & Button */}
-        <div ref={notificationsRef} className="relative">
-          <button 
-            onClick={() => {
-              setIsNotificationOpen(!isNotificationOpen);
-              setIsMessageOpen(false);
-            }}
-            aria-haspopup="true"
-            aria-expanded={isNotificationOpen}
-            aria-label="Toggle notifications panel"
-            data-tooltip="Notifications"
-            className={`w-10 h-10 rounded-xl flex items-center justify-center text-muted hover:text-[#4F46E5] hover:bg-indigo-50 active:scale-95 group cursor-pointer relative transition-all duration-200 ${
-              isNotificationOpen ? 'text-[#4F46E5] bg-indigo-50' : 'hover:bg-slate-100'
-            }`}
-            style={{
-              border: isNotificationOpen ? '1px solid #C7D2FE' : '1px solid transparent',
-            }}
-          >
-            <Bell size={18} className={`transition-colors ${isNotificationOpen ? 'text-[#4F46E5]' : ''}`} />
-            {unreadNotificationsCount > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#4F46E5] text-[8.5px] font-black text-white flex items-center justify-center border-2 border-white shadow-sm">
-                {unreadNotificationsCount}
+        {/* Action icons */}
+        <div className="flex items-center gap-1">
+          {/* Messages */}
+          <div ref={messagesRef} className="relative">
+            <button 
+              onClick={() => {
+                setIsMessageOpen(!isMessageOpen);
+                setIsNotificationOpen(false);
+              }}
+              aria-haspopup="true"
+              aria-expanded={isMessageOpen}
+              aria-label="Toggle messages panel"
+              className="w-7 h-7 rounded-[3px] bg-transparent hover:bg-[#F3F4F6] flex items-center justify-center text-[#6B7280] relative cursor-pointer transition-colors duration-150 focus:outline-none"
+            >
+              <MessageSquare size={15} />
+              {unreadMessagesCount > 0 && (
+                <span 
+                  className="absolute top-[2px] right-[2px] block rounded-full" 
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    backgroundColor: '#B91C1C',
+                  }}
+                />
+              )}
+            </button>
+
+            {isMessageOpen && (
+              <div 
+                role="menu"
+                aria-label="Messages Dropdown"
+                className="absolute right-0 mt-2 w-[320px] border border-[#E5E7EB] rounded-[3px] shadow-sm p-4 z-[9999] flex flex-col bg-white"
+              >
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-100 mb-2.5">
+                  <div>
+                    <h4 className="text-[13px] font-bold text-slate-900 tracking-tight">Recent Communications ({unreadMessagesCount})</h4>
+                    <p className="text-[10px] text-slate-500">CA communications & AI alerts</p>
+                  </div>
+                  {messages.length > 0 && (
+                    <button 
+                      onClick={handleClearMessages}
+                      className="text-[10px] font-bold text-[#EF4444] hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Trash2 size={11} />
+                      <span>Clear</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-[240px] overflow-y-auto space-y-1.5 hidden-scrollbar">
+                  {messages.length > 0 ? (
+                    messages.map((msg) => (
+                      <div 
+                        key={msg.id}
+                        onClick={() => handleMarkMessageRead(msg.id)}
+                        className={`p-2 rounded-[3px] transition-colors duration-150 cursor-pointer relative hover:bg-slate-50 flex flex-col gap-0.5 border ${
+                          msg.unread 
+                            ? 'bg-[#F8FAFC] border-slate-200' 
+                            : 'bg-transparent border-transparent'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <span className="text-[11.5px] font-bold text-slate-900 tracking-tight leading-none">{msg.sender}</span>
+                          <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none">{msg.time}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 leading-normal truncate mt-0.5">{msg.text}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-8 flex flex-col items-center justify-center text-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                        <MessageSquare size={14} />
+                      </div>
+                      <div>
+                        <h5 className="text-[11.5px] font-bold text-slate-900">All Conversations Read</h5>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Inbox is completely clear.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
-          </button>
+          </div>
 
-          {isNotificationOpen && (
-            <div 
-              role="menu"
-              aria-label="Notifications Dropdown"
-              className="absolute right-0 mt-2 w-[380px] border border-slate-200 rounded-2xl shadow-fintech-lg p-5 z-[9999] animate-in slide-in-from-top-2 fade-in duration-200 ease-out flex flex-col bg-white"
+          {/* Notifications */}
+          <div ref={notificationsRef} className="relative">
+            <button 
+              onClick={() => {
+                setIsNotificationOpen(!isNotificationOpen);
+                setIsMessageOpen(false);
+              }}
+              aria-haspopup="true"
+              aria-expanded={isNotificationOpen}
+              aria-label="Toggle notifications panel"
+              className="w-7 h-7 rounded-[3px] bg-transparent hover:bg-[#F3F4F6] flex items-center justify-center text-[#6B7280] relative cursor-pointer transition-colors duration-150 focus:outline-none"
             >
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
-                <div>
-                  <h4 className="text-[14px] font-bold text-slate-900 tracking-tight">Notifications</h4>
-                  <p className="text-[10px] text-muted">Platform compliance updates</p>
-                </div>
-                {notifications.length > 0 && (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handleMarkAllNotificationsRead}
-                      className="text-[10px] font-extrabold text-[#10B981] hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      <Check size={11} />
-                      <span>Read All</span>
-                    </button>
-                    <span className="text-slate-300 text-[10px]">|</span>
-                    <button 
-                      onClick={handleClearNotifications}
-                      className="text-[10px] font-extrabold text-[#EF4444] hover:underline cursor-pointer"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                )}
-              </div>
+              <Bell size={15} />
+              {unreadNotificationsCount > 0 && (
+                <span 
+                  className="absolute top-[2px] right-[2px] block rounded-full" 
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    backgroundColor: '#B91C1C',
+                  }}
+                />
+              )}
+            </button>
 
-              {/* Notification list */}
-              <div className="max-h-[280px] overflow-y-auto space-y-2 hidden-scrollbar">
-                {notifications.length > 0 ? (
-                  notifications.map((notif) => (
-                    <div 
-                      key={notif.id}
-                      onClick={() => handleMarkNotificationRead(notif.id)}
-                      className={`p-3 rounded-xl transition-all duration-200 cursor-pointer relative hover:bg-slate-50 flex gap-3 items-start border ${
-                        !notif.is_read 
-                          ? 'bg-indigo-50/50 border-indigo-100 shadow-sm' 
-                          : 'bg-transparent border-slate-100 hover:border-slate-200'
-                      }`}
-                    >
-                      {getNotificationIcon(notif.type)}
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-1">
-                          <span className="text-[12.5px] font-bold text-slate-900 truncate leading-none mt-0.5">{notif.title}</span>
-                          <span className="text-[9.5px] text-muted whitespace-nowrap leading-none mt-0.5">
-                            {notif.time || (notif.created_at ? formatTimeAgo(notif.created_at) : '')}
-                          </span>
-                        </div>
-                        <p className="text-[11.5px] text-secondary leading-relaxed mt-1.5">
-                          {notif.description || notif.message}
-                        </p>
-                      </div>
-                      
-                      {!notif.is_read && (
-                        <div className="absolute top-3 right-3 w-2 h-2 rounded-full bg-[#4F46E5] shadow-sm" />
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-12 flex flex-col items-center justify-center text-center gap-2.5">
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-[#4F46E5]">
-                      <Bell size={16} />
-                    </div>
-                    <div>
-                      <h5 className="text-[12.5px] font-bold text-slate-900">All Caught Up!</h5>
-                      <p className="text-[11px] text-muted mt-0.5">No critical alerts detected.</p>
-                    </div>
+            {isNotificationOpen && (
+              <div 
+                role="menu"
+                aria-label="Notifications Dropdown"
+                className="absolute right-0 mt-2 w-[320px] border border-[#E5E7EB] rounded-[3px] shadow-sm p-4 z-[9999] flex flex-col bg-white"
+              >
+                <div className="flex justify-between items-center pb-2.5 border-b border-slate-100 mb-2.5">
+                  <div>
+                    <h4 className="text-[13px] font-bold text-slate-900 tracking-tight">Notifications ({unreadNotificationsCount})</h4>
+                    <p className="text-[10px] text-slate-500">Platform compliance updates</p>
                   </div>
-                )}
+                  {notifications.length > 0 && (
+                    <div className="flex gap-1.5">
+                      <button 
+                        onClick={handleMarkAllNotificationsRead}
+                        className="text-[10px] font-bold text-[#10B981] hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        <Check size={11} />
+                        <span>Read All</span>
+                      </button>
+                      <span className="text-slate-300 text-[10px]">|</span>
+                      <button 
+                        onClick={handleClearNotifications}
+                        className="text-[10px] font-bold text-[#EF4444] hover:underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="max-h-[240px] overflow-y-auto space-y-1.5 hidden-scrollbar">
+                  {notifications.length > 0 ? (
+                    notifications.map((notif) => (
+                      <div 
+                        key={notif.id}
+                        onClick={() => handleMarkNotificationRead(notif.id)}
+                        className={`p-2 rounded-[3px] transition-colors duration-150 cursor-pointer relative hover:bg-slate-50 flex gap-2.5 items-start border ${
+                          !notif.is_read 
+                            ? 'bg-[#F8FAFC] border-slate-200' 
+                            : 'bg-transparent border-transparent'
+                        }`}
+                      >
+                        {/* Compact notification icon */}
+                        <div className="flex-shrink-0 mt-0.5">
+                          {notif.type === 'warning' && <AlertTriangle size={13} className="text-[#F59E0B]" />}
+                          {notif.type === 'success' && <CheckCircle2 size={13} className="text-[#10B981]" />}
+                          {notif.type === 'error' && <AlertCircle size={13} className="text-[#EF4444]" />}
+                          {notif.type !== 'warning' && notif.type !== 'success' && notif.type !== 'error' && <MessageCircle size={13} className="text-[#4F46E5]" />}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start gap-1">
+                            <span className="text-[11.5px] font-bold text-slate-900 truncate leading-none mt-0.5">{notif.title}</span>
+                            <span className="text-[9px] text-slate-400 whitespace-nowrap leading-none mt-0.5">
+                              {notif.time || (notif.created_at ? formatTimeAgo(notif.created_at) : '')}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 leading-normal mt-1">
+                            {notif.description || notif.message}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-8 flex flex-col items-center justify-center text-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+                        <Bell size={14} />
+                      </div>
+                      <div>
+                        <h5 className="text-[11.5px] font-bold text-slate-900">All Caught Up!</h5>
+                        <p className="text-[10px] text-slate-400 mt-0.5">No critical alerts detected.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* User avatar */}
         <div 
-          className="w-8 h-8 rounded-lg text-white font-bold flex items-center justify-center text-[11px] shadow-sm flex-shrink-0 select-none"
-          style={{
-            background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
-          }}
+          className="w-[26px] h-[26px] rounded-full bg-[#E8EFF7] text-[#1B4F8A] text-[11px] font-bold flex items-center justify-center flex-shrink-0 select-none"
         >
           {userInitials}
         </div>
-
       </div>
-      
     </div>
   );
 }
