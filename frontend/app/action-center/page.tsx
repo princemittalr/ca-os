@@ -27,6 +27,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import Link from 'next/link';
+import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -165,7 +166,7 @@ export default function SmartActionCenter() {
       `Recommended Compliance Steps: ${action.recommended_action}\n` +
       `Target Deadline: ${action.deadline}\n\n` +
       `We request you to coordinate with our auditing firm immediately to resolve this matter.\n\n` +
-      `Regards,\nReckon CA Partner Partner`;
+      `Regards,\nReckon CA Partner`;
       
     navigator.clipboard.writeText(emailBody);
     showToast(`✓ Copilot outreach warning compiled & copied to clipboard!`);
@@ -255,7 +256,10 @@ export default function SmartActionCenter() {
       
       {/* Toast Notification Notification */}
       {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#4F46E5] text-slate-800 px-5 py-3.5 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3">
+        <div 
+          className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-5 py-3.5 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3"
+          style={{ borderLeft: '4px solid #4F46E5' }}
+        >
           <CheckCircle2 className="text-[#4F46E5] flex-shrink-0" size={18} />
           <span className="text-[12px] font-bold leading-normal">{toastMessage}</span>
         </div>
@@ -548,7 +552,7 @@ export default function SmartActionCenter() {
           <div className="std-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-sm font-black text-slate-800 tracking-tight uppercase block font-mono">
-                {selectedFolder.replace('_', ' ')} FEED
+                {selectedFolder.replace(/_/g, ' ')} FEED
               </h2>
               <p className="text-[11px] text-slate-400 font-bold mt-0.5">
                 {filteredActions.length} signal{filteredActions.length !== 1 ? 's' : ''} found
@@ -618,9 +622,11 @@ export default function SmartActionCenter() {
 
                       {/* Status, Severity & Risk badges */}
                       <div className="flex flex-wrap items-center gap-2">
-                        {/* Compound Badge */}
-                        <span className={`status-badge ${act.priority === 'HIGH' ? 'status-badge-error' : act.priority === 'MEDIUM' ? 'status-badge-warning' : 'status-badge-neutral'}`}>
-                          {act.priority} SEVERITY | {act.status}
+                        <span className={`status-badge ${getUnifiedBadgeClass(act.priority === 'HIGH' ? 'ERROR' : act.priority === 'MEDIUM' ? 'WARNING' : 'NEUTRAL')}`}>
+                          {act.priority} SEVERITY
+                        </span>
+                        <span className={`status-badge ${getUnifiedBadgeClass(act.status)}`}>
+                          {act.status}
                         </span>
                       </div>
                     </div>
@@ -800,7 +806,7 @@ export default function SmartActionCenter() {
             </div>
           ) : (
             <div className="std-card p-16 text-center space-y-4">
-              <CheckCircle2 size={42} className="mx-auto text-[var(--color-success)] animate-bounce" />
+              <CheckCircle2 size={42} className="mx-auto text-[var(--color-success)]" />
               <div>
                 <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider block font-mono">Queue Cleared</h4>
                 <p className="text-[11px] text-slate-400 font-medium mt-1">Excellent work! No unresolved action items found inside this folder.</p>
