@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import PageHeader from '@/components/layout/PageHeader';
 import { 
   Zap, 
   CheckCircle2, 
@@ -31,7 +30,6 @@ import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-
 interface ActionItem {
   action_id: string;
   client_id: string;
@@ -47,6 +45,8 @@ interface ActionItem {
   confidence_score: number;
   ai_summary: string;
   predicted_impact: string;
+  exposure_amount?: number;
+  assigned_to?: string;
 }
 
 interface ActionSummary {
@@ -69,6 +69,12 @@ export default function SmartActionCenter() {
   const [toastMessage, setToastMessage] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>('PRIORITY');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Status and filter chip states
+  const [resolvedActions, setResolvedActions] = useState<ActionItem[]>([]);
+  const [statusTab, setStatusTab] = useState<'PENDING' | 'RESOLVED'>('PENDING');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -139,11 +145,15 @@ export default function SmartActionCenter() {
 
   const handleResolveAction = async (actionId: string) => {
     try {
+      const itemToResolve = actions.find(a => a.action_id === actionId);
+      if (itemToResolve) {
+        setResolvedActions(prev => [...prev, { ...itemToResolve, status: 'RESOLVED' }]);
+      }
       const res = await fetch(`${API_BASE}/api/action-center/${actionId}/resolve`, {
         method: "PUT"
       });
       if (!res.ok) throw new Error("Failed to resolve action item");
-      showToast("✓ Action resolved and removed from daily task feed!");
+      showToast("✓ Action resolved!");
       await fetchActionCenter();
     } catch (err) {
       console.error("Resolve failed:", err);
@@ -154,6 +164,8 @@ export default function SmartActionCenter() {
   const handleAssignStaff = async (actionId: string, staff: string) => {
     try {
       showToast(`✓ Staff member ${staff} assigned to execute this action.`);
+      // Update local state assignments to reflect in UI
+      setActions(prev => prev.map(a => a.action_id === actionId ? { ...a, assigned_to: staff } : a));
     } catch (err) {
       console.error(err);
     }
@@ -211,36 +223,59 @@ export default function SmartActionCenter() {
 
   // Folders dynamic lists & sizes
   const folderCounts = {
-    PRIORITY: actions.filter(a => a.priority === 'HIGH').length,
-    GST_RISKS: actions.filter(isGstRisk).length,
-    BOE_ISSUES: actions.filter(isBoeIssue).length,
-    COMPLIANCE_DEADLINES: actions.filter(isComplianceDeadline).length,
-    NOTICES: actions.filter(isNotice).length,
-    HIGH_PRIORITY_CLIENTS: actions.filter(isHighPriorityClient).length,
-    ALL: actions.length
+    PRIORITY: actions.filter(a => a.priority === 'HIGH' && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
+    GST_RISKS: actions.filter(a => isGstRisk(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
+    BOE_ISSUES: actions.filter(a => isBoeIssue(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
+    COMPLIANCE_DEADLINES: actions.filter(a => isComplianceDeadline(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
+    NOTICES: actions.filter(a => isNotice(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
+    HIGH_PRIORITY_CLIENTS: actions.filter(a => isHighPriorityClient(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
+    ALL: actions.filter(a => !resolvedActions.some(ra => ra.action_id === a.action_id)).length
   };
 
-  // Final filtered list for the current folder view
-  const filteredActions = actions.filter(action => {
-    // 1. Search Query Match
-    const client = action.client_name.toLowerCase();
-    const title = action.title.toLowerCase();
-    const desc = action.description.toLowerCase();
-    const query = searchQuery.toLowerCase();
-    
-    if (query && !client.includes(query) && !title.includes(query) && !desc.includes(query)) {
-      return false;
-    }
+  // 1. Merge active actions and resolved actions
+  const allAvailableActions = [
+    ...actions.map(a => resolvedActions.some(ra => ra.action_id === a.action_id) ? { ...a, status: 'RESOLVED' } : { ...a, status: 'PENDING' }),
+    ...resolvedActions.filter(ra => !actions.some(a => a.action_id === ra.action_id))
+  ];
 
-    // 2. Folder Navigation Match
+  // 2. Filter by selected Folder first
+  const folderFiltered = allAvailableActions.filter(action => {
     if (selectedFolder === 'PRIORITY') return action.priority === 'HIGH';
     if (selectedFolder === 'GST_RISKS') return isGstRisk(action);
     if (selectedFolder === 'BOE_ISSUES') return isBoeIssue(action);
     if (selectedFolder === 'COMPLIANCE_DEADLINES') return isComplianceDeadline(action);
     if (selectedFolder === 'NOTICES') return isNotice(action);
     if (selectedFolder === 'HIGH_PRIORITY_CLIENTS') return isHighPriorityClient(action);
-    
     return true; // 'ALL'
+  });
+
+  // 3. Filter by Status Tab, Search Query, Category Filter Chip, and Priority Filter Chip
+  const filteredActions = folderFiltered.filter(action => {
+    // Status Tab Match
+    const isResolved = action.status === 'RESOLVED' || action.status === 'COMPLETED';
+    const statusMatch = statusTab === 'PENDING' ? !isResolved : isResolved;
+    if (!statusMatch) return false;
+
+    // Search Query Match
+    const client = action.client_name.toLowerCase();
+    const title = action.title.toLowerCase();
+    const desc = action.description.toLowerCase();
+    const query = searchQuery.toLowerCase();
+    if (query && !client.includes(query) && !title.includes(query) && !desc.includes(query)) {
+      return false;
+    }
+
+    // Category Filter Match
+    if (selectedCategory && action.category.toUpperCase() !== selectedCategory.toUpperCase()) {
+      return false;
+    }
+
+    // Priority Filter Match
+    if (selectedPriority && action.priority.toUpperCase() !== selectedPriority.toUpperCase()) {
+      return false;
+    }
+
+    return true;
   });
 
   const formatCurrency = (val: number) => {
@@ -252,164 +287,96 @@ export default function SmartActionCenter() {
   };
 
   return (
-    <div className="space-y-8 pb-16 animate-in fade-in duration-500 relative font-sans text-slate-800">
+    <div className="pb-16 relative font-sans text-slate-800 bg-[#F8FAFC] min-h-screen">
       
-      {/* Toast Notification Notification */}
+      {/* Toast Notification */}
       {toastMessage && (
         <div 
-          className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-5 py-3.5 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3"
-          style={{ borderLeft: '4px solid #4F46E5' }}
+          className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-5 py-3.5 rounded-2xl shadow-fintech-lg z-[100] max-w-sm flex items-center gap-3"
+          style={{ borderLeft: '4px solid #1B4F8A' }}
         >
-          <CheckCircle2 className="text-[#4F46E5] flex-shrink-0" size={18} />
+          <CheckCircle2 className="text-[#1B4F8A] flex-shrink-0" size={18} />
           <span className="text-[12px] font-bold leading-normal">{toastMessage}</span>
         </div>
       )}
 
-      <PageHeader
-        sectionLabel="OPERATIONS CENTER"
-        title="Workflow Hub"
-        description="Real-time critical inbox, statutory tracking, and supplier resolution desk"
-        actions={
+      {/* Header: same pattern as Dashboard (48px, white, border-bottom) */}
+      <div 
+        className="w-full h-12 px-6 bg-[#FFFFFF] border-b border-[#E5E7EB] flex items-center justify-between -mt-6 -mx-6 mb-6"
+      >
+        <div className="flex flex-col gap-[2px]">
+          <h1 className="text-[14px] font-semibold text-[#111827] leading-none">
+            Workflow Hub
+          </h1>
+          <p className="text-[11px] text-[#6B7280] leading-none">
+            Real-time critical inbox, statutory tracking, and supplier resolution desk
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
           <button 
             onClick={() => {
               fetchActionCenter();
               showToast("✓ AI Copilot successfully re-synchronized operational streams.");
             }}
-            className="btn btn-secondary btn-md"
+            className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 transition-all px-3 py-1.5 border border-[#E5E7EB] rounded-[4px] text-[11px] text-[#6B7280] font-medium h-8"
           >
-            <RefreshCw size={13} className="text-[#4F46E5]" />
+            <RefreshCw size={12} className="text-[#1B4F8A]" />
             <span>Sync Latest Alerts</span>
           </button>
-        }
-      />
-
-      {/* Narrative AI Copilot Glass Card */}
-      <div 
-        className="std-card w-full"
-        style={{
-          borderLeft: '4px solid var(--color-primary-light)',
-          backgroundColor: '#FAFAFA'
-        }}
-      >
-        <div className="relative z-10 flex flex-col md:flex-row items-start gap-4">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#4F46E5] to-[#7C3AED] flex items-center justify-center text-white shrink-0 shadow-md shadow-[#4F46E5]/20">
-            <Sparkles size={18} fill="currentColor" />
-          </div>
-          <div className="space-y-1.5 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black text-[#7C3AED] tracking-widest uppercase">CO-PILOT DAILY BRIEFING</span>
-              <span className="status-badge status-badge-success">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#059669] animate-badge-dot"></span>
-                ACTIVE MONITOR
-              </span>
-            </div>
-            <p className="text-[14px] text-[var(--color-text-primary)] leading-[1.6] font-medium">
-              {summary.daily_summary}
-            </p>
-            <div className="pt-2 flex flex-col md:flex-row md:items-center gap-2 border-t border-slate-100 mt-2">
-              <span className="text-[12px] uppercase font-semibold text-[var(--color-primary-light)] shrink-0">
-                ⚡ TODAY'S PRIORITY:
-              </span>
-              <span className="text-[13px] font-medium text-[var(--color-text-secondary)]">
-                {actions.length > 0 ? `Focus on top ${Math.min(3, actions.length)} high-priority items to protect ITC.` : "No critical actions detected today."}
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Metrics Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[...Array(3)].map((_, i) => (
-            <div 
-              key={i} 
-              className="h-[100px] bg-slate-50 border border-slate-100 rounded-3xl animate-pulse"
-            />
-          ))}
+      <div className="px-6 space-y-6">
+        {/* Narrative AI Copilot Card */}
+        <div 
+          className="std-card w-full"
+          style={{
+            borderLeft: '4px solid var(--color-primary-light)',
+            backgroundColor: '#FAFAFA',
+            boxShadow: 'none'
+          }}
+        >
+          <div className="relative z-10 flex flex-col md:flex-row items-start gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-[#1B4F8A] flex items-center justify-center text-white shrink-0">
+              <Sparkles size={18} />
+            </div>
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-[#1B4F8A] tracking-wider uppercase">CO-PILOT DAILY BRIEFING</span>
+                <span className="status-badge status-badge-success">
+                  ACTIVE MONITOR
+                </span>
+              </div>
+              <p className="text-[13px] text-[var(--color-text-primary)] leading-[1.6] font-medium">
+                {summary.daily_summary}
+              </p>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        {/* Two-panel layout: left panel 280px fixed, right panel flex-1, divider 1px solid #E5E7EB */}
+        <div className="flex flex-col lg:flex-row gap-0 border border-[#E5E7EB] rounded-[4px] overflow-hidden bg-white">
           
-          {/* Card 1: Active Signals */}
-          <div 
-            className="std-card flex items-center justify-between hover:shadow-card-hover transition-all duration-300"
-            style={{ borderTop: '3px solid var(--color-warning)' }}
-          >
-            <div className="flex flex-col space-y-1">
-              <span className="text-[32px] font-bold text-[var(--color-text-primary)] leading-none">
-                {summary.total_actions}
-              </span>
-              <span className="text-[12px] text-[var(--color-text-secondary)] font-medium">
-                Active Signals
-              </span>
-            </div>
-            <Zap size={20} className="text-[var(--color-warning)]" />
-          </div>
-
-          {/* Card 2: High Severity */}
-          <div 
-            className="std-card flex items-center justify-between hover:shadow-card-hover transition-all duration-300"
-            style={{ borderTop: '3px solid var(--color-error)' }}
-          >
-            <div className="flex flex-col space-y-1">
-              <span className="text-[32px] font-bold text-[var(--color-error)] leading-none">
-                {summary.high_priority_count}
-              </span>
-              <span className="text-[12px] text-[var(--color-text-secondary)] font-medium">
-                Critical Highs
-              </span>
-            </div>
-            <AlertCircle size={20} className="text-[var(--color-error)]" />
-          </div>
-
-          {/* Card 3: Capital Exposure */}
-          <div 
-            className="std-card flex items-center justify-between hover:shadow-card-hover transition-all duration-300"
-            style={{ borderTop: '3px solid var(--color-info)' }}
-          >
-            <div className="flex flex-col space-y-1">
-              <span className="text-[32px] font-bold text-[var(--color-info)] leading-none">
-                {formatCurrency(summary.pending_itc_exposure)}
-              </span>
-              <span className="text-[12px] text-[var(--color-text-secondary)] font-medium">
-                Capital Exposure
-              </span>
-            </div>
-            <TrendingUp size={20} className="text-[var(--color-info)]" />
-          </div>
-
-        </div>
-      )}
-
-      {/* Two Column Workspace Hub */}
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8 items-start">
-        
-        {/* Left Side: Smart Folders Navigation */}
-        <div className="sticky top-5" style={{ width: '220px' }}>
-          <div className="space-y-2">
-            
-            <div className="text-[11px] uppercase tracking-[0.08em] text-[var(--color-text-tertiary)] mb-2 px-3 font-semibold">
+          {/* Left Side: Smart Folders Navigation (280px fixed) */}
+          <div className="w-full lg:w-[280px] lg:shrink-0 bg-[#F9FAFB] border-r border-[#E5E7EB] p-4 space-y-2">
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[var(--color-text-tertiary)] mb-2 px-3 font-semibold">
               INBOX FOLDERS
             </div>
 
             {/* Folder 0: Priority Inbox */}
             <button
               onClick={() => setSelectedFolder('PRIORITY')}
-              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[var(--radius-md)] text-xs transition-all ${
+              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[4px] text-xs transition-all cursor-pointer ${
                 selectedFolder === 'PRIORITY' 
-                  ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] font-semibold' 
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] font-medium'
+                  ? 'bg-[#EFF6FF] text-[#1B4F8A] font-semibold' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[#F3F4F6] font-medium'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Inbox size={14} className={selectedFolder === 'PRIORITY' ? 'text-[var(--color-primary-light)]' : 'text-slate-400'} />
+                <Inbox size={14} className={selectedFolder === 'PRIORITY' ? 'text-[#1B4F8A]' : 'text-slate-400'} />
                 <span>Priority Inbox</span>
               </div>
-              <span 
-                className={`status-badge ${selectedFolder === 'PRIORITY' ? 'status-badge-purple' : 'status-badge-neutral'}`}
-                style={{ minWidth: 'auto', padding: '2px 7px', fontSize: '11px', height: 'auto' }}
-              >
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-[2px] ${selectedFolder === 'PRIORITY' ? 'bg-[#1B4F8A]/10 text-[#1B4F8A]' : 'bg-slate-200/60 text-slate-600'}`}>
                 {folderCounts.PRIORITY}
               </span>
             </button>
@@ -417,20 +384,17 @@ export default function SmartActionCenter() {
             {/* Folder 1: GST Risks */}
             <button
               onClick={() => setSelectedFolder('GST_RISKS')}
-              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[var(--radius-md)] text-xs transition-all ${
+              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[4px] text-xs transition-all cursor-pointer ${
                 selectedFolder === 'GST_RISKS' 
-                  ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] font-semibold' 
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] font-medium'
+                  ? 'bg-[#EFF6FF] text-[#1B4F8A] font-semibold' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[#F3F4F6] font-medium'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <ShieldAlert size={14} className={selectedFolder === 'GST_RISKS' ? 'text-[var(--color-primary-light)]' : 'text-slate-400'} />
+                <ShieldAlert size={14} className={selectedFolder === 'GST_RISKS' ? 'text-[#1B4F8A]' : 'text-slate-400'} />
                 <span>GST Risks</span>
               </div>
-              <span 
-                className={`status-badge ${selectedFolder === 'GST_RISKS' ? 'status-badge-purple' : 'status-badge-neutral'}`}
-                style={{ minWidth: 'auto', padding: '2px 7px', fontSize: '11px', height: 'auto' }}
-              >
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-[2px] ${selectedFolder === 'GST_RISKS' ? 'bg-[#1B4F8A]/10 text-[#1B4F8A]' : 'bg-slate-200/60 text-slate-600'}`}>
                 {folderCounts.GST_RISKS}
               </span>
             </button>
@@ -438,20 +402,17 @@ export default function SmartActionCenter() {
             {/* Folder 2: BOE Issues */}
             <button
               onClick={() => setSelectedFolder('BOE_ISSUES')}
-              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[var(--radius-md)] text-xs transition-all ${
+              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[4px] text-xs transition-all cursor-pointer ${
                 selectedFolder === 'BOE_ISSUES' 
-                  ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] font-semibold' 
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] font-medium'
+                  ? 'bg-[#EFF6FF] text-[#1B4F8A] font-semibold' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[#F3F4F6] font-medium'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Anchor size={14} className={selectedFolder === 'BOE_ISSUES' ? 'text-[var(--color-primary-light)]' : 'text-slate-400'} />
+                <Anchor size={14} className={selectedFolder === 'BOE_ISSUES' ? 'text-[#1B4F8A]' : 'text-slate-400'} />
                 <span>BOE Issues</span>
               </div>
-              <span 
-                className={`status-badge ${selectedFolder === 'BOE_ISSUES' ? 'status-badge-purple' : 'status-badge-neutral'}`}
-                style={{ minWidth: 'auto', padding: '2px 7px', fontSize: '11px', height: 'auto' }}
-              >
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-[2px] ${selectedFolder === 'BOE_ISSUES' ? 'bg-[#1B4F8A]/10 text-[#1B4F8A]' : 'bg-slate-200/60 text-slate-600'}`}>
                 {folderCounts.BOE_ISSUES}
               </span>
             </button>
@@ -459,20 +420,17 @@ export default function SmartActionCenter() {
             {/* Folder 3: Compliance Deadlines */}
             <button
               onClick={() => setSelectedFolder('COMPLIANCE_DEADLINES')}
-              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[var(--radius-md)] text-xs transition-all ${
+              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[4px] text-xs transition-all cursor-pointer ${
                 selectedFolder === 'COMPLIANCE_DEADLINES' 
-                  ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] font-semibold' 
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] font-medium'
+                  ? 'bg-[#EFF6FF] text-[#1B4F8A] font-semibold' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[#F3F4F6] font-medium'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Clock size={14} className={selectedFolder === 'COMPLIANCE_DEADLINES' ? 'text-[var(--color-primary-light)]' : 'text-slate-400'} />
+                <Clock size={14} className={selectedFolder === 'COMPLIANCE_DEADLINES' ? 'text-[#1B4F8A]' : 'text-slate-400'} />
                 <span>Compliance Deadlines</span>
               </div>
-              <span 
-                className={`status-badge ${selectedFolder === 'COMPLIANCE_DEADLINES' ? 'status-badge-purple' : 'status-badge-neutral'}`}
-                style={{ minWidth: 'auto', padding: '2px 7px', fontSize: '11px', height: 'auto' }}
-              >
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-[2px] ${selectedFolder === 'COMPLIANCE_DEADLINES' ? 'bg-[#1B4F8A]/10 text-[#1B4F8A]' : 'bg-slate-200/60 text-slate-600'}`}>
                 {folderCounts.COMPLIANCE_DEADLINES}
               </span>
             </button>
@@ -480,20 +438,17 @@ export default function SmartActionCenter() {
             {/* Folder 4: Notices */}
             <button
               onClick={() => setSelectedFolder('NOTICES')}
-              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[var(--radius-md)] text-xs transition-all ${
+              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[4px] text-xs transition-all cursor-pointer ${
                 selectedFolder === 'NOTICES' 
-                  ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] font-semibold' 
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] font-medium'
+                  ? 'bg-[#EFF6FF] text-[#1B4F8A] font-semibold' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[#F3F4F6] font-medium'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <FileText size={14} className={selectedFolder === 'NOTICES' ? 'text-[var(--color-primary-light)]' : 'text-slate-400'} />
+                <FileText size={14} className={selectedFolder === 'NOTICES' ? 'text-[#1B4F8A]' : 'text-slate-400'} />
                 <span>Notices</span>
               </div>
-              <span 
-                className={`status-badge ${selectedFolder === 'NOTICES' ? 'status-badge-purple' : 'status-badge-neutral'}`}
-                style={{ minWidth: 'auto', padding: '2px 7px', fontSize: '11px', height: 'auto' }}
-              >
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-[2px] ${selectedFolder === 'NOTICES' ? 'bg-[#1B4F8A]/10 text-[#1B4F8A]' : 'bg-slate-200/60 text-slate-600'}`}>
                 {folderCounts.NOTICES}
               </span>
             </button>
@@ -501,20 +456,17 @@ export default function SmartActionCenter() {
             {/* Folder 5: High Priority Clients */}
             <button
               onClick={() => setSelectedFolder('HIGH_PRIORITY_CLIENTS')}
-              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[var(--radius-md)] text-xs transition-all ${
+              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[4px] text-xs transition-all cursor-pointer ${
                 selectedFolder === 'HIGH_PRIORITY_CLIENTS' 
-                  ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] font-semibold' 
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] font-medium'
+                  ? 'bg-[#EFF6FF] text-[#1B4F8A] font-semibold' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[#F3F4F6] font-medium'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Gem size={14} className={selectedFolder === 'HIGH_PRIORITY_CLIENTS' ? 'text-[var(--color-primary-light)]' : 'text-slate-400'} />
+                <Gem size={14} className={selectedFolder === 'HIGH_PRIORITY_CLIENTS' ? 'text-[#1B4F8A]' : 'text-slate-400'} />
                 <span>High Priority Clients</span>
               </div>
-              <span 
-                className={`status-badge ${selectedFolder === 'HIGH_PRIORITY_CLIENTS' ? 'status-badge-purple' : 'status-badge-neutral'}`}
-                style={{ minWidth: 'auto', padding: '2px 7px', fontSize: '11px', height: 'auto' }}
-              >
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-[2px] ${selectedFolder === 'HIGH_PRIORITY_CLIENTS' ? 'bg-[#1B4F8A]/10 text-[#1B4F8A]' : 'bg-slate-200/60 text-slate-600'}`}>
                 {folderCounts.HIGH_PRIORITY_CLIENTS}
               </span>
             </button>
@@ -524,159 +476,247 @@ export default function SmartActionCenter() {
             {/* Folder: ALL */}
             <button
               onClick={() => setSelectedFolder('ALL')}
-              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[var(--radius-md)] text-xs transition-all ${
+              className={`w-full flex items-center justify-between px-3 h-[36px] rounded-[4px] text-xs transition-all cursor-pointer ${
                 selectedFolder === 'ALL' 
-                  ? 'bg-[var(--color-accent-soft)] text-[var(--color-primary-light)] font-semibold' 
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] font-medium'
+                  ? 'bg-[#EFF6FF] text-[#1B4F8A] font-semibold' 
+                  : 'text-[var(--color-text-secondary)] hover:bg-[#F3F4F6] font-medium'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Users size={14} className={selectedFolder === 'ALL' ? 'text-[var(--color-primary-light)]' : 'text-slate-400'} />
+                <Users size={14} className={selectedFolder === 'ALL' ? 'text-[#1B4F8A]' : 'text-slate-400'} />
                 <span>All Alerts</span>
               </div>
-              <span 
-                className={`status-badge ${selectedFolder === 'ALL' ? 'status-badge-purple' : 'status-badge-neutral'}`}
-                style={{ minWidth: 'auto', padding: '2px 7px', fontSize: '11px', height: 'auto' }}
-              >
+              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-[2px] ${selectedFolder === 'ALL' ? 'bg-[#1B4F8A]/10 text-[#1B4F8A]' : 'bg-slate-200/60 text-slate-600'}`}>
                 {folderCounts.ALL}
               </span>
             </button>
-
           </div>
-        </div>
 
-        {/* Right Side: Priority Feed Panel */}
-        <div className="space-y-5">
-          
-          {/* Search bar and Folder Label */}
-          <div className="std-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-sm font-black text-slate-800 tracking-tight uppercase block font-mono">
-                {selectedFolder.replace(/_/g, ' ')} FEED
-              </h2>
-              <p className="text-[11px] text-slate-400 font-bold mt-0.5">
-                {filteredActions.length} signal{filteredActions.length !== 1 ? 's' : ''} found
-              </p>
-            </div>
+          {/* Right Side: Priority Feed Panel */}
+          <div className="flex-1 bg-white p-6 space-y-6">
             
-            {/* Search Input Container */}
-            <div className="relative shrink-0 max-w-xs w-full">
-              <Search size={13} className="absolute left-3.5 top-3 text-slate-400" />
-              <input 
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search alerts or clients..."
-                className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl pl-9.5 pr-4 py-2 text-xs text-slate-800 placeholder-[#6B7280] focus:outline-none focus:border-[#4F46E5]/40 font-sans"
-              />
-            </div>
-          </div>
+            {/* Status Tabs and Filter chips bar */}
+            <div className="flex flex-col gap-4 border-b border-[#E5E7EB] pb-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                
+                {/* STATUS TABS */}
+                <div className="flex gap-6 h-8 items-end">
+                  <button
+                    onClick={() => setStatusTab('PENDING')}
+                    className={`text-[12px] font-medium pb-2 transition-all cursor-pointer bg-transparent border-none ${
+                      statusTab === 'PENDING' 
+                        ? 'border-b-2 border-solid border-[#1B4F8A] text-[#1B4F8A]' 
+                        : 'text-[#6B7280] hover:text-[#111827]'
+                    }`}
+                    style={{ height: '32px' }}
+                  >
+                    Pending ({folderFiltered.filter(a => a.status === 'PENDING').length})
+                  </button>
+                  <button
+                    onClick={() => setStatusTab('RESOLVED')}
+                    className={`text-[12px] font-medium pb-2 transition-all cursor-pointer bg-transparent border-none ${
+                      statusTab === 'RESOLVED' 
+                        ? 'border-b-2 border-solid border-[#1B4F8A] text-[#1B4F8A]' 
+                        : 'text-[#6B7280] hover:text-[#111827]'
+                    }`}
+                    style={{ height: '32px' }}
+                  >
+                    Resolved ({folderFiltered.filter(a => a.status === 'RESOLVED').length})
+                  </button>
+                </div>
+                
+                {/* Search Input Container */}
+                <div className="relative shrink-0 max-w-xs w-full">
+                  <Search size={13} className="absolute left-3 top-2.5 text-slate-400" />
+                  <input 
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Search actions..."
+                    className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-[4px] pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-[#6B7280] focus:outline-none focus:border-[#1B4F8A] font-sans"
+                  />
+                </div>
+              </div>
 
-          {/* Action Cards Queue Feed */}
-          {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-44 bg-slate-50 border border-slate-100 rounded-[24px] animate-pulse"></div>
-              ))}
-            </div>
-          ) : (
-            <div className="data-table-shell">
-              <div className="overflow-x-auto hidden-scrollbar">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Severity</th>
-                      <th>Client Portfolio</th>
-                      <th>Action Required</th>
-                      <th className="num-col">Exposure</th>
-                      <th>Deadline</th>
-                      <th>Staff</th>
-                      <th className="text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredActions.length > 0 ? (
-                      filteredActions.map((act) => {
-                        const matches = act.description.match(/₹([0-9.,L]+)/);
-                        const exposureString = matches ? matches[0] : null;
+              {/* Filter Chips */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] text-[#6B7280] font-medium">Category:</span>
+                {['RECONCILIATION', 'NOTICE', 'COMPLIANCE', 'IMPORT', 'VENDOR'].map((cat) => {
+                  const isActive = selectedCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(isActive ? null : cat)}
+                      className={`h-[24px] border rounded-[2px] text-[11px] px-2 font-medium transition-all cursor-pointer flex items-center justify-center ${
+                        isActive 
+                          ? 'bg-[#EFF6FF] border-[#1B4F8A] text-[#1B4F8A]' 
+                          : 'border-[#D1D5DB] text-[#6B7280] bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
 
-                        return (
-                          <tr key={act.action_id}>
-                            <td>
-                              <span className={`status-badge ${getUnifiedBadgeClass(act.priority === 'HIGH' ? 'ERROR' : act.priority === 'MEDIUM' ? 'WARNING' : 'NEUTRAL')}`}>
-                                {act.priority}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="font-semibold text-slate-900">{act.client_name}</div>
-                              <div className="text-[11px] text-slate-400 mt-0.5 font-mono">Risk: {act.risk_score.toFixed(0)}%</div>
-                            </td>
-                            <td>
-                              <div className="font-semibold text-slate-800 line-clamp-1">{act.title}</div>
-                              <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">{act.description}</div>
-                            </td>
-                            <td className="num-col">
-                              {exposureString || "Material"}
-                            </td>
-                            <td className="font-mono text-[12px]">
-                              {act.deadline}
-                            </td>
-                            <td>
-                              <select 
-                                onChange={(e) => handleAssignStaff(act.action_id, e.target.value)}
-                                className="bg-transparent border-none text-[12px] text-slate-600 focus:outline-none cursor-pointer font-medium"
-                                defaultValue="Aditya Rao"
-                                aria-label={`Assign ${act.client_name}`}
-                              >
-                                <option value="Aditya Rao">Aditya Rao</option>
-                                <option value="Neha Sharma">Neha Sharma</option>
-                                <option value="Rohan Mehta">Rohan Mehta</option>
-                                <option value="Kunal Sen">Kunal Sen</option>
-                              </select>
-                            </td>
-                            <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex items-center justify-end gap-1">
-                                {act.category === 'VENDOR' && (
-                                  <button 
-                                    onClick={() => handleGenerateOutreach(act)}
-                                    className="action-btn"
-                                    title="Outreach"
-                                  >
-                                    <Copy />
-                                  </button>
-                                )}
-                                <Link href={act.category === 'RECONCILIATION' ? `/gst-recon?client=${act.client_id}` : `/clients/${act.client_id}`} title="Open Workspace">
-                                  <button className="action-btn">
-                                    <ExternalLink />
-                                  </button>
-                                </Link>
-                                <button 
-                                  onClick={() => handleResolveAction(act.action_id)}
-                                  className="action-btn"
-                                  title="Resolve"
-                                >
-                                  <Check />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={7}>
-                          <div className="flex flex-col items-center justify-center py-8 gap-2">
-                            <Inbox size={20} className="text-[#D1D5DB]" />
-                            <span className="text-[13px] text-[#6B7280]">No records found</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                <div className="w-px h-3 bg-slate-200 mx-2" />
+
+                <span className="text-[11px] text-[#6B7280] font-medium">Priority:</span>
+                {['HIGH', 'MEDIUM', 'LOW'].map((prio) => {
+                  const isActive = selectedPriority === prio;
+                  return (
+                    <button
+                      key={prio}
+                      onClick={() => setSelectedPriority(isActive ? null : prio)}
+                      className={`h-[24px] border rounded-[2px] text-[11px] px-2 font-medium transition-all cursor-pointer flex items-center justify-center ${
+                        isActive 
+                          ? 'bg-[#EFF6FF] border-[#1B4F8A] text-[#1B4F8A]' 
+                          : 'border-[#D1D5DB] text-[#6B7280] bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      {prio}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
+
+            {/* Task/Action Cards List Feed */}
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 bg-slate-50 border border-slate-100 rounded-[4px]"></div>
+                ))}
+              </div>
+            ) : filteredActions.length > 0 ? (
+              <div className="space-y-3">
+                {filteredActions.map((act) => {
+                  // Determine priority border color
+                  let leftBorderColor = '#6B7280'; // Low
+                  const p = act.priority.toUpperCase();
+                  if (p === 'CRITICAL' || act.risk_score >= 85) {
+                    leftBorderColor = '#B91C1C';
+                  } else if (p === 'HIGH') {
+                    leftBorderColor = '#B45309';
+                  } else if (p === 'MEDIUM' || p === 'NORMAL') {
+                    leftBorderColor = '#1B4F8A';
+                  }
+
+                  // Determine due date color
+                  let dueDateColor = '#6B7280';
+                  try {
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const deadline = new Date(act.deadline);
+                    deadline.setHours(0,0,0,0);
+                    if (deadline.getTime() < today.getTime()) {
+                      dueDateColor = '#B91C1C';
+                    } else if (deadline.getTime() === today.getTime()) {
+                      dueDateColor = '#B45309';
+                    }
+                  } catch (e) {}
+
+                  return (
+                    <div 
+                      key={act.action_id}
+                      className="group relative flex items-center justify-between bg-white border border-[#E5E7EB] rounded-[4px] p-3 transition-shadow duration-150 hover:shadow-[0_1px_4px_rgba(0,0,0,0.08)]"
+                      style={{ borderLeft: `3px solid ${leftBorderColor}` }}
+                    >
+                      <div className="flex-1 min-w-0 pr-4">
+                        <div className="text-[13px] font-medium text-[#111827]">
+                          {act.title}
+                        </div>
+                        
+                        {/* Meta: inline flex with bullet separator */}
+                        <div className="inline-flex items-center flex-wrap gap-1 text-[11px] text-[#6B7280] mt-1 font-sans">
+                          <span className="font-semibold text-slate-800">{act.client_name}</span>
+                          <span>·</span>
+                          <span className="uppercase">{act.category}</span>
+                          <span>·</span>
+                          <span>Risk: {act.risk_score.toFixed(0)}%</span>
+                          <span>·</span>
+                          {((act.exposure_amount || 0) > 0) && (
+                            <>
+                              <span>Exp: {formatCurrency(act.exposure_amount || 0)}</span>
+                              <span>·</span>
+                            </>
+                          )}
+                          <span style={{ color: dueDateColor }}>
+                            Due: {act.deadline}
+                          </span>
+                        </div>
+
+                        {act.description && (
+                          <div className="text-[11px] text-[#6B7280] mt-1 line-clamp-1">
+                            {act.description}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right aligned staff selection & action buttons */}
+                      <div className="flex items-center gap-4 shrink-0">
+                        {act.status !== 'RESOLVED' && (
+                          <select 
+                            onChange={(e) => handleAssignStaff(act.action_id, e.target.value)}
+                            className="bg-transparent border border-slate-200 rounded-[2px] px-1 py-0.5 text-[11px] text-slate-600 focus:outline-none cursor-pointer font-medium"
+                            defaultValue={act.assigned_to || "Aditya Rao"}
+                            aria-label={`Assign staff for ${act.title}`}
+                          >
+                            <option value="Aditya Rao">Aditya Rao</option>
+                            <option value="Neha Sharma">Neha Sharma</option>
+                            <option value="Rohan Mehta">Rohan Mehta</option>
+                            <option value="Kunal Sen">Kunal Sen</option>
+                          </select>
+                        )}
+
+                        {/* Action buttons visible on hover only */}
+                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                          {act.category === 'VENDOR' && (
+                            <button 
+                              onClick={() => handleGenerateOutreach(act)}
+                              className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors"
+                              title="Copy Outreach warning"
+                              style={{ width: '24px', height: '24px' }}
+                            >
+                              <Copy size={12} />
+                            </button>
+                          )}
+                          <Link 
+                            href={act.category === 'RECONCILIATION' ? `/gst-recon?client=${act.client_id}` : `/clients/${act.client_id}`} 
+                            title="Open Workspace"
+                          >
+                            <span 
+                              className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors"
+                              style={{ width: '24px', height: '24px' }}
+                            >
+                              <ExternalLink size={12} />
+                            </span>
+                          </Link>
+                          {act.status !== 'RESOLVED' && (
+                            <button 
+                              onClick={() => handleResolveAction(act.action_id)}
+                              className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-emerald-50 hover:border-emerald-200 text-[#6B7280] hover:text-emerald-600 transition-colors"
+                              title="Resolve"
+                              style={{ width: '24px', height: '24px' }}
+                            >
+                              <Check size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Empty state: Icon 20px #D1D5DB, Text "No actions pending" 13px #6B7280 */
+              <div className="flex flex-col items-center justify-center py-16 gap-2">
+                <Inbox size={20} className="text-[#D1D5DB]" />
+                <span className="text-[13px] text-[#6B7280]">No actions pending</span>
+              </div>
+            )}
+
+          </div>
 
         </div>
 
