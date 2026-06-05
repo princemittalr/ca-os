@@ -89,6 +89,33 @@ def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
     MOCK_CLIENTS.append(new_client)
     return new_client
 
+def update_client(client_id: str, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if is_supabase_active():
+        try:
+            payload = {}
+            for field in ["business_name", "legal_name", "trade_name", "gstin", "contact_person", "email", "phone", "state", "state_code", "filing_frequency", "assigned_manager"]:
+                if field in client_data:
+                    payload[field] = client_data[field]
+            if "gstin" in payload:
+                payload["gstin"] = payload["gstin"].upper()
+            res = supabase_client.table("clients").update(payload).eq("id", client_id).execute()
+            if res.data:
+                return cast(Dict[str, Any], res.data[0])
+        except Exception as e:
+            print(f"Supabase update error: {str(e)}. Falling back to in-memory store.")
+
+    # Fallback to local in-memory store
+    from services.client_workspace import MOCK_CLIENTS
+    for c in MOCK_CLIENTS:
+        if c["id"] == client_id:
+            for field in ["business_name", "legal_name", "trade_name", "gstin", "contact_person", "email", "phone", "state", "state_code", "filing_frequency", "assigned_manager"]:
+                if field in client_data:
+                    c[field] = client_data[field]
+            if "gstin" in c:
+                c["gstin"] = c["gstin"].upper()
+            return c
+    return None
+
 # -------------------------------------------------------------------------
 # RECONCILIATIONS CRUD ABSTRACTION
 # -------------------------------------------------------------------------

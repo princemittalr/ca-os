@@ -25,6 +25,11 @@ def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"Onboarding new client workspace: {client_data.get('business_name')}")
     return db_manager.create_client(client_data)
 
+def update_client(client_id: str, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Updates an existing corporate client workspace."""
+    logger.info(f"Updating client workspace {client_id}")
+    return db_manager.update_client(client_id, client_data)
+
 def get_reconciliations_for_client(client_id: str) -> List[Dict[str, Any]]:
     """Retrieve all historical reconciliation runs for a specific client."""
     return db_manager.get_reconciliations(client_id)

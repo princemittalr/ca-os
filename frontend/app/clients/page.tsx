@@ -323,19 +323,12 @@ export default function ClientPortfolioPage() {
           <h1 className="text-[14px] font-semibold text-[#111827] leading-none">Client Directory</h1>
           <p className="text-[11px] text-[#6B7280] leading-none">Manage corporate workspaces, statutory filings, and ITC risk audit desks</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="h-[30px] bg-[#1B4F8A] text-white text-[12px] font-medium rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
-        >
-          <Plus size={13} />
-          <span>Onboard Client</span>
-        </button>
       </div>
 
       <div className="px-6 space-y-4">
 
         {/* Toolbar: 40px, flex row, gap-2 */}
-        <div className="h-10 flex items-center gap-2">
+        <div className="h-10 flex items-center gap-2 mb-3">
           {/* Search */}
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-[8px] text-slate-400" />
@@ -423,39 +416,49 @@ export default function ClientPortfolioPage() {
               <Grid size={14} />
             </button>
           </div>
+
+          {/* Add Client button - primary style */}
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="btn btn-primary h-[30px] px-3 text-[12px] font-medium rounded-[3px] flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
+          >
+            <Plus size={13} />
+            <span>Add Client</span>
+          </button>
         </div>
 
         {/* ── LIST TABLE VIEW ── */}
         {viewMode === 'list' && (
-          <div className="bg-white border border-[#E5E7EB] rounded-[4px] overflow-hidden">
+          <div className="data-table-shell">
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
+              <table className="data-table">
                 <thead>
-                  <tr className="h-9 bg-[#F9FAFB] border-b border-[#E5E7EB]">
-                    <th className="pl-4 pr-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] whitespace-nowrap">Name</th>
-                    <th className="px-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] whitespace-nowrap">Status</th>
-                    <th className="px-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] whitespace-nowrap">Risk</th>
-                    <th className="px-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] whitespace-nowrap">Issues</th>
-                    <th className="px-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] whitespace-nowrap text-right">ITC at Risk</th>
-                    <th className="pl-3 pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] whitespace-nowrap text-right">Actions</th>
+                  <tr>
+                    <th>Name</th>
+                    <th>PAN</th>
+                    <th>GST</th>
+                    <th>Status</th>
+                    <th>Last Activity</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {isLoading ? (
                     [...Array(4)].map((_, i) => (
-                      <tr key={i} className="h-9 border-b border-[#F3F4F6]">
+                      <tr key={i}>
                         <td colSpan={6}>
-                          <div className="h-4 bg-slate-100 rounded mx-4" />
+                          <div className="h-4 bg-slate-100 rounded mx-4 animate-pulse" />
                         </td>
                       </tr>
                     ))
                   ) : sortedClients.length > 0 ? (
                     sortedClients.map((client) => {
                       const isCopied = copiedId === client.id;
+                      const extractedPan = client.gstin && client.gstin.length >= 12 ? client.gstin.substring(2, 12) : (client.gstin || '—');
                       return (
                         <tr
                           key={client.id}
-                          className="h-9 border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors group"
+                          className="hover:bg-[#F9FAFB] transition-colors group"
                         >
                           {/* Name + GSTIN sub-row */}
                           <td className="pl-4 pr-3 py-0">
@@ -471,71 +474,50 @@ export default function ClientPortfolioPage() {
                                 <div className="text-[13px] font-medium text-[#111827] truncate max-w-[200px]" title={client.business_name}>
                                   {client.business_name}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[11px] text-[#6B7280]">
+                                <div className="text-[11px] text-[#6B7280]">
                                   <span className="font-mono">{client.gstin}</span>
-                                  <button
-                                    onClick={() => handleCopyGstin(client.id, client.gstin)}
-                                    className="opacity-0 group-hover:opacity-60 hover:opacity-100 transition-opacity text-slate-400 hover:text-[#1B4F8A]"
-                                    title="Copy GSTIN"
-                                  >
-                                    {isCopied ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
-                                  </button>
                                 </div>
                               </div>
                             </div>
                           </td>
 
+                          {/* PAN */}
+                          <td className="px-3 py-0">
+                            <span className="font-mono text-[13px] text-[#111827]">{extractedPan}</span>
+                          </td>
+
+                          {/* GST */}
+                          <td className="px-3 py-0">
+                            <span className="font-mono text-[13px] text-[#111827]">{client.gstin}</span>
+                          </td>
+
                           {/* Status */}
                           <td className="px-3 py-0">
-                            <span className={`status-badge ${getUnifiedBadgeClass(client.status === 'In Progress' ? 'RUNNING' : client.status)}`}>
-                              {client.status === 'In Progress' && renderBadgeDot('RUNNING')}
-                              <span>{client.status === 'In Progress' ? 'Recon Running' : client.status === 'Never Run' ? 'Pending' : client.status}</span>
+                            <span className={`status-badge ${
+                              client.status === 'Clean' ? 'status-badge-success' :
+                              client.status === 'Issues' ? 'status-badge-error' :
+                              client.status === 'In Progress' ? 'status-badge-warning' :
+                              'status-badge-neutral'
+                            }`}>
+                              {client.status === 'In Progress' ? 'Running' : client.status === 'Never Run' ? 'Pending' : client.status}
                             </span>
                           </td>
 
-                          {/* Risk */}
+                          {/* Last Activity */}
                           <td className="px-3 py-0">
-                            <span className={`status-badge ${getUnifiedBadgeClass(client.risk_level)}`}>
-                              {renderBadgeDot(client.risk_level)}
-                              {client.risk_level}
-                            </span>
-                          </td>
-
-                          {/* Issues */}
-                          <td className="px-3 py-0">
-                            <div className="flex flex-wrap gap-1">
-                              {client.open_notices_count > 0 && (
-                                <span className="status-badge status-badge-error">{client.open_notices_count} Notice{client.open_notices_count > 1 ? 's' : ''}</span>
-                              )}
-                              {client.compliance_issues_count > 0 && (
-                                <span className="status-badge status-badge-warning">{client.compliance_issues_count} Compliance</span>
-                              )}
-                              {client.mismatch_count > 0 && (
-                                <span className="status-badge status-badge-info">{client.mismatch_count} Mismatch</span>
-                              )}
-                              {client.open_notices_count === 0 && client.compliance_issues_count === 0 && client.mismatch_count === 0 && (
-                                <span className="text-[11px] text-[#6B7280]">None</span>
-                              )}
-                            </div>
-                          </td>
-
-                          {/* ITC at Risk */}
-                          <td className="px-3 py-0 text-right">
-                            <span className={`text-[13px] font-medium font-mono ${client.itc_at_risk > 0 ? 'text-[#B91C1C]' : 'text-[#6B7280]'}`}>
-                              {formatCurrency(client.itc_at_risk)}
-                            </span>
+                            <span className="text-[13px] text-[#111827]">{client.last_run}</span>
                           </td>
 
                           {/* Actions */}
                           <td className="pl-3 pr-4 py-0 text-right">
-                            <div className="flex items-center justify-end gap-1">
+                            <div className="flex items-center justify-end gap-1.5">
                               <Link href={`/gst-recon?client=${client.id}`} title="Run AI Recon">
-                                <button className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors">
+                                <button className="action-btn">
                                   <Zap size={12} />
                                 </button>
                               </Link>
                               <Link href={`/clients/${client.id}`} title="Open Client Workspace">
-                                <button className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors">
+                                <button className="action-btn">
                                   <ArrowRight size={12} />
                                 </button>
                               </Link>

@@ -50,6 +50,20 @@ class ClientCreate(ClientBase):
         from services.input_validator import sanitize_string
         return sanitize_string(v, max_length=255)
 
+class ClientUpdate(BaseModel):
+    business_name: Optional[str] = None
+    legal_name: Optional[str] = None
+    trade_name: Optional[str] = None
+    gstin: Optional[str] = None
+    contact_person: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    state: Optional[str] = None
+    state_code: Optional[str] = None
+    filing_type: Optional[str] = None
+    filing_frequency: Optional[str] = None
+    assigned_manager: Optional[str] = None
+
 class ClientResponse(ClientBase):
     id: str
     user_id: Optional[str] = None

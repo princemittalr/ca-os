@@ -39,3 +39,17 @@ async def get_client_reconciliations(client_id: str):
         raise HTTPException(status_code=404, detail="Client not found")
     return client_workspace.get_reconciliations_for_client(client_id)
 
+@router.put("/{client_id}", response_model=schemas.ClientResponse)
+@router.patch("/{client_id}", response_model=schemas.ClientResponse)
+async def update_client(client_id: str, client: schemas.ClientUpdate):
+    """Update client workspace details."""
+    c = client_workspace.get_client_by_id(client_id)
+    if not c:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    update_data = {k: v for k, v in client.model_dump().items() if v is not None}
+    updated = client_workspace.update_client(client_id, update_data)
+    if not updated:
+        raise HTTPException(status_code=500, detail="Failed to update client")
+    return updated
+
