@@ -1,36 +1,31 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
-import { 
-  Building, 
-  Calendar as CalendarIcon, 
-  ArrowLeft, 
-  Zap, 
-  Download, 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock, 
-  FileSpreadsheet, 
-  FolderLock, 
-  MailWarning, 
+import {
+  ArrowLeft,
+  Zap,
+  Download,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  FileSpreadsheet,
+  FolderLock,
+  MailWarning,
   ShieldAlert,
-  Search,
   ExternalLink,
-  ChevronRight,
-  TrendingUp,
   FileCheck,
   X,
   Copy,
   Plus,
-  Eye
+  Eye,
+  Edit,
+  Archive
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 
 interface ReconciliationRun {
   reconciliation_id: string;
@@ -51,10 +46,10 @@ interface ReconciliationRun {
 export default function ClientWorkspacePortal() {
   const params = useParams();
   const clientId = params.id as string;
-  
+
   const [client, setClient] = useState<any>(null);
   const [history, setHistory] = useState<ReconciliationRun[]>([]);
-  const [activeTab, setActiveTab] = useState<'reconcile' | 'compliance' | 'notices' | 'vault'>('reconcile');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reconcile' | 'compliance' | 'notices' | 'vault'>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
 
@@ -146,7 +141,7 @@ export default function ClientWorkspacePortal() {
       if (!res.ok) throw new Error("Failed to generate draft notice");
       const newDraft = await res.json();
       showToast("✓ Outreach draft notice generated successfully!");
-      
+
       // Reset form fields
       setFormVendorName('');
       setFormGstin('');
@@ -154,7 +149,7 @@ export default function ClientWorkspacePortal() {
       setFormInvoiceNumber('');
       setFormTaxableValue('');
       setIsCreateModalOpen(false);
-      
+
       // Refresh list and auto-preview
       await fetchCommunications();
       setSelectedComm(newDraft);
@@ -193,12 +188,12 @@ export default function ClientWorkspacePortal() {
       const clientRes = await fetch(`${API_BASE}/api/clients/${clientId}`);
       if (!clientRes.ok) throw new Error("Failed to load client details");
       const clientData = await clientRes.json();
-      
+
       // Fetch Historical reconciliation runs
       const historyRes = await fetch(`${API_BASE}/api/clients/${clientId}/reconciliations`);
       if (!historyRes.ok) throw new Error("Failed to load filing history");
       const historyData = await historyRes.json();
-      
+
       setClient(clientData);
       setHistory(historyData);
     } catch (err) {
@@ -274,8 +269,8 @@ export default function ClientWorkspacePortal() {
   if (isLoading || !client) {
     return (
       <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 text-slate-500 text-xs font-mono font-bold uppercase tracking-wider">
-        <div className="w-10 h-10 border-4 border-slate-200 border-t-[#4F46E5] rounded-full animate-spin"></div>
-        <span>Loading Client Workspace Portal...</span>
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-[#1B4F8A] rounded-full animate-spin"></div>
+        <span>Loading Client Workspace...</span>
       </div>
     );
   }
@@ -285,740 +280,624 @@ export default function ClientWorkspacePortal() {
   const activeRisk = latestRun?.risk_score || "LOW";
   const exposedRiskAmount = latestRun?.itc_at_risk || 0;
 
+  // Tab definitions
+  const tabs: { id: typeof activeTab; label: string }[] = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'reconcile', label: `Reconciliations (${history.length})` },
+    { id: 'compliance', label: 'Compliance' },
+    { id: 'notices', label: 'Notices & Outreach' },
+    { id: 'vault', label: 'Document Vault' },
+  ];
+
   return (
-    <div className="space-y-10 pb-16 animate-in fade-in duration-500 relative">
-      {/* Toast */}
+    <div className="pb-16 relative font-sans text-slate-800 bg-[#F8FAFC] min-h-screen">
+
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3.5">
-          <CheckCircle2 className="text-[#10B981] flex-shrink-0 animate-bounce" size={20} />
-          <span className="text-[13px] font-bold tracking-wide">{toastMessage}</span>
+        <div
+          className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-5 py-3.5 rounded-[4px] shadow-fintech-lg z-[100] max-w-sm flex items-center gap-3"
+          style={{ borderLeft: '4px solid #1B4F8A' }}
+        >
+          <CheckCircle2 className="text-[#1B4F8A] flex-shrink-0" size={18} />
+          <span className="text-[12px] font-bold leading-normal">{toastMessage}</span>
         </div>
       )}
 
-      <PageHeader
-        sectionLabel="Auditor Client Workspace"
-        title={
-          <div className="flex items-center gap-4">
-            <Link href="/clients">
-              <button className="bg-transparent border border-[var(--color-border-strong)] text-[var(--color-text-secondary)] h-[40px] w-[40px] rounded-[var(--radius-md)] inline-flex items-center justify-center transition-all hover:bg-slate-50 cursor-pointer">
-                <ArrowLeft size={16} />
-              </button>
-            </Link>
-            <span>{client.business_name}</span>
-          </div>
-        }
-        description={`GSTIN: ${client.gstin} · ${client.state} Jurisdiction`}
-        actions={
-          <Link href={`/gst-recon?client=${client.id}`}>
-            <button className="bg-[var(--color-primary-light)] text-white h-[40px] px-[20px] rounded-[var(--radius-md)] font-semibold text-[14px] inline-flex items-center justify-center transition-all hover:opacity-95 shadow-sm cursor-pointer gap-1.5">
-              <Zap size={13} fill="currentColor" />
-              <span>Initialize Scoped AI Run</span>
+      {/* ── PAGE HEADER: 56px, white, border-bottom ── */}
+      <div className="w-full h-14 px-6 bg-[#FFFFFF] border-b border-[#E5E7EB] flex items-center justify-between -mt-6 -mx-6 mb-6">
+        {/* Left: back + name + GSTIN + badge */}
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/clients">
+            <button className="w-8 h-8 border border-[#E5E7EB] rounded-[3px] flex items-center justify-center text-[#6B7280] hover:bg-slate-50 transition-colors cursor-pointer shrink-0">
+              <ArrowLeft size={14} />
             </button>
           </Link>
-        }
-      />
-
-      {/* Corporate Metadata Overview and Risk Heatmap Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Risk Heatmap Panel Card */}
-        <div className={`std-card ${
-          activeRisk === "HIGH" ? 'card-variant-critical' :
-          activeRisk === "MEDIUM" ? 'card-variant-warning' :
-          activeRisk === "LOW" ? 'card-variant-success' : ''
-        } space-y-6 flex flex-col justify-between`}>
-          <div className="space-y-1">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Compliance Severity</span>
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">Filing Risk Heatmap</h2>
-            <p className="text-[11px] text-slate-500 leading-relaxed mt-1">Real-time risk scoring evaluating pending mismatch exposures and supplier filing gaps.</p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            {/* High risk */}
-            <div className={`rounded-2xl p-4 flex flex-col justify-center items-center text-center border transition-all ${
-              activeRisk === "HIGH" ? 'bg-[#FCE8E6] border-[#FCA5A5] text-[#C5221F]' : 'bg-[#F8FAFC] border-slate-100 text-slate-500'
-            }`}>
-              <ShieldAlert size={18} />
-              <span className="text-[11px] font-black uppercase mt-1.5 block">HIGH</span>
-            </div>
-            
-            {/* Medium risk */}
-            <div className={`rounded-2xl p-4 flex flex-col justify-center items-center text-center border transition-all ${
-              activeRisk === "MEDIUM" ? 'bg-[#FEF7E0] border-[#FDE68A] text-[#B06000]' : 'bg-[#F8FAFC] border-slate-100 text-slate-500'
-            }`}>
-              <AlertCircle size={18} />
-              <span className="text-[11px] font-black uppercase mt-1.5 block">MEDIUM</span>
-            </div>
-
-            {/* Low risk */}
-            <div className={`rounded-2xl p-4 flex flex-col justify-center items-center text-center border transition-all ${
-              activeRisk === "LOW" ? 'bg-[#E6F4EA] border-[#A7F3D0] text-[#137333]' : 'bg-[#F8FAFC] border-slate-100 text-slate-500'
-            }`}>
-              <CheckCircle2 size={18} />
-              <span className="text-[11px] font-black uppercase mt-1.5 block">LOW</span>
-            </div>
-          </div>
-
-          <div className="bg-[#F8FAFC] border border-slate-100 rounded-xl p-4 flex justify-between items-center text-xs">
-            <span className="text-slate-500 font-bold">Aggregate Exposed ITC:</span>
-            <span className={`font-mono font-black ${exposedRiskAmount > 0 ? 'text-[#EF4444]' : 'text-slate-800'}`}>
-              {formatCurrency(exposedRiskAmount)}
-            </span>
-          </div>
-        </div>
-
-        {/* Corporate Workspace Identity Details Card */}
-        <div className="std-card space-y-4 flex flex-col justify-between">
-          <div>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Identity Record</span>
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">Corporate Vault</h2>
-          </div>
-
-          <div className="space-y-3 font-sans text-xs">
-            <div className="flex justify-between border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-semibold">Legal Name:</span>
-              <span className="text-slate-800 font-bold max-w-[200px] text-right truncate" title={client.legal_name || client.business_name}>
-                {client.legal_name || client.business_name}
+          <div className="min-w-0">
+            <h1 className="text-[16px] font-semibold text-[#111827] leading-tight truncate">
+              {client.business_name}
+            </h1>
+            <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">
+              <span className="font-mono">{client.gstin}</span>
+              <span>·</span>
+              <span>{client.state}</span>
+              <span className={`status-badge ${getUnifiedBadgeClass(activeRisk)} ml-1`}>
+                {renderBadgeDot(activeRisk)}
+                {activeRisk} Risk
               </span>
             </div>
-            
-            <div className="flex justify-between border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-semibold">Filing Period Frequency:</span>
-              <span className="status-badge status-badge-neutral">
-                {client.filing_frequency || 'monthly'}
-              </span>
-            </div>
-
-            <div className="flex justify-between border-b border-slate-100 pb-2">
-              <span className="text-slate-500 font-semibold">Contact Email:</span>
-              <span className="text-slate-800 font-mono">{client.email || 'accounts@technova.co.in'}</span>
-            </div>
-
-            <div className="flex justify-between pb-1">
-              <span className="text-slate-500 font-semibold">Assigned CA Principal:</span>
-              <span className="text-[#7C3AED] font-bold">{client.assigned_manager || 'Aditya Rao'}</span>
-            </div>
           </div>
         </div>
 
-        {/* Historical Reconciliation Metrics summary Card */}
-        <div className="std-card space-y-4 flex flex-col justify-between">
-          <div>
-            <span className="metric-label block text-[#7C3AED]">Compliance Performance</span>
-            <h2 className="text-xl font-black text-slate-800 tracking-tight">Reconciliation Aggregate</h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-[#F8FAFC] border border-slate-100 p-4.5 rounded-2xl text-center shadow-inner metric-card">
-              <span className="metric-label block">ITC Saved</span>
-              <div className="metric-value text-xl text-[#10B981] mt-1.5 font-mono">{formatCurrency(latestRun?.itc_protected || 0)}</div>
-            </div>
-            
-            <div className="bg-[#F8FAFC] border border-slate-100 p-4.5 rounded-2xl text-center shadow-inner metric-card">
-              <span className="metric-label block">Exposed Risk</span>
-              <div className="metric-value text-xl text-[#EF4444] mt-1.5 font-mono">{formatCurrency(exposedRiskAmount)}</div>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center text-xs text-slate-500 font-sans px-1">
-            <span className="font-semibold">Filing Runs Completed:</span>
-            <span className="text-slate-800 font-bold font-mono">{history.length} audit runs</span>
-          </div>
+        {/* Right: action buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href={`/gst-recon?client=${client.id}`}>
+            <button className="h-[30px] bg-[#1B4F8A] text-white text-[12px] font-medium rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer">
+              <Zap size={12} fill="currentColor" />
+              <span>Run AI Recon</span>
+            </button>
+          </Link>
+          <button
+            onClick={() => showToast("✓ Archive initiated — client workspace archived.")}
+            className="h-[30px] border border-[#E5E7EB] bg-white text-[12px] font-medium text-[#374151] rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-slate-50 cursor-pointer"
+          >
+            <Archive size={12} />
+            <span>Archive</span>
+          </button>
         </div>
-
       </div>
 
-      {/* Tabs navigation panel bar */}
-      <div className="flex border-b border-slate-200 overflow-x-auto hidden-scrollbar">
-        <button 
-          onClick={() => setActiveTab('reconcile')}
-          className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'reconcile' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Reconciliations ({history.length})
-        </button>
+      <div className="px-6 space-y-6">
 
-        <button 
-          onClick={() => setActiveTab('compliance')}
-          className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'compliance' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Compliance Calendar
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('notices')}
-          className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'notices' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Notices & Outreach
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('vault')}
-          className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'vault' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
-          }`}
-        >
-          Document Vault
-        </button>
-      </div>
-
-      {/* ======================================================
-          TAB CONTENT AREA
-          ====================================================== */}
-      {activeTab === 'reconcile' && (
-        <div className="std-card overflow-hidden p-4 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-wider h-12">
-                  <th className="pl-6 py-4">Filing Period</th>
-                  <th className="py-4">Run Date</th>
-                  <th className="py-4 text-center">Audited Invoices</th>
-                  <th className="py-4 text-center">GSTR-2B Gaps</th>
-                  <th className="py-4 text-right">Protected ITC</th>
-                  <th className="py-4 text-right">Blocked Risk</th>
-                  <th className="py-4 text-center">Filing Status</th>
-                  <th className="pr-6 py-4 text-right">Report Working Papers</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-mono text-[13px]">
-                {history.length > 0 ? (
-                  history.map((run) => (
-                    <tr key={run.reconciliation_id} className="hover:bg-white/[0.01] transition-all duration-200 h-16 relative">
-                      {/* Filing Period */}
-                      <td className="pl-6 py-4 font-sans text-sm font-black text-slate-800">
-                        {run.filing_period === '2024-03' ? 'March 2024' : run.filing_period === '2024-02' ? 'February 2024' : run.filing_period}
-                      </td>
-
-                      {/* Run Date */}
-                      <td className="py-4 text-slate-500 font-medium">
-                        {formatDate(run.upload_timestamp)}
-                      </td>
-
-                      {/* Invoices Count */}
-                      <td className="py-4 text-center text-slate-900 font-bold">
-                        {run.total_invoices} rows
-                      </td>
-
-                      {/* Mismatch counts */}
-                      <td className="py-4 text-center">
-                        <span className={run.mismatch_count > 0 ? 'text-[#F59E0B] font-bold' : 'text-[#10B981]'}>
-                          {run.mismatch_count > 0 ? `⚠ ${run.mismatch_count} mismatches` : '✓ 0 gaps'}
-                        </span>
-                      </td>
-
-                      {/* Protected ITC */}
-                      <td className="py-4 text-right text-[#10B981] font-bold">
-                        {formatCurrency(run.itc_protected)}
-                      </td>
-
-                      {/* Blocked Risk */}
-                      <td className="py-4 text-right text-[#EF4444] font-bold">
-                        {formatCurrency(run.itc_at_risk)}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-4 text-center">
-                        <span className={`status-badge ${run.risk_score === 'LOW' ? 'status-badge-success' : 'status-badge-error'}`}>
-                          {run.risk_score === 'LOW' ? 'Clean' : 'Issues Found'}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="pr-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 font-sans">
-                          <Link href={`/gst-recon?client=${client.id}`}>
-                            <button className="h-8.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 hover:border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer">
-                              <ExternalLink size={11} className="text-[#4F46E5]" />
-                              <span>Open Audit workspace</span>
-                            </button>
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="text-center py-12 text-sm text-slate-500 font-sans font-bold">
-                      No automated intelligence audit jobs found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* ── TAB NAVIGATION — Action Center underline style ── */}
+        <div className="flex gap-6 border-b border-[#E5E7EB] overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`text-[12px] font-medium pb-2 whitespace-nowrap transition-all border-b-2 cursor-pointer bg-transparent border-none ${
+                activeTab === tab.id
+                  ? 'border-b-2 border-solid border-[#1B4F8A] text-[#1B4F8A]'
+                  : 'border-transparent text-[#6B7280] hover:text-[#111827]'
+              }`}
+              style={{ height: '36px', borderBottom: activeTab === tab.id ? '2px solid #1B4F8A' : '2px solid transparent' }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-      )}
 
-      {activeTab === 'compliance' && (
-        <div className="std-card p-8 space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div>
-            <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.2em] uppercase block">Compliance Engine</span>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Compliance Filing Deadlines</h2>
-            <p className="text-xs text-slate-500 mt-1">Calendar tracking corporate Indian filing deadlines for {client.business_name}.</p>
+        {/* ══════════════════════════════════════════════
+            TAB CONTENT AREA
+            ══════════════════════════════════════════════ */}
+
+        {/* ── OVERVIEW TAB ── */}
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* Left: Contact & Registration Info */}
+            <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
+              <div className="text-[12px] font-semibold uppercase tracking-[0.05em] text-[#4B5563] mb-3">
+                Registration Details
+              </div>
+              <div className="divide-y divide-[#F3F4F6]">
+                {[
+                  { label: 'Legal Name', value: client.legal_name || client.business_name },
+                  { label: 'GSTIN', value: client.gstin, mono: true },
+                  { label: 'State / Jurisdiction', value: client.state },
+                  { label: 'Filing Frequency', value: client.filing_frequency || 'Monthly' },
+                  { label: 'Contact Email', value: client.email || 'accounts@technova.co.in', mono: true },
+                  { label: 'Assigned CA Principal', value: client.assigned_manager || 'Aditya Rao' },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between h-[28px]">
+                    <span className="text-[11px] text-[#6B7280]">{row.label}</span>
+                    <span className={`text-[13px] text-[#111827] ${row.mono ? 'font-mono' : 'font-medium'}`}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Compliance Summary */}
+            <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
+              <div className="text-[12px] font-semibold uppercase tracking-[0.05em] text-[#4B5563] mb-3">
+                Compliance Summary
+              </div>
+              <div className="divide-y divide-[#F3F4F6]">
+                {[
+                  { label: 'Risk Score', value: activeRisk, badge: true },
+                  { label: 'ITC at Risk', value: formatCurrency(exposedRiskAmount), highlight: exposedRiskAmount > 0 },
+                  { label: 'ITC Protected', value: formatCurrency(latestRun?.itc_protected || 0), positive: true },
+                  { label: 'Filing Runs Completed', value: `${history.length} audit runs`, mono: true },
+                  { label: 'Last Reconciliation', value: latestRun ? `${latestRun.filing_period === '2024-03' ? 'March 2024' : latestRun.filing_period}` : 'Never run' },
+                  { label: 'Mismatch Count', value: latestRun ? `${latestRun.mismatch_count} mismatches` : '—', mono: true },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between h-[28px]">
+                    <span className="text-[11px] text-[#6B7280]">{row.label}</span>
+                    {row.badge ? (
+                      <span className={`status-badge ${getUnifiedBadgeClass(row.value)}`}>
+                        {renderBadgeDot(row.value)}
+                        {row.value}
+                      </span>
+                    ) : (
+                      <span className={`text-[13px] font-medium ${
+                        row.highlight ? 'text-[#B91C1C] font-mono' :
+                        row.positive ? 'text-[#059669] font-mono' :
+                        row.mono ? 'font-mono text-[#111827]' :
+                        'text-[#111827]'
+                      }`}>
+                        {row.value}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
+        )}
 
-          <div className="divide-y divide-white/[0.03] space-y-1">
-            <div className="flex justify-between items-center py-4 text-xs font-sans">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#10B981]/10 text-[#10B981] flex items-center justify-center">
-                  <CheckCircle2 size={16} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-800">GSTR-1 (Supplier Return)</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Filing due for March 2024 period</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-[#10B981] font-bold block">✓ Completed</span>
-                <span className="text-[10px] text-slate-500 font-mono mt-0.5">Filed: 11-04-2024</span>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center py-4 text-xs font-sans">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[#EF4444]/10 text-[#EF4444] flex items-center justify-center">
-                  <AlertCircle size={16} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-800">GSTR-3B (Offset Tax Liabilities)</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Filing due for March 2024 period</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-[#EF4444] font-bold block">⚠ OVERDUE LATE FEE RISK</span>
-                <span className="text-[10px] text-[#EF4444] font-mono mt-0.5 font-bold">Deadline: 20-04-2024</span>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center py-4 text-xs font-sans">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
-                  <Clock size={16} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-800">Annual GSTR-9 C Audit</h4>
-                  <p className="text-[11px] text-slate-500 mt-0.5">GST Annual return reconciliation statement</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-slate-500 font-bold block">○ Planned</span>
-                <span className="text-[10px] text-slate-500 font-mono mt-0.5">Deadline: 31-12-2024</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'notices' && (
-        <div className="std-card p-8 space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-black text-[#4F46E5] tracking-[0.2em] uppercase block">Supplier Communication Hub</span>
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Supplier Follow-Ups & Notices</h2>
-              <p className="text-xs text-slate-500 mt-1">Manage official GSTIN compliance outreach, track resolving workflow status, and export official notice PDFs.</p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => showToast("✓ Automated notices poll completed. No new notices.")}
-                className="bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                Sync Portal Records
-              </button>
-              <button 
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-[#1B4F8A] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-slate-200 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus size={13} />
-                <span>Generate Outreach Notice</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Loader or Table */}
-          {isCommsLoading ? (
-            <div className="min-h-[200px] flex flex-col items-center justify-center gap-3 text-xs text-slate-500 font-mono">
-              <div className="w-6 h-6 border-2 border-slate-200 border-t-[#4F46E5] rounded-full animate-spin"></div>
-              <span>Fetching Client Outreach Registry...</span>
-            </div>
-          ) : communications.length > 0 ? (
+        {/* ── RECONCILIATIONS TAB ── */}
+        {activeTab === 'reconcile' && (
+          <div className="bg-white border border-[#E5E7EB] rounded-[4px] overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-wider h-12">
-                    <th className="pl-6 py-4">Vendor & GSTIN</th>
-                    <th className="py-4">Issue Scenario</th>
-                    <th className="py-4">Priority</th>
-                    <th className="py-4 font-mono">Target Deadline</th>
-                    <th className="py-4 text-center">Filing Status</th>
-                    <th className="pr-6 py-4 text-right">Outreach Actions</th>
+                  <tr className="h-9 bg-[#F9FAFB] border-b border-[#E5E7EB] text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280]">
+                    <th className="pl-4 pr-3 whitespace-nowrap">Filing Period</th>
+                    <th className="px-3 whitespace-nowrap">Run Date</th>
+                    <th className="px-3 text-center whitespace-nowrap">Audited Invoices</th>
+                    <th className="px-3 text-center whitespace-nowrap">GSTR-2B Gaps</th>
+                    <th className="px-3 text-right whitespace-nowrap">Protected ITC</th>
+                    <th className="px-3 text-right whitespace-nowrap">Blocked Risk</th>
+                    <th className="px-3 text-center whitespace-nowrap">Status</th>
+                    <th className="pl-3 pr-4 text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-sans text-xs">
-                  {communications.map((comm) => (
-                    <tr key={comm.id} className="hover:bg-white/[0.01] transition-all duration-200 h-16">
-                      <td className="pl-6 py-4">
-                        <span className="font-bold text-slate-800 block">{comm.vendor_name}</span>
-                        <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">{comm.gstin}</span>
-                      </td>
-                      <td className="py-4">
-                        {comm.issue === 'MISSING_IN_2B' ? (
-                          <span className="text-[#EF4444] font-bold">Missing in GSTR-2B</span>
-                        ) : comm.issue === 'VALUE_MISMATCH' ? (
-                          <span className="text-[#F59E0B] font-bold">Taxable Value Mismatch</span>
-                        ) : comm.issue === 'PARTIAL_MATCH' ? (
-                          <span className="text-[#10B981] font-bold">Invoice Format Mismatch</span>
-                        ) : comm.issue === 'GSTR1_NOT_FILED' ? (
-                          <span className="text-[#EF4444] font-bold">GSTR-1 Return Default</span>
-                        ) : comm.issue === 'GSTIN_MISMATCH' ? (
-                          <span className="text-slate-500 font-bold">GSTIN Record Mismatch</span>
-                        ) : (
-                          <span className="text-slate-800 font-bold">{comm.issue}</span>
-                        )}
-                      </td>
-                      <td className="py-4">
-                        <span className={`status-badge ${getUnifiedBadgeClass(comm.priority)}`}>
-                          {renderBadgeDot(comm.priority)}
-                          {comm.priority}
-                        </span>
-                      </td>
-                      <td className="py-4 font-mono text-slate-500 font-bold">
-                        {comm.recommended_deadline}
-                      </td>
-                      <td className="py-4 text-center">
-                        <select 
-                          value={comm.status}
-                          onChange={(e) => handleUpdateStatus(comm.id, e.target.value)}
-                          className={`bg-[#F8FAFC] border rounded-xl px-2.5 py-1.5 text-[11px] font-bold focus:outline-none ${
-                            comm.status === 'Resolved' ? 'border-[#10B981]/30 text-[#10B981]' :
-                            comm.status === 'Vendor Responded' ? 'border-purple-500/30 text-purple-400' :
-                            comm.status === 'Sent' ? 'border-blue-500/30 text-blue-400' :
-                            'border-slate-200 text-slate-800'
-                          }`}
-                        >
-                          <option value="Drafted" className="bg-white text-slate-800">Drafted</option>
-                          <option value="Sent" className="bg-white text-blue-400">Sent</option>
-                          <option value="Vendor Responded" className="bg-white text-purple-400">Vendor Responded</option>
-                          <option value="Resolved" className="bg-white text-[#10B981]">Resolved</option>
-                        </select>
-                      </td>
-                      <td className="pr-6 py-4 text-right">
-                        <button 
-                          onClick={() => {
-                            setSelectedComm(comm);
-                            setIsPreviewModalOpen(true);
-                          }}
-                          className="h-8.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 hover:border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider flex items-center justify-end gap-1.5 transition-all cursor-pointer ml-auto"
-                        >
-                          <Eye size={11} className="text-[#4F46E5]" />
-                          <span>Review Notice</span>
-                        </button>
+                <tbody className="divide-y divide-[#F3F4F6] text-[13px]">
+                  {history.length > 0 ? (
+                    history.map((run) => (
+                      <tr key={run.reconciliation_id} className="h-9 hover:bg-[#F9FAFB] transition-colors">
+                        <td className="pl-4 pr-3 font-medium text-[#111827]">
+                          {run.filing_period === '2024-03' ? 'March 2024' : run.filing_period === '2024-02' ? 'February 2024' : run.filing_period}
+                        </td>
+                        <td className="px-3 text-[#6B7280] text-[12px]">
+                          {formatDate(run.upload_timestamp)}
+                        </td>
+                        <td className="px-3 text-center text-[#111827] font-medium font-mono">
+                          {run.total_invoices}
+                        </td>
+                        <td className="px-3 text-center">
+                          <span className={run.mismatch_count > 0 ? 'text-[#B45309] font-medium' : 'text-[#059669] font-medium'}>
+                            {run.mismatch_count > 0 ? `${run.mismatch_count} mismatches` : '0 gaps'}
+                          </span>
+                        </td>
+                        <td className="px-3 text-right text-[#059669] font-medium font-mono">
+                          {formatCurrency(run.itc_protected)}
+                        </td>
+                        <td className="px-3 text-right text-[#B91C1C] font-medium font-mono">
+                          {formatCurrency(run.itc_at_risk)}
+                        </td>
+                        <td className="px-3 text-center">
+                          <span className={`status-badge ${run.risk_score === 'LOW' ? 'status-badge-success' : 'status-badge-error'}`}>
+                            {run.risk_score === 'LOW' ? 'Clean' : 'Issues Found'}
+                          </span>
+                        </td>
+                        <td className="pl-3 pr-4 text-right">
+                          <Link href={`/gst-recon?client=${client.id}`}>
+                            <button className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors">
+                              <ExternalLink size={11} />
+                            </button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="flex flex-col items-center justify-center py-12 gap-2">
+                          <ShieldAlert size={20} className="text-[#D1D5DB]" />
+                          <span className="text-[13px] text-[#6B7280]">No audit runs found</span>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className="bg-[#F8FAFC] border border-slate-100 rounded-2xl p-10 text-center space-y-4 shadow-inner">
-              <MailWarning size={32} className="mx-auto text-slate-500" />
-              <div>
-                <h4 className="text-sm font-bold text-slate-800">No active outreach follow-ups</h4>
-                <p className="text-[11px] text-slate-500 mt-1">There are no generated follow-ups or compliance warning drafts registered for this client portfolio yet.</p>
+          </div>
+        )}
+
+        {/* ── COMPLIANCE TAB ── */}
+        {activeTab === 'compliance' && (
+          <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4 space-y-4">
+            <div className="text-[12px] font-semibold uppercase tracking-[0.05em] text-[#4B5563]">
+              Compliance Filing Deadlines
+            </div>
+            <p className="text-[12px] text-[#6B7280]">Calendar tracking corporate Indian filing deadlines for {client.business_name}.</p>
+
+            <div className="divide-y divide-[#F3F4F6]">
+              <div className="flex justify-between items-center py-3 text-[13px]">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-[3px] bg-[#ECFDF5] text-[#059669] flex items-center justify-center">
+                    <CheckCircle2 size={14} />
+                  </div>
+                  <div>
+                    <div className="font-medium text-[#111827]">GSTR-1 (Supplier Return)</div>
+                    <div className="text-[11px] text-[#6B7280] mt-0.5">Filing due for March 2024 period</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[#059669] font-medium block text-[12px]">✓ Completed</span>
+                  <span className="text-[11px] text-[#6B7280] font-mono">Filed: 11-04-2024</span>
+                </div>
               </div>
-              <button 
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-[#1B4F8A] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-[#4F46E5]/25 flex items-center gap-1.5 cursor-pointer mx-auto"
+
+              <div className="flex justify-between items-center py-3 text-[13px]">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-[3px] bg-[#FEF2F2] text-[#DC2626] flex items-center justify-center">
+                    <AlertCircle size={14} />
+                  </div>
+                  <div>
+                    <div className="font-medium text-[#111827]">GSTR-3B (Offset Tax Liabilities)</div>
+                    <div className="text-[11px] text-[#6B7280] mt-0.5">Filing due for March 2024 period</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[#DC2626] font-medium block text-[12px]">⚠ OVERDUE LATE FEE RISK</span>
+                  <span className="text-[11px] text-[#DC2626] font-mono">Deadline: 20-04-2024</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center py-3 text-[13px]">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-[3px] bg-[#F9FAFB] text-[#6B7280] flex items-center justify-center">
+                    <Clock size={14} />
+                  </div>
+                  <div>
+                    <div className="font-medium text-[#111827]">Annual GSTR-9 C Audit</div>
+                    <div className="text-[11px] text-[#6B7280] mt-0.5">GST Annual return reconciliation statement</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[#6B7280] font-medium block text-[12px]">○ Planned</span>
+                  <span className="text-[11px] text-[#6B7280] font-mono">Deadline: 31-12-2024</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── NOTICES & OUTREACH TAB ── */}
+        {activeTab === 'notices' && (
+          <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[12px] font-semibold uppercase tracking-[0.05em] text-[#4B5563]">Notices & Outreach</div>
+                <p className="text-[12px] text-[#6B7280] mt-0.5">Manage official GSTIN compliance outreach and track resolution workflow status.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => showToast("✓ Automated notices poll completed. No new notices.")}
+                  className="h-[30px] border border-[#E5E7EB] bg-white text-[12px] font-medium text-[#374151] rounded-[3px] px-3 hover:bg-slate-50 cursor-pointer"
+                >
+                  Sync Records
+                </button>
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="h-[30px] bg-[#1B4F8A] text-white text-[12px] font-medium rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
+                >
+                  <Plus size={12} />
+                  <span>Generate Notice</span>
+                </button>
+              </div>
+            </div>
+
+            {isCommsLoading ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-[12px] text-[#6B7280]">
+                <div className="w-6 h-6 border-2 border-slate-200 border-t-[#1B4F8A] rounded-full animate-spin"></div>
+                <span>Fetching outreach registry…</span>
+              </div>
+            ) : communications.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="h-9 bg-[#F9FAFB] border-b border-[#E5E7EB] text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280]">
+                      <th className="pl-4 pr-3">Vendor & GSTIN</th>
+                      <th className="px-3">Issue</th>
+                      <th className="px-3">Priority</th>
+                      <th className="px-3">Deadline</th>
+                      <th className="px-3 text-center">Status</th>
+                      <th className="pl-3 pr-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F4F6] text-[13px]">
+                    {communications.map((comm) => (
+                      <tr key={comm.id} className="h-9 hover:bg-[#F9FAFB] transition-colors">
+                        <td className="pl-4 pr-3">
+                          <div className="font-medium text-[#111827]">{comm.vendor_name}</div>
+                          <div className="text-[11px] text-[#6B7280] font-mono">{comm.gstin}</div>
+                        </td>
+                        <td className="px-3">
+                          {comm.issue === 'MISSING_IN_2B' ? (
+                            <span className="text-[#DC2626] font-medium">Missing in GSTR-2B</span>
+                          ) : comm.issue === 'VALUE_MISMATCH' ? (
+                            <span className="text-[#B45309] font-medium">Value Mismatch</span>
+                          ) : comm.issue === 'PARTIAL_MATCH' ? (
+                            <span className="text-[#059669] font-medium">Format Mismatch</span>
+                          ) : comm.issue === 'GSTR1_NOT_FILED' ? (
+                            <span className="text-[#DC2626] font-medium">GSTR-1 Default</span>
+                          ) : (
+                            <span className="text-[#111827] font-medium">{comm.issue}</span>
+                          )}
+                        </td>
+                        <td className="px-3">
+                          <span className={`status-badge ${getUnifiedBadgeClass(comm.priority)}`}>
+                            {renderBadgeDot(comm.priority)}
+                            {comm.priority}
+                          </span>
+                        </td>
+                        <td className="px-3 font-mono text-[12px] text-[#6B7280]">
+                          {comm.recommended_deadline}
+                        </td>
+                        <td className="px-3 text-center">
+                          <select
+                            value={comm.status}
+                            onChange={(e) => handleUpdateStatus(comm.id, e.target.value)}
+                            className={`bg-[#F9FAFB] border rounded-[3px] px-2 py-0.5 text-[11px] font-medium focus:outline-none cursor-pointer ${
+                              comm.status === 'Resolved' ? 'border-[#059669]/30 text-[#059669]' :
+                              comm.status === 'Sent' ? 'border-[#1B4F8A]/30 text-[#1B4F8A]' :
+                              'border-[#E5E7EB] text-[#374151]'
+                            }`}
+                          >
+                            <option value="Drafted">Drafted</option>
+                            <option value="Sent">Sent</option>
+                            <option value="Vendor Responded">Vendor Responded</option>
+                            <option value="Resolved">Resolved</option>
+                          </select>
+                        </td>
+                        <td className="pl-3 pr-4 text-right">
+                          <button
+                            onClick={() => { setSelectedComm(comm); setIsPreviewModalOpen(true); }}
+                            className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors ml-auto"
+                            title="Review Notice"
+                          >
+                            <Eye size={11} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <MailWarning size={20} className="text-[#D1D5DB]" />
+                <div className="text-center">
+                  <div className="text-[13px] font-medium text-[#111827]">No active outreach follow-ups</div>
+                  <p className="text-[12px] text-[#6B7280] mt-0.5">No compliance warning drafts registered for this client yet.</p>
+                </div>
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="h-[30px] bg-[#1B4F8A] text-white text-[12px] font-medium rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
+                >
+                  <Plus size={12} />
+                  <span>Generate First Notice</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── DOCUMENT VAULT TAB ── */}
+        {activeTab === 'vault' && (
+          <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[12px] font-semibold uppercase tracking-[0.05em] text-[#4B5563]">Document Vault</div>
+                <p className="text-[12px] text-[#6B7280] mt-0.5">Secure repository preserving physical invoices, past returns, and audit working papers.</p>
+              </div>
+              <button
+                onClick={() => showToast("✓ Initializing file secure upload protocols...")}
+                className="h-[30px] bg-[#1B4F8A] text-white text-[12px] font-medium rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
               >
-                <Plus size={13} />
-                <span>Generate First Notice</span>
+                <Plus size={12} />
+                <span>Upload Document</span>
               </button>
             </div>
-          )}
-        </div>
-      )}
 
-      {activeTab === 'vault' && (
-        <div className="std-card p-8 space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.2em] uppercase block">Secure Document Storage</span>
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Audit Working Papers Document Vault</h2>
-              <p className="text-xs text-slate-500 mt-1">Secure repository preserving physical invoices, past returns, generated excels, and auditor verification trails.</p>
-            </div>
-            
-            <button 
-              onClick={() => showToast("✓ Initializing file secure upload protocols...")}
-              className="bg-[#1B4F8A] text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#4F46E5]/15 border border-slate-200"
-            >
-              <span>Upload Document</span>
-            </button>
-          </div>
-
-          {/* Secure vault list folders */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pt-2">
-            <div className="bg-[#F8FAFC] border border-slate-100 p-5 rounded-2xl flex items-center gap-4 hover:border-slate-200 transition-all shadow-inner cursor-pointer group">
-              <div className="w-10 h-10 rounded-xl bg-[#7C3AED]/10 text-[#7C3AED] flex items-center justify-center group-hover:scale-105 transition-all shadow-md">
-                <FolderLock size={18} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">FY 2023-24 Working Papers</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-mono">14 Audit Workbooks preservation</p>
-              </div>
-            </div>
-
-            <div className="bg-[#F8FAFC] border border-slate-100 p-5 rounded-2xl flex items-center gap-4 hover:border-slate-200 transition-all shadow-inner cursor-pointer group">
-              <div className="w-10 h-10 rounded-xl bg-[#10B981]/10 text-[#10B981] flex items-center justify-center group-hover:scale-105 transition-all shadow-md">
-                <FileCheck size={18} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">Official Filed GSTR returns</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-mono">24 Signed portal receipts</p>
-              </div>
-            </div>
-
-            <div className="bg-[#F8FAFC] border border-slate-100 p-5 rounded-2xl flex items-center gap-4 hover:border-slate-200 transition-all shadow-inner cursor-pointer group">
-              <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center group-hover:scale-105 transition-all shadow-md">
-                <FileSpreadsheet size={18} />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">Physical Invoices Archive</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-mono">182 Scanned records uploads</p>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                { icon: <FolderLock size={16} />, color: '#7C3AED', bg: '#F5F3FF', title: 'FY 2023-24 Working Papers', meta: '14 audit workbooks' },
+                { icon: <FileCheck size={16} />, color: '#059669', bg: '#ECFDF5', title: 'Official Filed GSTR Returns', meta: '24 signed portal receipts' },
+                { icon: <FileSpreadsheet size={16} />, color: '#B45309', bg: '#FFFBEB', title: 'Physical Invoices Archive', meta: '182 scanned records' },
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  className="flex items-center gap-3 border border-[#E5E7EB] rounded-[4px] p-3 hover:bg-[#F9FAFB] transition-colors cursor-pointer group"
+                >
+                  <div
+                    className="w-8 h-8 rounded-[3px] flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: item.bg, color: item.color }}
+                  >
+                    {item.icon}
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-medium text-[#111827] group-hover:text-[#1B4F8A] transition-colors">{item.title}</div>
+                    <div className="text-[11px] text-[#6B7280] font-mono mt-0.5">{item.meta}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Create Notice Modal */}
+      </div>
+
+      {/* ── CREATE NOTICE MODAL ── */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300 p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-8 shadow-fintech-lg relative animate-in scale-in duration-200">
-            <button 
-              onClick={() => setIsCreateModalOpen(false)}
-              className="absolute top-6 right-6 w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer transition-all"
-            >
-              <X size={16} />
-            </button>
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-[3px] flex flex-col relative shadow-sm overflow-hidden">
+            <div className="h-[48px] border-b border-[#E5E7EB] flex items-center justify-between px-5">
+              <h3 className="text-[14px] font-semibold text-[#111827]">Generate AI Notice Draft</h3>
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-800 cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
 
-            <span className="text-[10px] font-black text-[#4F46E5] tracking-[0.2em] uppercase block">New Outreach</span>
-            <h3 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Generate AI Notice Draft</h3>
-            <p className="text-xs text-slate-500 mt-1 mb-6">Select a mismatch scenario and supply transaction data to draft an official compliance notice.</p>
+            <div className="p-[20px]">
+              <p className="text-[11px] text-slate-500 mb-4">Select a mismatch scenario and supply transaction data to draft an official compliance notice.</p>
 
-            <form onSubmit={handleCreateNotice} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleCreateNotice} className="space-y-[16px]">
+                <div className="grid grid-cols-2 gap-[12px]">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Vendor Name *</label>
+                    <input
+                      type="text" required value={formVendorName}
+                      onChange={e => setFormVendorName(e.target.value)}
+                      placeholder="e.g. Wayne Enterprises"
+                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Vendor GSTIN *</label>
+                    <input
+                      type="text" required value={formGstin}
+                      onChange={e => setFormGstin(e.target.value)}
+                      placeholder="e.g. 27AAACT1234A1Z5"
+                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Vendor Name *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={formVendorName}
-                    onChange={e => setFormVendorName(e.target.value)}
-                    placeholder="e.g. Wayne Enterprises"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
+                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Mismatch Scenario *</label>
+                  <select
+                    value={formIssue} onChange={e => setFormIssue(e.target.value)}
+                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] focus:border-[#1B4F8A] focus:outline-none"
+                  >
+                    <option value="MISSING_IN_2B">Missing in GSTR-2B Return</option>
+                    <option value="VALUE_MISMATCH">Taxable Value Mismatch</option>
+                    <option value="PARTIAL_MATCH">Invoice Number/Format Discrepancy</option>
+                    <option value="GSTR1_NOT_FILED">Supplier GSTR-1 Not Filed</option>
+                    <option value="GSTIN_MISMATCH">Supplier GSTIN Invalid/Incorrect</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-[12px]">
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Invoice Number</label>
+                    <input
+                      type="text" value={formInvoiceNumber}
+                      onChange={e => setFormInvoiceNumber(e.target.value)}
+                      placeholder="e.g. INV/2026/89"
+                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Taxable Value (₹)</label>
+                    <input
+                      type="number" value={formTaxableValue}
+                      onChange={e => setFormTaxableValue(e.target.value)}
+                      placeholder="e.g. 150000"
+                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Outreach Deadline</label>
+                  <input
+                    type="date" value={formDeadline}
+                    onChange={e => setFormDeadline(e.target.value)}
+                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] focus:border-[#1B4F8A] focus:outline-none"
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Vendor GSTIN *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={formGstin}
-                    onChange={e => setFormGstin(e.target.value)}
-                    placeholder="e.g. 27AAACT1234A1Z5"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-mono"
-                  />
+
+                <div className="h-[52px] border-t border-[#E5E7EB] -mx-[20px] -mb-[20px] px-[20px] flex flex-row-reverse gap-2 items-center bg-slate-50">
+                  <button
+                    type="submit"
+                    className="h-[32px] bg-[#1B4F8A] text-white text-[13px] font-medium rounded-[3px] px-[14px] hover:bg-[#163F6E] cursor-pointer"
+                  >
+                    Generate Draft
+                  </button>
+                  <button
+                    type="button" onClick={() => setIsCreateModalOpen(false)}
+                    className="h-[32px] bg-white border border-[#D1D5DB] text-[#374151] text-[13px] font-medium rounded-[3px] px-[14px] hover:bg-[#F9FAFB] cursor-pointer"
+                  >
+                    Cancel
+                  </button>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Mismatch Scenario *</label>
-                <select 
-                  value={formIssue}
-                  onChange={e => setFormIssue(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
-                >
-                  <option value="MISSING_IN_2B">Missing in GSTR-2B Return</option>
-                  <option value="VALUE_MISMATCH">Taxable Value Mismatch</option>
-                  <option value="PARTIAL_MATCH">Invoice Number/Format Discrepancy</option>
-                  <option value="GSTR1_NOT_FILED">Supplier GSTR-1 Not Filed</option>
-                  <option value="GSTIN_MISMATCH">Supplier GSTIN Invalid/Incorrect</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Invoice Number</label>
-                  <input 
-                    type="text" 
-                    value={formInvoiceNumber}
-                    onChange={e => setFormInvoiceNumber(e.target.value)}
-                    placeholder="e.g. INV/2026/89"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Taxable Value (₹)</label>
-                  <input 
-                    type="number" 
-                    value={formTaxableValue}
-                    onChange={e => setFormTaxableValue(e.target.value)}
-                    placeholder="e.g. 150000"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Outreach Deadline</label>
-                <input 
-                  type="date" 
-                  value={formDeadline}
-                  onChange={e => setFormDeadline(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-5 py-3 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-900 bg-slate-100 border border-slate-200 hover:bg-slate-100 cursor-pointer transition-all"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="bg-[#1B4F8A] text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-slate-200 cursor-pointer transition-all"
-                >
-                  Generate Draft
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Review Notice Modal */}
+      {/* ── REVIEW NOTICE MODAL ── */}
       {isPreviewModalOpen && selectedComm && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-300 p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-8 shadow-fintech-lg relative animate-in scale-in duration-200 max-h-[90vh] flex flex-col justify-between">
-            <button 
-              onClick={() => setIsPreviewModalOpen(false)}
-              className="absolute top-6 right-6 w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center cursor-pointer transition-all"
-            >
-              <X size={16} />
-            </button>
-
-            <div className="mb-6 flex-shrink-0">
-              <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.2em] uppercase block">Audit Outreach Engine</span>
-              <h3 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Compliance Letter & Email Preview</h3>
-              <p className="text-xs text-slate-500 mt-1">Verify official tax compliance wording, download the legislative PDF notice, or copy the email body.</p>
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 w-full max-w-3xl rounded-[3px] relative shadow-sm max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="h-[48px] border-b border-[#E5E7EB] flex items-center justify-between px-5 shrink-0">
+              <h3 className="text-[14px] font-semibold text-[#111827]">Compliance Letter Preview</h3>
+              <button onClick={() => setIsPreviewModalOpen(false)} className="text-slate-400 hover:text-slate-800 cursor-pointer">
+                <X size={16} />
+              </button>
             </div>
 
-            {/* Scrollable Letter Preview Area */}
-            <div className="flex-1 overflow-y-auto pr-2 space-y-6 font-sans">
-              
-              {/* Paper styled notice layout */}
-              <div className="bg-[#FBFCFE] text-[#1F2937] p-8 rounded-2xl border border-slate-200 shadow-inner font-sans space-y-6 text-sm relative overflow-hidden">
-                {/* Visual stamp/header in the paper */}
-                <div className="border-b border-[#E5E7EB] pb-4 flex justify-between items-start">
-                  <div>
-                    <span className="text-[9px] font-extrabold text-[#4F46E5] tracking-[0.15em] uppercase block">TAX COMPLIANCE DEMAND</span>
-                    <h4 className="text-base font-black text-[#1B365D] tracking-tight font-sans">Compliance Outreach Notice</h4>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 font-sans">
+              {/* Metadata Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-[4px] p-3 text-[12px]">
+                {[
+                  { label: 'Vendor', value: selectedComm.vendor_name },
+                  { label: 'GSTIN', value: selectedComm.gstin, mono: true },
+                  { label: 'Severity', value: selectedComm.priority },
+                  { label: 'Issue', value: selectedComm.issue },
+                  { label: 'Deadline', value: selectedComm.recommended_deadline, mono: true },
+                  { label: 'Period', value: 'March 2024' },
+                ].map(item => (
+                  <div key={item.label}>
+                    <span className="block text-[11px] font-semibold text-[#6B7280] uppercase tracking-[0.05em] mb-0.5">{item.label}</span>
+                    <span className={`font-medium text-[#111827] ${item.mono ? 'font-mono' : ''}`}>{item.value}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-wider block font-mono">SYSTEM REFERENCE</span>
-                    <span className="text-[9px] font-bold text-[#111827] font-mono">{selectedComm.id?.toUpperCase() || 'COMM-REF'}</span>
-                  </div>
-                </div>
-
-                {/* Metadata Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs bg-[#F9FAFB] p-4 rounded-xl border border-[#E5E7EB] font-sans">
-                  <div>
-                    <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">Vendor Business</span>
-                    <span className="font-bold text-[#111827]">{selectedComm.vendor_name}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">Recipient GSTIN</span>
-                    <span className="font-bold text-[#111827] font-mono">{selectedComm.gstin}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">Severity Level</span>
-                    <span className={`font-black ${selectedComm.priority === 'HIGH' ? 'text-[#C5221F]' : selectedComm.priority === 'MEDIUM' ? 'text-[#B06000]' : 'text-[#137333]'}`}>{selectedComm.priority}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">Filing Issue Scenario</span>
-                    <span className="font-bold text-[#111827]">
-                      {selectedComm.issue === 'MISSING_IN_2B' ? 'Missing in 2B' : selectedComm.issue === 'VALUE_MISMATCH' ? 'Value Mismatch' : selectedComm.issue === 'PARTIAL_MATCH' ? 'Invoice Mismatch' : selectedComm.issue === 'GSTR1_NOT_FILED' ? 'GSTR-1 Not Filed' : selectedComm.issue === 'GSTIN_MISMATCH' ? 'GSTIN Mismatch' : selectedComm.issue}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">Resolve Deadline</span>
-                    <span className="font-bold text-[#111827] font-mono">{selectedComm.recommended_deadline}</span>
-                  </div>
-                  <div>
-                    <span className="block text-[8px] font-black text-slate-500 uppercase tracking-wider">Filing Period</span>
-                    <span className="font-bold text-[#111827]">March 2024</span>
-                  </div>
-                </div>
-
-                {/* Email Subject block */}
-                <div className="border-l-4 border-l-[#4F46E5] bg-[#FFF9F6] p-4.5 rounded-r-xl">
-                  <span className="block text-[8px] font-black text-[#4F46E5] uppercase tracking-wider mb-0.5 font-sans">Notice Email Subject</span>
-                  <span className="font-bold text-[#1B365D] font-sans text-xs">{selectedComm.subject}</span>
-                </div>
-
-                {/* Notice text body */}
-                <div className="font-sans leading-relaxed text-xs text-[#374151] whitespace-pre-line bg-[#FAFAFA] p-6 rounded-xl border border-[#ECECEC] max-h-[300px] overflow-y-auto">
-                  {selectedComm.email_body}
-                </div>
-
-                {/* Footer seal */}
-                <div className="border-t border-[#E5E7EB] pt-4 flex flex-col md:flex-row justify-between items-start gap-4 text-[9px] text-slate-500 leading-relaxed">
-                  <p className="max-w-md">
-                    This compliance draft serves as an official outreach request to verify supplier portal filings under the CGST Act 2017 rules.
-                  </p>
-                  <div className="border-l border-[#E5E7EB] pl-4 font-bold flex-shrink-0 text-right">
-                    <span>Authorized Signatory</span>
-                    <div className="h-6"></div>
-                    <span className="text-[#111827]">CA-OS Auditor Partner</span>
-                  </div>
-                </div>
+                ))}
               </div>
 
+              {/* Subject */}
+              <div className="border-l-4 border-[#1B4F8A] bg-[#EFF6FF] px-3 py-2 rounded-r-[3px]">
+                <div className="text-[10px] font-semibold text-[#1B4F8A] uppercase tracking-[0.05em] mb-0.5">Notice Subject</div>
+                <div className="text-[13px] font-medium text-[#111827]">{selectedComm.subject}</div>
+              </div>
+
+              {/* Body */}
+              <div className="bg-[#FAFAFA] border border-[#E5E7EB] rounded-[4px] p-4 text-[13px] text-[#374151] leading-relaxed whitespace-pre-line font-sans max-h-[300px] overflow-y-auto">
+                {selectedComm.email_body}
+              </div>
             </div>
 
-            {/* Bottom Actions Bar */}
-            <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col sm:flex-row justify-between gap-4 flex-shrink-0">
-              <button 
+            {/* Bottom actions */}
+            <div className="h-[52px] border-t border-[#E5E7EB] px-5 flex items-center justify-between shrink-0">
+              <button
                 onClick={() => handleCopyNoticeText(selectedComm.email_body)}
-                className="bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-700 px-5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="h-[30px] border border-[#E5E7EB] bg-white text-[12px] font-medium text-[#374151] rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-slate-50 cursor-pointer"
               >
-                <Copy size={13} className="text-[#4F46E5]" />
+                <Copy size={12} className="text-[#1B4F8A]" />
                 <span>Copy Email Wording</span>
               </button>
-
-              <div className="flex gap-3">
-                <button 
+              <div className="flex items-center gap-2">
+                <button
                   onClick={() => setIsPreviewModalOpen(false)}
-                  className="px-5 py-3 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-900 bg-slate-100 border border-slate-200 hover:bg-slate-100 cursor-pointer transition-all"
+                  className="h-[30px] bg-white border border-[#D1D5DB] text-[#374151] text-[12px] font-medium rounded-[3px] px-3 hover:bg-[#F9FAFB] cursor-pointer"
                 >
                   Close
                 </button>
-                <a 
+                <a
                   href={`${API_BASE}/api/communications/export/pdf?vendor_name=${encodeURIComponent(selectedComm.vendor_name)}&gstin=${encodeURIComponent(selectedComm.gstin)}&issue=${encodeURIComponent(selectedComm.issue)}&deadline=${encodeURIComponent(selectedComm.recommended_deadline)}&body=${encodeURIComponent(selectedComm.email_body)}&priority=${encodeURIComponent(selectedComm.priority)}`}
                   download
-                  className="bg-[#1B4F8A] text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-[#7C3AED]/15 hover:shadow-[#7C3AED]/25 border border-slate-200 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                  className="h-[30px] bg-[#1B4F8A] text-white text-[12px] font-medium rounded-[3px] px-3 flex items-center gap-1.5 hover:bg-[#163F6E]"
                 >
-                  <Download size={13} />
-                  <span>Download Notice PDF</span>
+                  <Download size={12} />
+                  <span>Download PDF</span>
                 </a>
               </div>
             </div>
