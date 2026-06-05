@@ -633,7 +633,7 @@ export default function ClientWorkspacePortal() {
               </button>
               <button 
                 onClick={() => setIsCreateModalOpen(true)}
-                className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-slate-200 flex items-center gap-1.5 cursor-pointer"
+                className="bg-[#1B4F8A] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-slate-200 flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus size={13} />
                 <span>Generate Outreach Notice</span>
@@ -734,7 +734,7 @@ export default function ClientWorkspacePortal() {
               </div>
               <button 
                 onClick={() => setIsCreateModalOpen(true)}
-                className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-[#4F46E5]/25 flex items-center gap-1.5 cursor-pointer mx-auto"
+                className="bg-[#1B4F8A] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-[#4F46E5]/25 flex items-center gap-1.5 cursor-pointer mx-auto"
               >
                 <Plus size={13} />
                 <span>Generate First Notice</span>
@@ -755,7 +755,7 @@ export default function ClientWorkspacePortal() {
             
             <button 
               onClick={() => showToast("✓ Initializing file secure upload protocols...")}
-              className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#4F46E5]/15 border border-slate-200"
+              className="bg-[#1B4F8A] text-white px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#4F46E5]/15 border border-slate-200"
             >
               <span>Upload Document</span>
             </button>
@@ -895,7 +895,7 @@ export default function ClientWorkspacePortal() {
                 </button>
                 <button 
                   type="submit"
-                  className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-slate-200 cursor-pointer transition-all"
+                  className="bg-[#1B4F8A] text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-[#4F46E5]/15 border border-slate-200 cursor-pointer transition-all"
                 >
                   Generate Draft
                 </button>
@@ -1015,7 +1015,7 @@ export default function ClientWorkspacePortal() {
                 <a 
                   href={`${API_BASE}/api/communications/export/pdf?vendor_name=${encodeURIComponent(selectedComm.vendor_name)}&gstin=${encodeURIComponent(selectedComm.gstin)}&issue=${encodeURIComponent(selectedComm.issue)}&deadline=${encodeURIComponent(selectedComm.recommended_deadline)}&body=${encodeURIComponent(selectedComm.email_body)}&priority=${encodeURIComponent(selectedComm.priority)}`}
                   download
-                  className="bg-gradient-to-r from-[#7C3AED] to-[#8C85FF] text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-[#7C3AED]/15 hover:shadow-[#7C3AED]/25 border border-slate-200 cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                  className="bg-[#1B4F8A] text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-[#7C3AED]/15 hover:shadow-[#7C3AED]/25 border border-slate-200 cursor-pointer transition-all flex items-center justify-center gap-1.5"
                 >
                   <Download size={13} />
                   <span>Download Notice PDF</span>

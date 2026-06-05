@@ -149,8 +149,8 @@ export default function PilotOnboardingWelcome() {
             Frictionless Product Walkthrough
           </div>
           
-          <h1 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight text-slate-900">
-            Welcome to the future of <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4F46E5] via-[#6366F1] to-[#7C3AED]">Tax Auditing.</span>
+          <h1 className="text-3xl font-black tracking-tight leading-tight text-slate-900">
+            Welcome to the future of <span className="text-[#1B4F8A]">Tax Auditing.</span>
           </h1>
 
           <p className="text-[13.5px] text-slate-500 font-medium leading-relaxed">

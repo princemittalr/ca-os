@@ -550,7 +550,7 @@ export default function AuditTrailPage() {
             <div className="pt-2 flex justify-end gap-3">
               <button 
                 onClick={() => setSelectedLog(null)}
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-gradient-to-r from-[#4F46E5] to-[#6366F1] hover:opacity-90 transition-all text-[13px] font-bold text-white shadow-lg cursor-pointer"
+                className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#1B4F8A] hover:opacity-90 transition-all text-[13px] font-bold text-white shadow-lg cursor-pointer"
               >
                 Close Audit Entry
               </button>

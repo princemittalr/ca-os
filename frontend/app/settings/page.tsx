@@ -735,9 +735,9 @@ function SettingsContent() {
                       {/* Visual pipeline tracker */}
                       {modalStep < 4 && (
                         <div className="flex items-center gap-2 mt-3.5">
-                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${modalStep >= 1 ? 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] shadow-[0_0_10px_rgba(255,122,69,0.4)]' : 'bg-white/10'}`} />
-                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${modalStep >= 2 ? 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] shadow-[0_0_10px_rgba(255,122,69,0.4)]' : 'bg-white/10'}`} />
-                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${modalStep >= 3 ? 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] shadow-[0_0_10px_rgba(255,122,69,0.4)]' : 'bg-white/10'}`} />
+                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${modalStep >= 1 ? 'bg-[#1B4F8A] shadow-[0_0_10px_rgba(255,122,69,0.4)]' : 'bg-white/10'}`} />
+                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${modalStep >= 2 ? 'bg-[#1B4F8A] shadow-[0_0_10px_rgba(255,122,69,0.4)]' : 'bg-white/10'}`} />
+                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${modalStep >= 3 ? 'bg-[#1B4F8A] shadow-[0_0_10px_rgba(255,122,69,0.4)]' : 'bg-white/10'}`} />
                         </div>
                       )}
                     </div>
@@ -1146,7 +1146,7 @@ function SettingsContent() {
                                     setModalLoading(false);
                                   }
                                 }}
-                                className="flex-2 h-11 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#4F46E5]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="flex-2 h-11 rounded-xl bg-[#1B4F8A] text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#4F46E5]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                               >
                                 {modalLoading ? <Loader2 size={15} className="animate-spin text-white" /> : <Lock size={14} />}
                                 <span>Securely Save Password</span>
@@ -1348,10 +1348,10 @@ function SettingsContent() {
                       {/* Visual progress tracker */}
                       {twoFactorStep < 5 && (
                         <div className="flex items-center gap-2 mt-3.5">
-                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 1 ? 'bg-gradient-to-r from-[#F59E0B] to-[#4F46E5] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
-                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 2 ? 'bg-gradient-to-r from-[#F59E0B] to-[#4F46E5] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
-                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 3 ? 'bg-gradient-to-r from-[#F59E0B] to-[#4F46E5] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
-                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 4 ? 'bg-gradient-to-r from-[#F59E0B] to-[#4F46E5] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
+                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 1 ? 'bg-[#1B4F8A] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
+                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 2 ? 'bg-[#1B4F8A] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
+                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 3 ? 'bg-[#1B4F8A] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
+                          <div className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${twoFactorStep >= 4 ? 'bg-[#1B4F8A] shadow-[0_0_10px_rgba(247,144,9,0.3)]' : 'bg-white/10'}`} />
                         </div>
                       )}
                     </div>
@@ -2137,7 +2137,7 @@ function SettingsContent() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {/* Meter 1 */}
                   <div className="bg-[#F8FAFC]/60 backdrop-blur-md border border-slate-200 shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] rounded-2xl p-5 space-y-4 hover:border-slate-200 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300 relative group overflow-hidden">
-                    <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#4F46E5]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute top-0 inset-x-0 h-[2px] bg-slate-200/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <div className="flex justify-between text-[12.5px] font-bold">
                       <span className="text-slate-400">Client Profiles</span>
                       <span className="text-[#EF4444] font-mono">5 / 5 Cap</span>
@@ -2150,26 +2150,26 @@ function SettingsContent() {
 
                   {/* Meter 2 */}
                   <div className="bg-[#F8FAFC]/60 backdrop-blur-md border border-slate-200 shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] rounded-2xl p-5 space-y-4 hover:border-slate-200 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300 relative group overflow-hidden">
-                    <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#4F46E5]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute top-0 inset-x-0 h-[2px] bg-slate-200/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <div className="flex justify-between text-[12.5px] font-bold">
                       <span className="text-slate-400">GSTR Sync Runs</span>
                       <span className="text-[#F59E0B] font-mono">42 / 50 runs</span>
                     </div>
                     <div className="h-2 bg-white border border-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#F59E0B] to-[#4F46E5] w-[84%] shadow-[0_0_10px_rgba(247,144,9,0.3)]"></div>
+                      <div className="h-full bg-[#1B4F8A] w-[84%] shadow-[0_0_10px_rgba(247,144,9,0.3)]"></div>
                     </div>
                     <div className="text-[11px] text-slate-500 font-bold">Quota will refresh on 1st of next month automatically.</div>
                   </div>
 
                   {/* Meter 3 */}
                   <div className="bg-[#F8FAFC]/60 backdrop-blur-md border border-slate-200 shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)] rounded-2xl p-5 space-y-4 hover:border-slate-200 hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300 relative group overflow-hidden">
-                    <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#7C3AED]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <div className="absolute top-0 inset-x-0 h-[2px] bg-slate-200/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                     <div className="flex justify-between text-[12.5px] font-bold">
                       <span className="text-slate-400">Secure Audit Vault</span>
                       <span className="text-[#7C3AED] font-mono">1.2 GB / 2.0 GB</span>
                     </div>
                     <div className="h-2 bg-white border border-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-[#7C3AED] to-[#8F88FF] w-[60%] shadow-[0_0_10px_rgba(108,99,255,0.3)]"></div>
+                      <div className="h-full bg-[#1B4F8A] w-[60%] shadow-[0_0_10px_rgba(108,99,255,0.3)]"></div>
                     </div>
                     <div className="text-[11px] text-slate-500 font-bold">Stores GSTR Portal JSON records and ledger files.</div>
                   </div>
@@ -2184,7 +2184,7 @@ function SettingsContent() {
                     onClick={() => setBillingCycle('monthly')}
                     className={`px-6 py-2 rounded-full text-[13px] font-extrabold transition-all duration-300 cursor-pointer ${
                       billingCycle === 'monthly' 
-                        ? 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white shadow-[0_2px_12px_rgba(255,122,69,0.3)]' 
+                        ? 'bg-[#1B4F8A] text-white shadow-[0_2px_12px_rgba(255,122,69,0.3)]' 
                         : 'text-slate-400 hover:text-white hover:bg-slate-100'
                     }`}
                   >
@@ -2195,7 +2195,7 @@ function SettingsContent() {
                     onClick={() => setBillingCycle('annual')}
                     className={`px-6 py-2 rounded-full text-[13px] font-extrabold transition-all duration-300 cursor-pointer flex items-center gap-2 ${
                       billingCycle === 'annual' 
-                        ? 'bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white shadow-[0_2px_12px_rgba(255,122,69,0.3)]' 
+                        ? 'bg-[#1B4F8A] text-white shadow-[0_2px_12px_rgba(255,122,69,0.3)]' 
                         : 'text-slate-400 hover:text-white hover:bg-slate-100'
                     }`}
                   >
@@ -2296,7 +2296,7 @@ function SettingsContent() {
 
                   {/* Shimmering Active Ribbon */}
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white px-5 py-1.5 rounded-full text-[10px] uppercase font-black tracking-widest border border-slate-200 shadow-[0_4px_20px_rgba(255,122,69,0.4)] whitespace-nowrap block animate-pulse">
+                    <span className="bg-[#1B4F8A] text-white px-5 py-1.5 rounded-full text-[10px] uppercase font-black tracking-widest border border-slate-200 shadow-[0_4px_20px_rgba(255,122,69,0.4)] whitespace-nowrap block animate-pulse">
                       ★ Most Popular
                     </span>
                   </div>
@@ -2368,7 +2368,7 @@ function SettingsContent() {
                       onClick={() => {
                         triggerToast("✓ Initializing payment gateway for Reckon Pro CA plan. Secure connection active...");
                       }}
-                      className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#4F46E5] to-[#6366F1] text-white font-black text-[13.5px] text-center shadow-[0_4px_20px_rgba(255,122,69,0.3)] hover:shadow-[0_4px_30px_rgba(255,122,69,0.5)] transition-all hover:scale-[1.02] cursor-pointer"
+                      className="w-full py-4 rounded-2xl bg-[#1B4F8A] text-white font-black text-[13.5px] text-center shadow-[0_4px_20px_rgba(255,122,69,0.3)] hover:shadow-[0_4px_30px_rgba(255,122,69,0.5)] transition-all hover:scale-[1.02] cursor-pointer"
                     >
                       Upgrade to Pro CA
                     </button>

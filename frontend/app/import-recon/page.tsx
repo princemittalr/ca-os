@@ -872,7 +872,7 @@ export default function BoeIntelligenceCenter() {
                 <TrendingUp size={16} className={bloombergMode ? 'text-indigo-400' : 'text-indigo-700'} />
               </div>
               <div className="mt-3.5">
-                <span className={`text-4xl font-extrabold tracking-tight font-sans ${bloombergMode ? 'text-white' : 'text-indigo-950'}`}>
+                <span className={`text-3xl font-extrabold tracking-tight font-sans ${bloombergMode ? 'text-white' : 'text-indigo-950'}`}>
                   {formatCurrency(potentialItcRecovery)}
                 </span>
                 <p className={`text-[10px] font-semibold mt-1 ${bloombergMode ? 'text-slate-400' : 'text-slate-500'}`}>

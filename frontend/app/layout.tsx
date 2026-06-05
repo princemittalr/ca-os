@@ -9,7 +9,7 @@ import OnboardingTour from "@/components/layout/OnboardingTour";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const viewport = {
-  themeColor: "#F8FAFC",
+  themeColor: "#F0F2F5",
 };
 
 export const metadata: Metadata = {
@@ -48,7 +48,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/assets/reckon-logo.png" />
       </head>
-      <body className={`${inter.variable} font-sans bg-[#F8FAFC] text-slate-900 h-screen w-screen overflow-hidden flex`}>
+      <body className={`${inter.variable} font-sans h-screen w-screen overflow-hidden flex`}>
         <SplashProvider>
           <ErrorBoundary>
             <ClientLayoutWrapper>

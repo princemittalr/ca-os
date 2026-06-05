@@ -168,7 +168,7 @@ export default function TopBar({
   const unreadNotificationsCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="h-16 w-full flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white/80 backdrop-blur-md border-b border-slate-200/60 flex-shrink-0 relative z-50"
+    <div className="h-12 w-full flex items-center justify-between px-4 md:px-6 lg:px-8 bg-white border-b border-slate-200/60 flex-shrink-0 relative z-50"
       style={{
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       }}
@@ -350,7 +350,7 @@ export default function TopBar({
             <div 
               role="menu"
               aria-label="Messages Dropdown"
-              className="absolute right-0 mt-2 w-[380px] border border-slate-200 rounded-2xl shadow-fintech-lg p-5 z-[9999] backdrop-blur-xl animate-in slide-in-from-top-2 fade-in duration-200 ease-out flex flex-col bg-white"
+              className="absolute right-0 mt-2 w-[380px] border border-slate-200 rounded-2xl shadow-fintech-lg p-5 z-[9999] animate-in slide-in-from-top-2 fade-in duration-200 ease-out flex flex-col bg-white"
             >
               <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
                 <div>
@@ -438,7 +438,7 @@ export default function TopBar({
             <div 
               role="menu"
               aria-label="Notifications Dropdown"
-              className="absolute right-0 mt-2 w-[380px] border border-slate-200 rounded-2xl shadow-fintech-lg p-5 z-[9999] backdrop-blur-xl animate-in slide-in-from-top-2 fade-in duration-200 ease-out flex flex-col bg-white"
+              className="absolute right-0 mt-2 w-[380px] border border-slate-200 rounded-2xl shadow-fintech-lg p-5 z-[9999] animate-in slide-in-from-top-2 fade-in duration-200 ease-out flex flex-col bg-white"
             >
               <div className="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
                 <div>

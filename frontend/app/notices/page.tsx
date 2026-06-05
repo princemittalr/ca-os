@@ -396,7 +396,7 @@ For ${selectedNotice?.client_name}`;
           
           {/* Stepper track progress fill */}
           <div 
-            className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-indigo-500 to-violet-500 -translate-y-1/2 -z-0 transition-all duration-500 ease-out"
+            className="absolute top-1/2 left-0 h-0.5 bg-[#1B4F8A] -translate-y-1/2 -z-0 transition-all duration-500 ease-out"
             style={{ width: `${((getActiveStep() - 1) / 4) * 100}%` }}
           ></div>
 
@@ -458,7 +458,7 @@ For ${selectedNotice?.client_name}`;
               <span className="text-[9.5px] font-black text-[#5B6478] uppercase tracking-wider block font-mono">Primary Aggregate Exposure</span>
               <span className="text-[8.5px] font-extrabold bg-[#4F46E5]/10 text-[#4F46E5] border border-[#4F46E5]/15 px-1.5 py-0.2 rounded font-mono">ESTIMATE</span>
             </div>
-            <div className="text-4xl font-extrabold text-slate-800 tracking-tight mt-2.5 bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] bg-clip-text text-transparent">
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight mt-2.5">
               {formatCurrency(totalExposureAmount)}
             </div>
           </div>
@@ -870,7 +870,7 @@ For ${selectedNotice?.client_name}`;
                 {/* Progress bar */}
                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-gradient-to-r from-indigo-500 via-indigo-600 to-violet-600 rounded-full transition-all duration-500 ease-out"
+                    className="h-full bg-[#1B4F8A] rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${readinessPercent}%` }}
                   ></div>
                 </div>
@@ -1297,7 +1297,7 @@ For ${selectedNotice?.client_name}`;
                   </div>
                   <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] transition-all duration-300 rounded-full"
+                      className="h-full bg-[#1B4F8A] transition-all duration-300 rounded-full"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>

@@ -750,7 +750,7 @@ export default function SupportCenterPage() {
                     <div 
                       className={`p-4 rounded-[20px] text-xs leading-relaxed ${
                         isUser 
-                          ? 'bg-gradient-to-r from-[#7C3AED] to-[#4F46E5] text-white rounded-tr-none shadow-md shadow-[#7C3AED]/10' 
+                          ? 'bg-[#1B4F8A] text-white rounded-tr-none shadow-md shadow-[#7C3AED]/10' 
                           : 'bg-[#F8FAFC] border border-slate-200 text-slate-800 rounded-tl-none shadow-inner'
                       }`}
                     >
@@ -914,7 +914,7 @@ export default function SupportCenterPage() {
                           <div 
                             className={`p-4 rounded-[20px] text-xs leading-relaxed ${
                               isUser 
-                                ? 'bg-gradient-to-r from-[#7C3AED] to-[#4F46E5] text-white rounded-tr-none shadow-md shadow-[#7C3AED]/10' 
+                                ? 'bg-[#1B4F8A] text-white rounded-tr-none shadow-md shadow-[#7C3AED]/10' 
                                 : 'bg-[#F8FAFC] border border-slate-200 text-gray-200 rounded-tl-none shadow-inner'
                             }`}
                           >

@@ -382,7 +382,7 @@ export default function Sidebar({
           {/* ── Logo Workspace Switcher ────────────────────────── */}
           <div
             className={[
-              'relative z-10 flex-shrink-0 flex items-center h-16',
+              'relative z-10 flex-shrink-0 flex items-center h-12',
               isCollapsed ? 'px-2 justify-center' : 'px-3.5 py-3',
             ].join(' ')}
           >
@@ -480,7 +480,7 @@ export default function Sidebar({
             <div
               role="menu"
               className={[
-                'absolute z-50 rounded-xl border border-slate-200/60 p-2 flex flex-col bg-white/95 backdrop-blur-xl shadow-[0_12px_36px_rgba(15,23,42,0.08)] animate-in fade-in zoom-in-95 duration-150 ease-out',
+                'absolute z-50 rounded-xl border border-slate-200/60 p-2 flex flex-col bg-white shadow-[0_12px_36px_rgba(15,23,42,0.08)] animate-in fade-in zoom-in-95 duration-150 ease-out',
                 isCollapsed ? 'left-[calc(100%+8px)] bottom-0 w-[200px]' : 'bottom-[calc(100%+8px)] left-0 right-0 w-[232px]'
               ].join(' ')}
             >

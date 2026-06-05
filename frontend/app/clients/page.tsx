@@ -1309,7 +1309,7 @@ export default function ClientPortfolioPage() {
 
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] hover:from-[#4338CA] hover:to-[#6D28D9] text-xs font-bold text-white transition-all shadow-md shadow-[#4F46E5]/10 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-[#1B4F8A] hover:bg-[#163F6E] text-xs font-bold text-white transition-all shadow-md shadow-[#4F46E5]/10 cursor-pointer"
                 >
                   Initialize Workspace
                 </button>

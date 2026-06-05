@@ -1197,7 +1197,7 @@ export default function DashboardPage() {
                       disabled={!filePR || !file2B}
                       className={`px-5 py-2.5 rounded-xl text-xs font-black text-white shadow-sm transition-all cursor-pointer ${(!filePR || !file2B)
                         ? 'opacity-40 cursor-not-allowed bg-slate-100 text-secondary border border-slate-200'
-                        : 'hover:opacity-95 bg-gradient-to-r from-[#7C3AED] via-[#6366F1] to-[#4F46E5] shadow-[#7C3AED]/10'
+                        : 'hover:opacity-95 bg-[#1B4F8A] shadow-[#7C3AED]/10'
                         }`}
                     >
                       Run Automated Reconciliation

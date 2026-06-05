@@ -1157,7 +1157,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
                 </div>
                 <div className="w-full bg-slate-850 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800 relative">
                   <div
-                    className="bg-gradient-to-r from-indigo-500 via-violet-500 to-emerald-400 h-full rounded-full transition-all duration-300 ease-out"
+                    className="bg-[#1B4F8A] h-full rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${processingProgress}%` }}
                   ></div>
                 </div>
@@ -1259,7 +1259,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
               <div>
                 <span className="text-[10px] font-bold text-indigo-650 tracking-wider uppercase font-mono block">Reconciliation Health</span>
                 <div className="flex items-baseline gap-2 mt-1">
-                  <h3 className="text-4xl font-extrabold text-slate-950 font-mono tracking-tight">{healthScore.toFixed(1)}%</h3>
+                  <h3 className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">{healthScore.toFixed(1)}%</h3>
                   
                   {/* Health Score Trend Indicator (Requirement 4) */}
                   <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold tracking-tight flex items-center gap-0.5 ${
