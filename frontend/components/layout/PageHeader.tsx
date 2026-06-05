@@ -20,16 +20,7 @@ export default function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <div className={`w-full pb-8 ${hasSeparator ? 'border-b border-[var(--color-border)] mb-6' : ''}`}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        .animate-live-dot {
-          animation: pulse 2s ease-in-out infinite;
-        }
-      `}} />
+    <div className={`w-full ${hasSeparator ? 'pb-4 border-b border-[var(--color-border)] mb-6' : 'pb-8'}`}>
       <div className={actions ? "flex flex-col lg:flex-row lg:items-center justify-between gap-4" : ""}>
         <div className="space-y-1 min-w-0">
           {sectionLabel && (
@@ -39,17 +30,17 @@ export default function PageHeader({
               </span>
               {liveIndicator && (
                 <span 
-                  className="w-2 h-2 rounded-full bg-[var(--color-success)] ml-1.5 inline-block animate-live-dot" 
+                  className="w-2 h-2 rounded-full bg-[var(--color-success)] ml-1.5 inline-block animate-badge-dot" 
                   title="Live"
                 />
               )}
             </div>
           )}
-          <h1 className="text-[32px] font-bold text-[var(--color-text-primary)] leading-[1.2] mt-1 mb-1.5">
+          <h1 className="text-page-title text-[var(--color-text-primary)] mt-1 mb-1.5">
             {title}
           </h1>
           {description && (
-            <p className="text-[14px] font-normal text-[var(--color-text-secondary)] leading-[1.5]">
+            <p className="text-body text-[var(--color-text-secondary)]">
               {description}
             </p>
           )}
