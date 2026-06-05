@@ -80,13 +80,7 @@ export default function ComplianceOperationsCenter() {
 
   // Calendar Focus and View Controls
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'agenda'>('agenda');
-  const [currentDate, setCurrentDate] = useState(() => {
-    const now = new Date();
-    if (now.getFullYear() === 2026 && now.getMonth() === 4) {
-      return now;
-    }
-    return new Date(2026, 4, 31);
-  });
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
   // Search & Filter State
@@ -169,7 +163,7 @@ export default function ComplianceOperationsCenter() {
 
   // Dynamic Date Difference Calculation (Anchor: May 31, 2026)
   const getDaysDiff = (dueDateStr: string) => {
-    const today = new Date(2026, 4, 31);
+    const today = new Date();
     const dueDate = new Date(dueDateStr + 'T00:00:00');
     const diffTime = dueDate.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -403,7 +397,7 @@ export default function ComplianceOperationsCenter() {
 
   const handleToday = () => {
     setSelectedCalendarDate(null);
-    setCurrentDate(new Date(2026, 4, 31));
+    setCurrentDate(new Date());
   };
 
   const handleMonthChange = (mIndex: number) => {
@@ -623,7 +617,7 @@ export default function ComplianceOperationsCenter() {
     if (escalationsCount > 0) {
       recommendation = `🚨 Critical Overdue Action: Re-allocate statutory files to resolve the ${escalationsCount} Overdue/Partner Review cases immediately to block statutory penalty risks.`;
     } else if (tasks.filter(t => getEscalationLevel(t) === 2).length > 0) {
-      recommendation = `⚠️ High Risk Portfolio Alert: Overdue return registers detected. Trigger dynamic email reminders with compliance risk metrics to Sharma Traders.`;
+      recommendation = `⚠️ High Risk Portfolio Alert: Overdue return registers detected. Trigger dynamic email reminders with compliance risk metrics to ${criticalClients[0]?.clientName || 'high-risk clients'}.`;
     } else if (dueTodayCount > 0) {
       recommendation = `⏰ Impending Return Deadline: ${dueTodayCount} filings due today. Verify invoice XML sheets and finalize partner review.`;
     } else {
@@ -1483,7 +1477,7 @@ export default function ComplianceOperationsCenter() {
                       {getMonthDays(currentDate).map((day, index) => {
                         const dayTasks = getTasksForDate(day.dateStr);
                         const isSelected = selectedCalendarDate === day.dateStr;
-                        const isToday = formatDateStr(new Date(2026, 4, 31)) === day.dateStr;
+                        const isToday = formatDateStr(new Date()) === day.dateStr;
 
                         const hasOverdue = dayTasks.some(t => ['overdue'].includes(getStatusCategory(t.status)));
                         const hasDue = dayTasks.some(t => ['due'].includes(getStatusCategory(t.status)));
@@ -1563,7 +1557,7 @@ export default function ComplianceOperationsCenter() {
                     {getWeekDays(currentDate).map((day, index) => {
                       const dayTasks = getTasksForDate(day.dateStr);
                       const isSelected = selectedCalendarDate === day.dateStr;
-                      const isToday = formatDateStr(new Date(2026, 4, 31)) === day.dateStr;
+                      const isToday = formatDateStr(new Date()) === day.dateStr;
 
                       return (
                         <div
