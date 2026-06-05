@@ -185,7 +185,8 @@ export default function TopBar({
               type="text" 
               autoFocus
               placeholder="Search clients, GSTIN, invoices..." 
-              className="w-full h-full bg-transparent pl-2.5 pr-12 text-[13px] font-medium text-slate-900 placeholder:text-muted focus:outline-none search-input"
+              style={{ height: '40px', border: 'none', outline: 'none', background: 'transparent', fontSize: '13px', fontWeight: 500 }}
+              className="w-full pl-2.5 pr-12 text-slate-900 placeholder:text-slate-400"
             />
             {/* AI badge */}
             <div className="absolute right-3 pointer-events-none">

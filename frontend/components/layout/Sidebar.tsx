@@ -186,7 +186,6 @@ function NavRow({
 
 /* ─── Group label ────────────────────────────────────────── */
 function GroupLabel({ label, isCollapsed }: { label: string; isCollapsed: boolean }) {
-  if (isCollapsed) return null;
   return (
     <div 
       className="select-none uppercase"
@@ -198,6 +197,10 @@ function GroupLabel({ label, isCollapsed }: { label: string; isCollapsed: boolea
         marginTop: '20px',
         marginBottom: '8px',
         paddingLeft: '12px',
+        opacity: isCollapsed ? 0 : 1,
+        transition: 'opacity 150ms ease 50ms',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
       }}
     >
       {label}
@@ -230,6 +233,7 @@ function DropdownContent({
       ))}
       <div className="my-1.5 h-px bg-slate-100" />
       <button
+        type="button"
         role="menuitem"
         onClick={onLogout}
         className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[12px] text-[#EF4444] hover:bg-[#EF4444]/5 transition-all duration-150 font-medium w-full text-left cursor-pointer group"
@@ -417,6 +421,7 @@ export default function Sidebar({
           {/* ── Workspace Search Trigger ───────────────────────── */}
           <div className={['py-1.5 flex-shrink-0', isCollapsed ? 'flex justify-center px-2' : 'px-3.5'].join(' ')}>
             <button
+              data-tooltip="Search (⌘K)"
               className={[
                 'flex items-center text-left rounded-lg border border-slate-200/70 bg-slate-50/50 hover:bg-slate-100/50 transition-all duration-150 w-full',
                 isCollapsed ? 'h-9 w-9 justify-center' : 'h-9 px-2.5 gap-2'
