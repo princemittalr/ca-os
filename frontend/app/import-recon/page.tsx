@@ -1064,7 +1064,7 @@ export default function BoeIntelligenceCenter() {
                       </span>
                       <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full inline-block mt-2 ${
                         count > 0 
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-900/30' 
+                          ? `bg-rose-500/10 text-rose-400 border ${bloombergMode ? 'border-rose-900/30' : 'border-rose-200'}`
                           : bloombergMode ? 'bg-slate-850 text-slate-500 border border-slate-800' : 'bg-slate-100 text-slate-400 border-transparent'
                       }`}>
                         {count} {count === 1 ? 'case' : 'cases'}
@@ -1465,8 +1465,8 @@ export default function BoeIntelligenceCenter() {
             </div>
 
             {/* Table view container */}
-            <div className="overflow-x-auto data-table-shell">
-              <table className="data-table data-table-dark data-table-striped-6plus">
+            <div className={`overflow-x-auto data-table-shell ${bloombergMode ? '' : 'bg-white'}`}>
+              <table className={`data-table ${bloombergMode ? 'data-table-dark' : ''} data-table-striped-6plus`}>
                 <thead>
                   <tr>
                     <th>BOE NUMBER</th>
