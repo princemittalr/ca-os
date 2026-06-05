@@ -610,226 +610,139 @@ ${clientInfo?.business_name || 'Our Company'}`;
       .slice(0, 3);
   };
   const topRiskSuppliers = getTopRiskSuppliers();
-
   return (
-    <div className="flex-1 overflow-y-auto bg-gradient-to-tr from-slate-50 via-[#F8FAFC] to-[#F1F5F9] px-6 py-6 font-sans relative h-screen">
+    <div className="flex flex-col h-screen bg-[#F8FAFC] font-sans relative overflow-hidden">
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-slate-900 border border-slate-800 text-white px-5 py-3.5 rounded-2xl shadow-2xl z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3">
-          <CheckCircle className="text-emerald-400 flex-shrink-0 animate-bounce" size={18} />
-          <span className="text-[12.5px] font-semibold tracking-wide leading-snug">{toastMessage}</span>
+        <div className="fixed bottom-8 right-8 bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded shadow-xl z-[100] flex items-center gap-3">
+          <CheckCircle className="text-emerald-400 flex-shrink-0" size={16} />
+          <span className="text-[12px] font-semibold">{toastMessage}</span>
         </div>
       )}
 
-      <PageHeader
-        sectionLabel="AI-Powered Compliance"
-        liveIndicator={true}
-        title="GST Reconciliation Engine"
-        description="Analyze corporate portfolios, record ERP purchase registers, and auto-detect GSTR-2B portal mismatches."
-        hasSeparator={true}
-        actions={
-          <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border border-[var(--color-border-strong)] text-[var(--color-text-secondary)] bg-indigo-50/20 text-[11px] font-bold font-mono">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-live-dot" />
-            <span>Match Engine: ACTIVE · 99.4% Accuracy</span>
-          </div>
-        }
-      />
-
-      {/* Horizontal Progress Tracker (Stripe/Linear Style) */}
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm mb-6 relative overflow-hidden">
-        <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4 z-10">
-          {[
-            { id: 1, label: 'Select Client', desc: 'Filing Registry' },
-            { id: 2, label: 'Upload GSTR-2B', desc: 'Portal Json Ingress' },
-            { id: 3, label: 'Upload Purchase Register', desc: 'ERP Books & Mapping' },
-            { id: 4, label: 'Analyze Reconciliation', desc: 'Start AI Analysis' },
-            { id: 5, label: 'Review Findings', desc: 'Actionable Diagnostics' }
-          ].map((item, idx) => {
-            const isCompleted = step > item.id && !isProcessing;
-            const isActive = step === item.id || (isProcessing && item.id === 4);
-            const isFuture = step < item.id && !(isProcessing && item.id === 4);
-
-            return (
-              <div 
-                key={item.id} 
-                className={`flex items-center gap-3.5 p-2.5 rounded-2xl transition-all flex-1 w-full md:w-auto ${
-                  isActive 
-                    ? 'bg-indigo-50/50 border border-indigo-150 text-indigo-950 shadow-sm shadow-indigo-100/20' 
-                    : isCompleted
-                    ? 'cursor-pointer hover:bg-slate-50/80 text-slate-800'
-                    : 'text-slate-400 opacity-60'
-                }`}
-                onClick={() => {
-                  if (isCompleted) {
-                    setStep(item.id);
-                  }
-                }}
-              >
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs font-mono transition-all ${
-                  isCompleted 
-                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-100' 
-                    : isActive 
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' 
-                    : 'bg-slate-100 text-slate-400'
-                }`}>
-                  {isCompleted ? <Check size={14} strokeWidth={3} /> : `0${item.id}`}
-                </div>
-                <div className="text-left">
-                  <p className={`text-[11.5px] font-bold tracking-tight leading-tight ${isActive ? 'text-indigo-950' : 'text-slate-700'}`}>
-                    {item.label}
-                  </p>
-                  <p className="text-[9.5px] text-slate-400 mt-0.5 font-medium leading-none">{item.desc}</p>
-                </div>
-                {idx < 4 && (
-                  <ChevronRight size={14} className="ml-auto text-slate-300 hidden xl:block" />
-                )}
-              </div>
-            );
-          })}
+      {/* Header: 48px white border-bottom, title 16px weight 600, subtitle period/GSTIN 12px #6B7280 */}
+      <div className="h-12 bg-white border-b border-[#E5E7EB] px-6 flex items-center justify-between shrink-0">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-[16px] font-semibold text-[#111827]">GST Reconciliation Engine</h1>
+          <p className="text-[12px] text-[#6B7280]">
+            {clientInfo ? `${clientInfo.business_name} (${clientInfo.gstin})` : 'Select Client'} · Period: {reconMonth === '2024-03' ? 'March 2024' : reconMonth}
+          </p>
+        </div>
+        <div className="text-[11px] font-mono text-slate-500 bg-slate-150 px-2 py-0.5 rounded">
+          Match Engine: ACTIVE · 99.4% Accuracy
         </div>
       </div>
 
-      {/* ======================================================
-          STEP 1: SELECT CLIENT
-          ====================================================== */}
-      {step === 1 && !isProcessing && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-in fade-in duration-300">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold text-xs">
-                  01
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Select Audit Subject</h3>
-                  <p className="text-[12px] text-slate-500">Pick CA client ledger registry and filing month</p>
-                </div>
-              </div>
+      {/* Toolbar: period selector + GSTIN selector + Run Reconciliation, height 40px, mb 16px */}
+      <div className="h-10 bg-white border-b border-[#E5E7EB] px-6 flex items-center gap-3 shrink-0 mb-4">
+        {/* Client selector */}
+        <select
+          value={selectedClient}
+          onChange={(e) => setSelectedClient(e.target.value)}
+          className="h-8 bg-slate-50 border border-[#E5E7EB] rounded-[4px] px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+        >
+          <option value="" disabled>Choose Client...</option>
+          {clients.map(c => (
+            <option key={c.id} value={c.id}>{c.business_name} ({c.gstin})</option>
+          ))}
+        </select>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Client Select */}
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">CA client registry</label>
-                  <div className="relative">
-                    <Building size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <select
-                      value={selectedClient}
-                      onChange={(e) => {
-                        setSelectedClient(e.target.value);
-                      }}
-                      className="w-full h-11 bg-slate-50 border border-slate-200/80 rounded-xl pl-10 pr-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all cursor-pointer appearance-none"
-                    >
-                      <option value="" disabled className="text-slate-400">Choose business client...</option>
-                      {clients.map(c => (
-                        <option key={c.id} value={c.id} className="text-slate-800">{c.business_name} ({c.gstin})</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+        {/* Period selector */}
+        <select
+          value={reconMonth}
+          onChange={(e) => setReconMonth(e.target.value)}
+          className="h-8 bg-slate-50 border border-[#E5E7EB] rounded-[4px] px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
+        >
+          <option value="2024-03">March 2024 (FY 2023-24)</option>
+          <option value="2024-02">February 2024</option>
+          <option value="2024-01">January 2024</option>
+        </select>
 
-                {/* Period Select */}
-                <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Filing Period</label>
-                  <div className="relative">
-                    <CalendarIcon size={14} className="text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <select
-                      value={reconMonth}
-                      onChange={(e) => setReconMonth(e.target.value)}
-                      className="w-full h-11 bg-slate-50 border border-slate-200/80 rounded-xl pl-10 pr-4 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all cursor-pointer appearance-none"
-                    >
-                      <option value="2024-03">March 2024 (FY 2023-24)</option>
-                      <option value="2024-02">February 2024</option>
-                      <option value="2024-01">January 2024</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
+        <button
+          onClick={handleLoadDemoDataset}
+          className="h-8 px-3 bg-slate-100 hover:bg-slate-200 border border-[#E5E7EB] text-slate-700 text-[12px] font-medium rounded-[4px] flex items-center gap-1 cursor-pointer transition-colors"
+        >
+          <Sparkles size={12} className="text-amber-500" />
+          <span>Load Demo Dataset</span>
+        </button>
 
-              {selectedClient && (
-                <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between animate-in fade-in duration-300">
-                  <div className="space-y-1">
-                    <span className="text-[10px] text-slate-400 uppercase font-bold">Active Configuration</span>
-                    <h4 className="text-xs font-bold text-slate-800">{clientInfo?.business_name}</h4>
-                    <p className="text-[10px] text-slate-500 font-mono">GSTIN: {clientInfo?.gstin} · {clientInfo?.state}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[9px] text-slate-400 uppercase font-bold">Prev Month Health</span>
-                    <p className="text-sm font-bold text-slate-800 font-mono">{clientInfo?.prev_health}%</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Premium Demo Mode Trigger */}
-            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-indigo-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden border border-slate-800">
-              <div className="absolute right-0 bottom-0 translate-x-12 translate-y-12 opacity-10">
-                <Sparkles size={180} className="text-indigo-400" />
-              </div>
-              <span className="bg-indigo-600/30 border border-indigo-500/25 px-2.5 py-1 rounded-lg text-[9px] font-mono tracking-widest uppercase text-indigo-200">
-                Evaluation Sandbox
-              </span>
-              <h3 className="text-lg font-bold mt-3.5">Testing without live ledgers?</h3>
-              <p className="text-[11.5px] text-slate-300 leading-relaxed mt-1 max-w-lg">
-                Click below to auto-inject a configured client registry, matching column schema mappings, and pre-constructed database sheets to evaluate the matching pipeline.
-              </p>
+        {step !== 5 && (
+          <div className="flex gap-2">
+            {[1, 2, 3, 4].map((s) => (
               <button
-                onClick={handleLoadDemoDataset}
-                className="btn btn-secondary btn-md mt-5"
+                key={s}
+                onClick={() => setStep(s)}
+                className={`h-8 px-2.5 text-[11px] font-semibold rounded-[4px] border transition-colors ${
+                  step === s
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                    : 'bg-white border-[#E5E7EB] text-slate-500 hover:bg-slate-50'
+                }`}
               >
-                <Sparkles size={13} className="animate-spin" />
-                <span>Load Demo Dataset</span>
+                Step {s}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Run Reconciliation primary button */}
+        <button
+          onClick={handleRunReconciliation}
+          disabled={!selectedClient || !file2B || !filePR || isProcessing}
+          className="h-8 px-4 bg-[#1B4F8A] hover:bg-[#163F6E] disabled:bg-slate-200 disabled:text-slate-400 text-white text-[12px] font-semibold rounded-[4px] flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 size={12} className="animate-spin" />
+              <span>Processing...</span>
+            </>
+          ) : (
+            <>
+              <Zap size={12} fill="currentColor" />
+              <span>Run Reconciliation</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Main content body */}
+      <div className="flex-1 overflow-hidden flex">
+
+        {/* Left main area (reconciliation steps or results table) */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
+
+          {/* ======================================================
+              STEP 1: SELECT CLIENT
+              ====================================================== */}
+          {step === 1 && !isProcessing && (
+            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Select Audit Subject</h3>
+                <p className="text-[12px] text-slate-500">Pick client registry in toolbar or load evaluation demo dataset.</p>
+              </div>
+              <button
+                onClick={() => setStep(2)}
+                disabled={!selectedClient}
+                className="w-full h-10 bg-[#1B4F8A] hover:bg-[#163F6E] disabled:bg-slate-200 disabled:text-slate-400 text-white text-[12px] font-semibold rounded-[4px] flex items-center justify-center gap-1"
+              >
+                <span>Continue to GSTR-2B Upload</span>
+                <ArrowRight size={14} />
               </button>
             </div>
-          </div>
+          )}
 
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-4">
-            <h4 className="text-xs font-bold text-slate-800 tracking-tight">Step Checklist</h4>
-            <div className="space-y-3.5 pt-1 text-xs">
-              <div className="flex items-center gap-3.5">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${selectedClient ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-                  {selectedClient ? <Check size={11} strokeWidth={3} /> : '1'}
-                </div>
-                <span className="font-semibold text-slate-700">Choose Active Client</span>
-              </div>
-              <div className="flex items-center gap-3.5">
-                <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">2</div>
-                <span className="font-medium text-slate-500">Pick Filing Month</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setStep(2)}
-              disabled={!selectedClient}
-              className="btn btn-primary btn-md w-full mt-4"
-            >
-              <span>Continue to GSTR-2B Upload</span>
-              <ArrowRight size={13} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================
-          STEP 2: UPLOAD GSTR-2B
-          ====================================================== */}
-      {step === 2 && !isProcessing && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-in fade-in duration-300">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold text-xs">
-                  02
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Upload GSTR-2B JSON</h3>
-                  <p className="text-[12px] text-slate-500">Provide GST portal auto-drafted transaction statement for the active client</p>
-                </div>
+          {/* ======================================================
+              STEP 2: UPLOAD GSTR-2B
+              ====================================================== */}
+          {step === 2 && !isProcessing && (
+            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Upload GSTR-2B JSON</h3>
+                <p className="text-[12px] text-slate-500">Provide official portal auto-drafted transaction statement.</p>
               </div>
 
-              <div className={`border-2 rounded-2xl p-8 flex flex-col items-center justify-center text-center relative transition-all min-h-[220px] ${
-                file2B ? 'border-emerald-500 bg-emerald-50/[0.02]' : 'border-slate-200 border-dashed hover:border-indigo-500/40 bg-slate-50/20'
-              }`}>
+              {/* Dropzone: border 2px dashed #D1D5DB, border-radius 4px, background #F7F8FA, height 120px */}
+              <div className="relative border-2 border-dashed border-[#D1D5DB] rounded-[4px] bg-[#F7F8FA] h-[120px] flex flex-col items-center justify-center text-center p-4 hover:bg-[#EFF6FF] hover:border-[#1B4F8A] transition-colors group">
                 <input
                   type="file"
                   accept=".json"
@@ -841,93 +754,31 @@ ${clientInfo?.business_name || 'Our Company'}`;
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-                {file2B ? (
-                  <div className="flex flex-col items-center gap-2 max-w-sm">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-inner">
-                      <Check size={24} strokeWidth={2.5} />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-800">GSTR-2B Portal JSON Uploaded</h4>
-                    <p className="text-[11px] text-slate-500 font-mono truncate max-w-[260px]">{file2B.name}</p>
-                    <span className="text-[8.5px] font-bold tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded mt-1">Ready for reconciliation</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setFile2B(null); }}
-                      className="text-[9px] uppercase tracking-widest font-extrabold text-red-500 hover:text-red-600 transition-colors mt-3"
-                    >
-                      Remove file
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center shadow-sm">
-                      <CloudUpload size={18} />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-800">Drag or Click to Upload</h4>
-                    <p className="text-[11px] text-slate-500 leading-normal max-w-xs mt-0.5">Drag your official portal `.json` files here, or click to browse files locally.</p>
-                    <span className="text-[8.5px] font-black tracking-wider bg-slate-100 text-slate-500 px-2 py-0.5 rounded mt-2.5 uppercase">GSTIN statement format</span>
-                  </div>
-                )}
+                <CloudUpload size={20} className="text-[#D1D5DB] group-hover:text-[#1B4F8A] mb-1" />
+                <span className="text-[13px] text-[#6B7280] font-medium">
+                  {file2B ? file2B.name : 'Click to Upload GSTR-2B JSON'}
+                </span>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep(1)} className="h-9 px-4 border border-[#E5E7EB] rounded-[4px] text-[12px] font-medium hover:bg-slate-50 flex-1">Back</button>
+                <button onClick={() => setStep(3)} disabled={!file2B} className="h-9 px-4 bg-[#1B4F8A] text-white disabled:bg-slate-200 disabled:text-slate-400 rounded-[4px] text-[12px] font-medium flex-1">Continue</button>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-4">
-            <h4 className="text-xs font-bold text-slate-800 tracking-tight">Step Checklist</h4>
-            <div className="space-y-3.5 pt-1 text-xs">
-              <div className="flex items-center gap-3.5">
-                <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  <Check size={11} strokeWidth={3} />
-                </div>
-                <span className="font-semibold text-slate-700">Active Client Configured</span>
-              </div>
-              <div className="flex items-center gap-3.5">
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${file2B ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-                  {file2B ? <Check size={11} strokeWidth={3} /> : '2'}
-                </div>
-                <span className="font-semibold text-slate-700">Upload Portal JSON File</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2.5 pt-2">
-              <button
-                onClick={() => setStep(1)}
-                className="btn btn-secondary btn-md flex-1"
-              >
-                <ChevronLeft size={13} />
-                <span>Back</span>
-              </button>
-              <button
-                onClick={() => setStep(3)}
-                disabled={!file2B}
-                className="btn btn-primary btn-md flex-[2]"
-              >
-                <span>Continue to Step 3</span>
-                <ArrowRight size={13} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================
-          STEP 3: UPLOAD PURCHASE REGISTER & COLUMN MAPPER
-          ====================================================== */}
-      {step === 3 && !isProcessing && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start animate-in fade-in duration-300">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center font-bold text-xs">
-                  03
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Upload Purchase Register</h3>
-                  <p className="text-[12px] text-slate-500">Provide ERP booked purchase registers (.xlsx, .csv) and map headers</p>
-                </div>
+          {/* ======================================================
+              STEP 3: UPLOAD PURCHASE REGISTER & COLUMN MAPPER
+              ====================================================== */}
+          {step === 3 && !isProcessing && (
+            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Upload Purchase Register</h3>
+                <p className="text-[12px] text-slate-500">Provide ERP booked purchase registers (.xlsx, .csv).</p>
               </div>
 
-              <div className={`border-2 rounded-2xl p-8 flex flex-col items-center justify-center text-center relative transition-all min-h-[180px] ${
-                filePR ? 'border-emerald-500 bg-emerald-50/[0.02]' : 'border-slate-200 border-dashed hover:border-indigo-500/40 bg-slate-50/20'
-              }`}>
+              {/* Dropzone */}
+              <div className="relative border-2 border-dashed border-[#D1D5DB] rounded-[4px] bg-[#F7F8FA] h-[120px] flex flex-col items-center justify-center text-center p-4 hover:bg-[#EFF6FF] hover:border-[#1B4F8A] transition-colors group">
                 <input
                   type="file"
                   accept=".xlsx,.csv"
@@ -939,1002 +790,419 @@ ${clientInfo?.business_name || 'Our Company'}`;
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-                {filePR ? (
-                  <div className="flex flex-col items-center gap-2 max-w-sm">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-inner">
-                      <Check size={24} strokeWidth={2.5} />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-800">ERP Ledger Sheet Uploaded</h4>
-                    <p className="text-[11px] text-slate-500 font-mono truncate max-w-[260px]">{filePR.name}</p>
-                    <span className="text-[8.5px] font-bold tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded mt-1">Excel sheets parsed</span>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setFilePR(null); }}
-                      className="text-[9px] uppercase tracking-widest font-extrabold text-red-500 hover:text-red-600 transition-colors mt-3"
-                    >
-                      Remove file
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-650 flex items-center justify-center shadow-sm">
-                      <CloudUpload size={18} />
-                    </div>
-                    <h4 className="text-sm font-bold text-slate-800">Drag or Click to Upload</h4>
-                    <p className="text-[11px] text-slate-500 leading-normal max-w-xs mt-0.5">Drag Excel books, CSV sheets, or spreadsheets exported from Tally/ERP.</p>
-                    <span className="text-[8.5px] font-black tracking-wider bg-slate-100 text-slate-500 px-2 py-0.5 rounded mt-2.5 uppercase">Excel or CSV book format</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Stripe-style Columns Mapper */}
-            {filePR && (
-              <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm animate-in fade-in slide-in-from-top-3 duration-300 space-y-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Map ERP Column Fields</h3>
-                    <p className="text-[11.5px] text-slate-500">Confirm auto-detected headers match reconciliation dimensions</p>
-                  </div>
-                  <button
-                    onClick={() => showToast("✓ Column mappings validated against database schemas!")}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    Verify Field Autodetect
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pt-1">
-                  {[
-                    { key: 'invoice_no', label: 'Invoice ID Number', options: ['Invoice Number', 'INV No', 'Bill No'] },
-                    { key: 'invoice_date', label: 'Invoice Booking Date', options: ['Invoice Date', 'Bill Date', 'Filing Date'] },
-                    { key: 'gstin', label: 'Vendor GSTIN', options: ['Supplier GSTIN', 'GST No', 'Party GST'] },
-                    { key: 'taxable_value', label: 'Taxable Value Amount', options: ['Taxable Amount', 'Basic Amount', 'Invoice Value'] },
-                    { key: 'cgst', label: 'CGST Rate Position', options: ['CGST Amount', 'Central Tax'] },
-                    { key: 'sgst', label: 'SGST Rate Position', options: ['SGST Amount', 'State Tax'] }
-                  ].map(mapper => (
-                    <div key={mapper.key} className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <span className="text-[11.5px] font-semibold text-slate-600">{mapper.label}</span>
-                      <select
-                        value={mappings[mapper.key as keyof typeof mappings]}
-                        onChange={(e) => setMappings({ ...mappings, [mapper.key]: e.target.value })}
-                        className="w-full h-9 bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-500 focus:bg-white cursor-pointer"
-                      >
-                        {mapper.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                      </select>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Live Schema Preview */}
-                <div className="pt-3">
-                  <span className="text-[9px] font-black uppercase text-slate-450 tracking-wider block mb-2 font-mono">Live Mapping Ingest Preview</span>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl overflow-hidden p-1 shadow-inner">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Invoice ID</th>
-                          <th>Vendor GSTIN</th>
-                          <th className="num-col">Taxable Value</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>INV/2024/00891</td>
-                          <td>27AAACG5678A1Z9</td>
-                          <td className="num-col">₹1,50,000</td>
-                        </tr>
-                        <tr>
-                          <td>INV/2024/00892</td>
-                          <td>27AAACG5678A1Z9</td>
-                          <td className="num-col">₹75,000</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-4">
-            <h4 className="text-xs font-bold text-slate-800 tracking-tight">Step Checklist</h4>
-            <div className="space-y-3.5 pt-1 text-xs">
-              <div className="flex items-center gap-3.5">
-                <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  <Check size={11} strokeWidth={3} />
-                </div>
-                <span className="font-semibold text-slate-700">Active Client Configured</span>
-              </div>
-              <div className="flex items-center gap-3.5">
-                <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  <Check size={11} strokeWidth={3} />
-                </div>
-                <span className="font-semibold text-slate-700">GSTR-2B JSON Uploaded</span>
-              </div>
-              <div className={`flex items-center gap-3.5 ${!filePR ? 'opacity-70' : ''}`}>
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${filePR ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
-                  {filePR ? <Check size={11} strokeWidth={3} /> : '3'}
-                </div>
-                <span className="font-semibold text-slate-700">Upload PR Ledger Sheet</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2.5 pt-2">
-              <button
-                onClick={() => setStep(2)}
-                className="btn btn-secondary btn-md flex-1"
-              >
-                <ChevronLeft size={13} />
-                <span>Back</span>
-              </button>
-              <button
-                onClick={() => setStep(4)}
-                disabled={!filePR}
-                className="btn btn-primary btn-md flex-[2]"
-              >
-                <span>Continue to Step 4</span>
-                <ArrowRight size={13} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================
-          STEP 4: RUN AI MATCHING / ANALYZE RECONCILIATION
-          ====================================================== */}
-      {step === 4 && (
-        <div className="max-w-2xl mx-auto animate-in zoom-in-95 duration-350 mt-4">
-          {!isProcessing && processingProgress === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-6 shadow-sm">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-indigo-600 shadow-sm animate-pulse">
-                <Zap size={28} fill="currentColor" />
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-[10px] text-indigo-650 font-bold tracking-[0.2em] font-mono uppercase">Reconciliation Algorithm Pipeline</span>
-                <h3 className="text-lg font-bold text-slate-900">Run AI Match Analysis</h3>
-                <p className="text-[12px] text-slate-500 leading-relaxed max-w-md mx-auto">
-                  Evaluate GSTR-2B portal entries against ERP purchase registers. The engine normalizes invoice formatting variations and runs fuzzy and exact matches.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 max-w-sm mx-auto text-left pt-3">
-                <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl flex items-center gap-3">
-                  <Clock size={16} className="text-indigo-600" />
-                  <div>
-                    <span className="text-[8.5px] text-slate-400 font-bold uppercase block">Run Time</span>
-                    <span className="text-[11.5px] font-bold text-slate-800 font-mono">&lt; 2.0s</span>
-                  </div>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl flex items-center gap-3">
-                  <Sparkles size={16} className="text-emerald-500" />
-                  <div>
-                    <span className="text-[8.5px] text-slate-400 font-bold uppercase block">Fuzzy Accuracy</span>
-                    <span className="text-[11.5px] font-bold text-slate-800 font-mono">99.4%</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-3 max-w-xs mx-auto pt-4">
-                <button
-                  onClick={() => setStep(3)}
-                  className="btn btn-secondary btn-md flex-1"
-                >
-                  <ChevronLeft size={13} />
-                  <span>Back</span>
-                </button>
-                <button
-                  onClick={handleRunReconciliation}
-                  className="btn btn-primary btn-md flex-[2]"
-                >
-                  <Zap size={13} fill="currentColor" />
-                  <span>Start AI Analysis</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-slate-900 border border-slate-850 rounded-3xl p-8 text-white space-y-6 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-5">
-                <Zap size={220} className="text-indigo-400" />
-              </div>
-
-              <div className="flex justify-between items-center pb-2.5 border-b border-slate-800/80">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></span>
-                  <span className="text-[10px] text-indigo-400 font-black tracking-widest font-mono uppercase">Match Engine Executing</span>
-                </div>
-                <div className="bg-indigo-950 border border-indigo-900 px-3 py-1 rounded-xl flex items-center gap-1.5">
-                  <Sparkles size={11} className="text-indigo-400" />
-                  <span className="text-[9.5px] font-bold text-indigo-300 font-mono">Confidence: 99.4%</span>
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <div className="flex justify-between text-xs font-mono text-slate-400 font-semibold">
-                  <span>Analyzing: {clientInfo?.business_name}</span>
-                  <span className="text-indigo-400 font-black font-mono">{processingProgress}%</span>
-                </div>
-                <div className="w-full bg-slate-850 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800 relative">
-                  <div
-                    className="bg-[#1B4F8A] h-full rounded-full transition-all duration-300 ease-out"
-                    style={{ width: `${processingProgress}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Streaming Status Logs */}
-              <div className="bg-slate-950/80 border border-slate-850 rounded-2xl p-4.5 font-mono text-[11px] text-slate-350 space-y-2 h-44 overflow-y-auto hidden-scrollbar shadow-inner">
-                {PROCESSING_STEPS.slice(0, currentStepIndex + 1).map((log, index) => (
-                  <div key={index} className="flex items-center gap-2.5 animate-in fade-in duration-300">
-                    <span className="text-indigo-500 font-bold">{'>'}</span>
-                    <span className="font-mono">{log}</span>
-                    {index === currentStepIndex && currentStepIndex < PROCESSING_STEPS.length - 1 && (
-                      <span className="w-1 h-3.5 bg-indigo-500 animate-pulse inline-block"></span>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between pt-2.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Clock size={11} />
-                  <span>Est. Completion: {processingProgress === 100 ? '0.0s' : `${(10 - currentStepIndex * 0.9).toFixed(1)}s`}</span>
+                <CloudUpload size={20} className="text-[#D1D5DB] group-hover:text-[#1B4F8A] mb-1" />
+                <span className="text-[13px] text-[#6B7280] font-medium">
+                  {filePR ? filePR.name : 'Click to Upload Purchase Register'}
                 </span>
-                <span>Active thread: #GST-R3B-429</span>
               </div>
 
-              {processingProgress === 100 && (
-                <button
-                  onClick={() => setStep(5)}
-                  className="btn btn-success btn-md w-full animate-in fade-in duration-500"
-                >
-                  <span>Proceed to Review Findings (Step 5)</span>
-                  <ArrowRight size={13} strokeWidth={2.5} />
-                </button>
+              {filePR && (
+                <div className="space-y-2 pt-2 border-t border-[#E5E7EB]">
+                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">Verify Field Mapping</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {Object.keys(mappings).map((key) => (
+                      <div key={key} className="flex items-center justify-between border-b border-slate-50 pb-1">
+                        <span className="text-slate-500 font-medium capitalize">{key.replace('_', ' ')}</span>
+                        <span className="text-slate-800 font-semibold">{mappings[key as keyof typeof mappings]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => setStep(2)} className="h-9 px-4 border border-[#E5E7EB] rounded-[4px] text-[12px] font-medium hover:bg-slate-50 flex-1">Back</button>
+                <button onClick={() => setStep(4)} disabled={!filePR} className="h-9 px-4 bg-[#1B4F8A] text-white disabled:bg-slate-200 disabled:text-slate-400 rounded-[4px] text-[12px] font-medium flex-1">Continue</button>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================
+              STEP 4: RUN AI MATCHING / ANALYZE RECONCILIATION
+              ====================================================== */}
+          {step === 4 && (
+            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
+              {!isProcessing && processingProgress === 0 ? (
+                <div className="text-center space-y-4">
+                  <Zap size={24} className="text-[#1B4F8A] mx-auto animate-pulse" />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Run AI Match Analysis</h3>
+                    <p className="text-[12px] text-slate-500">Evaluate GSTR-2B portal entries against ERP purchase registers.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => setStep(3)} className="h-9 px-4 border border-[#E5E7EB] rounded-[4px] text-[12px] font-medium hover:bg-slate-50 flex-1">Back</button>
+                    <button onClick={handleRunReconciliation} className="h-9 px-4 bg-[#1B4F8A] text-white rounded-[4px] text-[12px] font-semibold flex-1">Start Analysis</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex justify-between text-xs font-mono text-slate-650">
+                    <span>Analyzing matching database...</span>
+                    <span>{processingProgress}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div className="bg-[#1B4F8A] h-full transition-all duration-300" style={{ width: `${processingProgress}%` }}></div>
+                  </div>
+                  <div className="bg-slate-900 text-[#A7F3D0] rounded p-3 font-mono text-[11px] h-32 overflow-y-auto space-y-1">
+                    {PROCESSING_STEPS.slice(0, currentStepIndex + 1).map((log, idx) => (
+                      <div key={idx}>{log}</div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* ======================================================
-          STEP 5: REVIEW FINDINGS (RESULTS DASHBOARD)
-          ====================================================== */}
-      {step === 5 && !isProcessing && (
-        <div className="space-y-6 animate-in fade-in duration-500">
-
-          {/* Results Action Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm">
-            <div className="flex items-center gap-3.5">
-              <button
-                onClick={() => setStep(3)}
-                className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 flex items-center justify-center hover:-translate-x-0.5 transition-all cursor-pointer"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <div>
-                <span className="text-[10px] font-black text-indigo-700 tracking-wider uppercase font-mono">Active Reconciliation File</span>
-                <h2 className="text-lg font-bold text-slate-900 tracking-tight leading-snug">{clientInfo?.business_name}</h2>
-                <p className="text-[10.5px] text-slate-500 font-semibold font-mono">{reconMonth === '2024-03' ? 'March 2024' : reconMonth} · Mappings Verified</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => handleExport('excel')}
-                disabled={isExportingExcel}
-                className="btn btn-secondary btn-sm disabled:opacity-50"
-              >
-                <Download size={13} className="text-[#10B981]" />
-                <span>{isExportingExcel ? 'Working...' : 'Export Excel'}</span>
-              </button>
-              <button
-                onClick={() => handleExport('pdf')}
-                disabled={isExportingPdf}
-                className="btn btn-secondary btn-sm disabled:opacity-50"
-              >
-                <FileJson size={13} className="text-[#7C3AED]" />
-                <span>{isExportingPdf ? 'Working...' : 'Export PDF'}</span>
-              </button>
-              <button
-                onClick={handleRerun}
-                className="btn btn-secondary btn-sm"
-              >
-                <RefreshCw size={11} strokeWidth={2.5} />
-                <span>Re-Run</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Row 1: Health Status, Trends & Risk Indicators (5-Second Status Overview) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-            
-            {/* Health Score Hero Container */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute right-0 top-0 translate-x-3 translate-y-3 opacity-5">
-                <Compass size={120} className="text-indigo-900" />
-              </div>
-
-              <div>
-                <span className="text-[10px] font-bold text-indigo-650 tracking-wider uppercase font-mono block">Reconciliation Health</span>
-                <div className="flex items-baseline gap-2 mt-1">
-                  <h3 className="text-3xl font-extrabold text-slate-950 font-mono tracking-tight">{healthScore.toFixed(1)}%</h3>
-                  
-                  {/* Health Score Trend Indicator (Requirement 4) */}
-                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold tracking-tight flex items-center gap-0.5 ${
-                    healthImprovement >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                  }`}>
-                    {healthImprovement >= 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    <span>{healthImprovement >= 0 ? `+${healthImprovement.toFixed(1)}%` : `${healthImprovement.toFixed(1)}%`}</span>
-                  </span>
+          {/* ======================================================
+              STEP 5: REVIEW FINDINGS (RESULTS DASHBOARD)
+              ====================================================== */}
+          {step === 5 && !isProcessing && (
+            <div className="space-y-4">
+              
+              {/* RECONCILIATION SUMMARY BAR: Horizontal 4-stat bar, white background, border 1px, border-radius 4px */}
+              <div className="grid grid-cols-4 bg-white border border-[#E5E7EB] rounded-[4px] divide-x divide-[#E5E7EB] h-16 items-center shrink-0">
+                {/* Matched */}
+                <div className="px-6 flex flex-col">
+                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">Matched</span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-[16px] font-bold font-mono text-[#15803D]">{formatCurrency(matchedITCValue)}</span>
+                    <span className="text-[11px] text-[#6B7280] font-mono">{fullyReconciled} rows</span>
+                  </div>
                 </div>
                 
-                {/* Trend details list */}
-                <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-100 text-[11px] font-medium text-slate-500">
-                  <div>
-                    <span className="text-[9px] text-slate-400 block">Current Month</span>
-                    <span className="font-semibold text-slate-800 font-mono">{healthScore.toFixed(1)}% Match</span>
+                {/* Unmatched */}
+                <div className="px-6 flex flex-col">
+                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">Unmatched</span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-[16px] font-bold font-mono text-[#B91C1C]">
+                      {formatCurrency(categoryMetrics.value_mismatch.exposure + categoryMetrics.gstin_mismatch.exposure)}
+                    </span>
+                    <span className="text-[11px] text-[#6B7280] font-mono">
+                      {categoryMetrics.value_mismatch.count + categoryMetrics.gstin_mismatch.count} rows
+                    </span>
                   </div>
-                  <div>
-                    <span className="text-[9px] text-slate-400 block">Previous Month</span>
-                    <span className="font-semibold text-slate-800 font-mono">{prevMonthHealth.toFixed(1)}% Match</span>
+                </div>
+
+                {/* In Books Only */}
+                <div className="px-6 flex flex-col">
+                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">In Books Only</span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-[16px] font-bold font-mono text-[#B91C1C]">{formatCurrency(categoryMetrics.missing_2b.exposure)}</span>
+                    <span className="text-[11px] text-[#6B7280] font-mono">{categoryMetrics.missing_2b.count} rows</span>
+                  </div>
+                </div>
+
+                {/* In GSTR Only */}
+                <div className="px-6 flex flex-col">
+                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">In GSTR Only</span>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-[16px] font-bold font-mono text-[#B91C1C]">{formatCurrency(categoryMetrics.missing_books.exposure)}</span>
+                    <span className="text-[11px] text-[#6B7280] font-mono">{categoryMetrics.missing_books.count} rows</span>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100">
-                <p className="text-[11.5px] text-slate-500 leading-normal">
-                  Overall match health is determined by matched ITC value. Current month audit reflects <span className="font-semibold text-emerald-700">improvement</span> of {healthImprovement.toFixed(1)}%.
-                </p>
-              </div>
-            </div>
-
-            {/* Reconciliation Core Metrics */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-indigo-650 tracking-wider uppercase font-mono block">Audit Exposure</span>
-                <h3 className="text-sm font-bold text-slate-800 mt-1 mb-3">Reconciliation Core Metrics</h3>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3.5">
-                <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl flex flex-col justify-center">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase">Total Invoiced</span>
-                  <span className="text-lg font-extrabold text-slate-900 font-mono mt-0.5">{totalInvoiced} rows</span>
-                </div>
-                <div className="bg-emerald-50/20 border border-emerald-100/50 p-3 rounded-2xl flex flex-col justify-center">
-                  <span className="text-[9px] font-bold text-emerald-600 uppercase">Matched Invoices</span>
-                  <span className="text-lg font-extrabold text-emerald-700 font-mono mt-0.5">{fullyReconciled} rows</span>
-                </div>
-                <div className="bg-rose-50/20 border border-rose-100/50 p-3 rounded-2xl flex flex-col justify-center">
-                  <span className="text-[9px] font-bold text-rose-600 uppercase">ITC At Risk</span>
-                  <span className="text-[15px] font-extrabold text-rose-700 font-mono mt-0.5 truncate">{formatCurrency(itcExposedVal)}</span>
-                </div>
-                <div className="bg-amber-50/20 border border-amber-100/50 p-3 rounded-2xl flex flex-col justify-center">
-                  <span className="text-[9px] font-bold text-amber-600 uppercase">Mismatches</span>
-                  <span className="text-lg font-extrabold text-amber-700 font-mono mt-0.5">{reconRows.length - fullyReconciled} rows</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Top Risk Suppliers Card (Requirement 5) */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-indigo-650 tracking-wider uppercase font-mono block">Vendor Exposure Risk</span>
-                <h3 className="text-sm font-bold text-slate-800 mt-1 mb-2.5">Top Risk Suppliers</h3>
-              </div>
-
-              <div className="space-y-2">
-                {topRiskSuppliers.length > 0 ? (
-                  topRiskSuppliers.map((supplier, idx) => (
-                    <div key={supplier.gstin} className="flex items-center justify-between p-2 bg-slate-50 border border-slate-100 rounded-xl font-mono text-[11px]">
-                      <div className="flex items-center gap-2">
-                        <span className="w-4.5 h-4.5 rounded bg-slate-200 text-slate-600 font-bold flex items-center justify-center text-[9px] font-sans">
-                          {idx + 1}
-                        </span>
-                        <span className="font-bold text-slate-700 truncate max-w-[110px]">{supplier.gstin}</span>
-                      </div>
-                      <div className="text-right flex items-center gap-3">
-                        <span className="text-[10px] text-slate-400 font-bold font-sans">{supplier.mismatches} errors</span>
-                        <span className="font-extrabold text-rose-600">{formatCurrency(supplier.exposure)}</span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-slate-400 font-sans text-xs font-semibold">No high-risk suppliers found</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Row 2: 5 Category Metric Panels (Requirement 2: ITC Exposure -> Count -> Risk Level) */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-indigo-650 tracking-wider uppercase font-mono block">Categorical Segmentation</span>
-                <h3 className="text-sm font-extrabold text-slate-800 mt-0.5">Reconciliation Distribution</h3>
-              </div>
-              {statusTab !== 'all' && (
-                <button
-                  onClick={() => setStatusTab('all')}
-                  className="text-[9px] font-black text-indigo-700 hover:text-indigo-800 uppercase tracking-wider flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100 transition-all cursor-pointer font-mono"
-                >
-                  <span>Show All Filters</span>
-                  <X size={10} strokeWidth={2.5} />
-                </button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              {[
-                { id: 'matched', key: 'matched' },
-                { id: 'missing_in_books', key: 'missing_books' },
-                { id: 'missing_in_2b', key: 'missing_2b' },
-                { id: 'gstin_mismatch', key: 'gstin_mismatch' },
-                { id: 'value_mismatch', key: 'value_mismatch' }
-              ].map(cat => {
-                const metric = categoryMetrics[cat.key as keyof typeof categoryMetrics];
-                const isActive = statusTab === cat.id;
-
-                return (
-                  <div
-                    key={cat.id}
-                    onClick={() => setStatusTab(isActive ? 'all' : cat.id)}
-                    className={`cursor-pointer p-4 rounded-2xl border transition-all relative flex flex-col justify-between min-h-[140px] ${
-                      isActive 
-                        ? 'bg-slate-900 border-slate-900 text-white shadow-md' 
-                        : `bg-white ${metric.color}`
-                    }`}
-                  >
-                    <div>
-                      <h4 className={`text-[10px] font-extrabold tracking-tight uppercase ${isActive ? 'text-slate-300' : 'text-slate-450'}`}>
-                        {metric.name}
-                      </h4>
-                    </div>
-
-                    <div className="mt-4 space-y-1 text-left">
-                      {/* 1. ITC Exposure (First, large font) */}
-                      <div>
-                        <span className={`text-[9px] font-bold block uppercase leading-none font-sans ${isActive ? 'text-slate-400' : 'text-slate-400'}`}>
-                          {cat.id === 'matched' ? 'ITC Involved' : 'ITC Exposure'}
-                        </span>
-                        <div className={`text-lg font-extrabold font-mono mt-0.5 leading-tight ${isActive ? 'text-white' : 'text-slate-900'}`}>
-                          {formatCurrency(metric.exposure)}
-                        </div>
-                      </div>
-
-                      {/* 2. Invoice Count */}
-                      <div className="flex justify-between items-center text-[10.5px] pt-1">
-                        <span className={isActive ? 'text-slate-350' : 'text-slate-500'}>Invoices:</span>
-                        <span className={`font-bold font-mono ${isActive ? 'text-white' : 'text-slate-800'}`}>{metric.count}</span>
-                      </div>
-
-                      {/* 3. Risk Level */}
-                      <div className="pt-2">
-                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${
-                          isActive 
-                            ? 'bg-white/10 border-white/20 text-white' 
-                            : metric.badgeColor
-                        }`}>
-                          {metric.risk}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Row 3: Today's Priorities & Risk Analytics Table */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-            
-            {/* Left 2 Columns - Table & Priority Queue */}
-            <div className="xl:col-span-2 space-y-6">
-
-              {/* TODAY'S PRIORITIES Section (Requirement 3) */}
-              <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-3.5">
-                <div>
-                  <span className="text-[10px] font-bold text-rose-600 tracking-wider uppercase font-mono block">Action Queue</span>
-                  <h3 className="text-sm font-extrabold text-slate-800 mt-0.5">TODAY'S PRIORITIES</h3>
-                </div>
-
-                <div className="space-y-3">
-                  {todaysPriorities.length > 0 ? (
-                    todaysPriorities.map((item) => (
-                      <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-100 rounded-2xl hover:border-slate-200/60 transition-all">
-                        <div className="flex items-start gap-3 max-w-xl">
-                          <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${
-                            item.urgency === 'Immediate' ? 'bg-rose-500 animate-pulse' : item.urgency === 'High' ? 'bg-amber-500' : 'bg-indigo-500'
-                          }`} />
-                          <div>
-                            <p className="text-[11.5px] font-bold text-slate-800 leading-normal">{item.action}</p>
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[8.5px] font-bold font-mono tracking-wider uppercase mt-1 ${
-                              item.urgency === 'Immediate' ? 'bg-rose-50 text-rose-700 border border-rose-100' : item.urgency === 'High' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-100'
-                            }`}>
-                              Urgency: {item.urgency}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <span className="text-[9px] text-slate-400 uppercase font-semibold block">ITC Impact</span>
-                          <span className="text-sm font-extrabold text-rose-600 font-mono block">{formatCurrency(item.impact)}</span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-6 text-slate-400 font-sans text-xs font-semibold">No critical actions required today! All matching is clean.</div>
-                  )}
-                </div>
-              </div>
-
-              {/* main Results Table */}
-              <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-4">
-                
-                {/* Unified Table Controls */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-100">
+              {/* Table controls */}
+              <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4 space-y-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sliders size={13} className="text-slate-400" />
-                    <span className="text-xs font-bold text-slate-800">Ledger Verification Logs</span>
+                    <Sliders size={13} className="text-[#6B7280]" />
+                    <span className="text-[12px] font-bold text-slate-800">Ledger Verification Logs</span>
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    {/* Search Field */}
-                    <div className="relative w-full sm:w-56">
-                      <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Search invoice or GSTIN..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-8.5 pr-4 placeholder:text-slate-400 search-input"
-                      />
-                    </div>
-
-                    {/* Vendor Dropdown */}
-                    <div className="relative w-full sm:w-44">
-                      <select
-                        value={vendorFilter}
-                        onChange={(e) => setVendorFilter(e.target.value)}
-                        className="w-full pl-3 pr-8 cursor-pointer appearance-none form-select filter-select-sm"
-                      >
-                        <option value="all">All Suppliers</option>
-                        {uniqueVendors.map(g => (
-                          <option key={g} value={g}>{g}</option>
-                        ))}
-                      </select>
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[8px] text-slate-400 pointer-events-none">▼</span>
-                    </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleExport('excel')}
+                      className="h-8 px-3 border border-[#E5E7EB] text-[12px] font-semibold text-slate-700 rounded-[4px] hover:bg-slate-50 flex items-center gap-1.5"
+                    >
+                      <Download size={12} className="text-[#15803D]" />
+                      <span>Export Excel</span>
+                    </button>
+                    <button
+                      onClick={() => handleExport('pdf')}
+                      className="h-8 px-3 border border-[#E5E7EB] text-[12px] font-semibold text-slate-700 rounded-[4px] hover:bg-slate-50 flex items-center gap-1.5"
+                    >
+                      <FileSpreadsheet size={12} className="text-indigo-600" />
+                      <span>Export PDF</span>
+                    </button>
+                    <button onClick={handleRerun} className="h-8 px-3 border border-[#E5E7EB] text-[12px] font-semibold text-slate-700 rounded-[4px] hover:bg-slate-50">
+                      Reset
+                    </button>
                   </div>
                 </div>
 
-                {/* Table Component */}
-                <div className="overflow-x-auto border border-slate-100 rounded-2xl">
-                  <table className="data-table">
-                    <thead>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    placeholder="Search invoice or GSTIN..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-8 pl-3 pr-8 border border-[#E5E7EB] rounded-[4px] text-[12px] w-64 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
+                  />
+                  <select
+                    value={vendorFilter}
+                    onChange={(e) => setVendorFilter(e.target.value)}
+                    className="h-8 bg-slate-50 border border-[#E5E7EB] rounded-[4px] px-2 text-[12px] font-medium text-slate-800"
+                  >
+                    <option value="all">All Vendors</option>
+                    {uniqueVendors.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+
+                {/* RECONCILIATION TABLE */}
+                <div className="overflow-x-auto border border-[#E5E7EB] rounded-[4px]">
+                  <table className="min-w-full divide-y divide-[#E5E7EB]">
+                    <thead className="bg-slate-50">
                       <tr>
-                        <th className="pl-4 w-9"><input type="checkbox" className="rounded border-slate-300 text-indigo-700" /></th>
-                        <th>Supplier GSTIN</th>
-                        <th>Invoice No</th>
-                        <th>Date</th>
-                        <th className="num-col">2B Portal</th>
-                        <th className="num-col">PR Books</th>
-                        <th className="num-col">Diff Gap</th>
-                        <th className="pl-6">Status</th>
-                        <th className="text-right">Actions</th>
+                        <th className="pl-4 py-2 w-9"><input type="checkbox" className="rounded border-slate-350 text-indigo-700" /></th>
+                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Supplier GSTIN</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Invoice No</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Date</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Taxable</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">IGST</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">CGST</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">SGST</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Match Status</th>
+                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Actions</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="bg-white divide-y divide-[#E5E7EB]">
                       {filteredRows.length > 0 ? (
                         filteredRows.map((row) => {
-                          const isReviewed = reviewedRows.includes(row.id);
-                          const isFlagged = flaggedRows.includes(row.id);
                           const isSelected = selectedRow?.id === row.id;
-
                           return (
-                            <tr
-                              key={row.id}
-                              className={`${isSelected ? 'selected' : ''} ${isReviewed ? 'opacity-50' : ''}`}
-                              onClick={() => setSelectedRow(row)}
-                            >
-                              <td className="pl-4 relative" onClick={(e) => e.stopPropagation()}>
-                                <div className={`absolute top-0 bottom-0 left-0 w-[3px] ${
-                                  row.status === 'matched' ? 'bg-emerald-500' :
-                                  row.status === 'value_mismatch' ? 'bg-amber-500' :
-                                  row.status === 'missing_in_2b' ? 'bg-rose-500' :
-                                  row.status === 'gstin_mismatch' ? 'bg-amber-500' : 'bg-violet-500'
-                                }`}></div>
-                                <input type="checkbox" className="rounded border-slate-300 text-indigo-700" />
-                              </td>
+                            <React.Fragment key={row.id}>
+                              {/* Row height 36px (h-9) */}
+                              <tr
+                                onClick={() => setSelectedRow(row)}
+                                className={`cursor-pointer hover:bg-slate-50/50 h-9 transition-colors ${
+                                  isSelected ? 'bg-slate-50' : ''
+                                }`}
+                              >
+                                <td className="pl-4 py-1" onClick={(e) => e.stopPropagation()}>
+                                  <input type="checkbox" className="rounded border-slate-350 text-indigo-700" />
+                                </td>
+                                <td className="px-3 py-1 text-[12px] text-slate-800 font-medium">{row.supplier_gstin}</td>
+                                <td className="px-3 py-1 text-[12px] text-slate-900 font-semibold">{row.invoice_number}</td>
+                                <td className="px-3 py-1 text-[12px] text-slate-500">{row.invoice_date}</td>
+                                
+                                {/* Amount columns: right-aligned monospace 12px */}
+                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
+                                  {row.taxable_value_2b > 0 ? formatCurrency(row.taxable_value_2b) : '—'}
+                                </td>
+                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
+                                  {row.igst_2b > 0 ? formatCurrency(row.igst_2b) : '—'}
+                                </td>
+                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
+                                  {row.cgst_2b > 0 ? formatCurrency(row.cgst_2b) : '—'}
+                                </td>
+                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
+                                  {row.sgst_2b > 0 ? formatCurrency(row.sgst_2b) : '—'}
+                                </td>
 
-                              <td className="text-slate-800 font-semibold tracking-tight">{row.supplier_gstin}</td>
-                              <td className="text-slate-900 font-extrabold">{row.invoice_number}</td>
-                              <td className="text-slate-500">{row.invoice_date}</td>
+                                {/* Match Status column: badge per badge rules */}
+                                <td className="px-3 py-1 text-left">
+                                  <span className={`px-2 py-0.5 rounded-[2px] text-[10px] font-semibold tracking-wide border uppercase inline-block ${
+                                    row.status === 'matched'
+                                      ? 'bg-[#DCFCE7] text-[#15803D] border-[#BBF7D0]'
+                                      : row.status === 'value_mismatch'
+                                      ? 'bg-[#FEE2E2] text-[#B91C1C] border-[#FCA5A5]'
+                                      : row.status === 'gstin_mismatch'
+                                      ? 'bg-[#FEF3C7] text-[#D97706] border-[#FDE68A]'
+                                      : 'bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]'
+                                  }`}>
+                                    {row.status === 'matched' && 'Matched'}
+                                    {row.status === 'value_mismatch' && 'Unmatched'}
+                                    {row.status === 'gstin_mismatch' && 'Partial'}
+                                    {row.status === 'missing_in_2b' && 'Missing 2B'}
+                                    {row.status === 'missing_in_books' && 'Missing Books'}
+                                  </span>
+                                </td>
 
-                              <td className="num-col">
-                                {row.taxable_value_2b > 0 ? formatCurrency(row.taxable_value_2b) : '—'}
-                              </td>
-                              <td className="num-col">
-                                {row.taxable_value_pr > 0 ? formatCurrency(row.taxable_value_pr) : '—'}
-                              </td>
-                              <td className="num-col text-rose-600 font-extrabold">
-                                {row.difference > 0 ? formatCurrency(row.difference) : '—'}
-                              </td>
-
-                              <td className="pl-6">
-                                <span className={`status-badge ${getUnifiedBadgeClass(
-                                  row.status === 'matched' ? 'MATCHED' :
-                                  row.status === 'value_mismatch' ? 'VALUE MISMATCH' :
-                                  row.status === 'missing_in_2b' ? 'MISSING IN 2B' :
-                                  row.status === 'missing_in_books' ? 'MISSING BOOKS' :
-                                  'GSTIN ERR'
-                                )}`}>
-                                  {row.status === 'matched' && 'Matched'}
-                                  {row.status === 'value_mismatch' && 'Mismatch'}
-                                  {row.status === 'missing_in_2b' && 'Missing 2B'}
-                                  {row.status === 'missing_in_books' && 'Missing Books'}
-                                  {row.status === 'gstin_mismatch' && 'GSTIN Err'}
-                                </span>
-                              </td>
-
-                              <td className="text-right" onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center justify-end gap-1 font-sans">
-                                  {row.status === 'missing_in_2b' && (
+                                <td className="px-3 py-1 text-right" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {row.status === 'missing_in_2b' && (
+                                      <button
+                                        onClick={() => handleCopyEmail(row)}
+                                        className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-[#6B7280] hover:text-[#111827]"
+                                        title="Outreach Email"
+                                      >
+                                        <Mail size={12} />
+                                      </button>
+                                    )}
                                     <button
-                                      onClick={() => handleCopyEmail(row)}
-                                      className="action-btn"
-                                      title="Copy Supplier Outreach Email"
+                                      onClick={() => setSelectedRow(row)}
+                                      className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-[#6B7280] hover:text-[#111827]"
                                     >
-                                      <Mail />
+                                      <ChevronRight size={12} />
                                     </button>
-                                  )}
-                                  <button
-                                    onClick={() => setSelectedRow(row)}
-                                    className="action-btn"
-                                    title="Open AI Explainer & Details"
-                                  >
-                                    <ChevronRight />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                                  </div>
+                                </td>
+                              </tr>
+
+                              {/* Expandable row: sub-row background #F7F8FA, indent 24px, font 12px */}
+                              {isSelected && (
+                                <tr className="bg-[#F7F8FA]" onClick={(e) => e.stopPropagation()}>
+                                  <td colSpan={10} className="pl-6 py-2">
+                                    <div className="pl-6 border-l-2 border-indigo-500 text-[12px] text-slate-650 space-y-1">
+                                      <p><strong className="text-slate-800">AI Explainer:</strong> {row.ai_insight}</p>
+                                      <p><strong className="text-slate-800">Recommended Action:</strong> {row.suggested_action}</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })
                       ) : (
                         <tr>
-                          <td colSpan={9}>
-                            <div className="flex flex-col items-center justify-center py-8 gap-2">
-                              <FileSpreadsheet size={20} className="text-[#D1D5DB]" />
-                              <span className="text-[13px] text-[#6B7280]">No records found</span>
-                            </div>
-                          </td>
+                          <td colSpan={10} className="text-center py-8 text-slate-400 text-[12px]">No records found</td>
                         </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
+
               </div>
+
+            </div>
+          )}
+
+        </div>
+
+        {/* MISMATCH DETAIL PANEL (Side panel): width: 360px, border-left: 1px solid #E5E7EB, background: #FFFFFF */}
+        {selectedRow && step === 5 && (
+          <div className="w-[360px] border-l border-[#E5E7EB] bg-white flex flex-col shrink-0 h-full overflow-y-auto">
+            {/* Header: 14px weight 600, 40px height, border-bottom 1px solid #E5E7EB */}
+            <div className="h-10 border-b border-[#E5E7EB] px-4 flex items-center justify-between shrink-0">
+              <span className="text-[14px] font-semibold text-slate-900">Mismatch Details</span>
+              <button onClick={() => setSelectedRow(null)} className="text-[11px] text-[#6B7280] hover:text-slate-900">
+                Clear
+              </button>
             </div>
 
-            {/* Right Column - AI Findings Panel (Requirement 3, AI panel) */}
-            <div className="space-y-6 lg:sticky lg:top-6">
-              
-              {/* Sticky AI Findings Panel */}
-              <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-4">
-                <div className="flex justify-between items-center pb-3.5 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
-                      <Zap size={12} fill="currentColor" />
-                    </div>
-                    <span className="text-xs font-extrabold text-slate-900 tracking-tight">AI Findings Panel</span>
-                  </div>
-
-                  {selectedRow && (
-                    <button
-                      onClick={() => setSelectedRow(null)}
-                      className="text-[9px] font-bold text-slate-400 hover:text-slate-750 uppercase tracking-widest"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-
-                {isAiLoading ? (
-                  <div className="py-12 flex flex-col items-center justify-center text-center gap-2.5">
-                    <Loader2 size={20} className="animate-spin text-indigo-650" />
-                    <span className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">Consulting AI Match Engine...</span>
-                  </div>
-                ) : selectedRow ? (
-                  // Invoice specific AI Findings Panel
-                  <div className="space-y-4 text-xs">
-                    <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col gap-1">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">Selected Invoice</span>
-                      <h4 className="font-bold text-slate-800 font-mono">{selectedRow.invoice_number}</h4>
-                      <p className="text-[10px] text-slate-500 font-mono">Supplier: {selectedRow.supplier_gstin}</p>
-                    </div>
-
-                    <div className="space-y-3 font-sans">
-                      {/* Root Cause */}
-                      <div>
-                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-450 block">Root Cause</span>
-                        <p className="text-[11.5px] text-slate-750 mt-1 leading-normal font-medium">
-                          {aiExplanation?.likely_cause || selectedRow.ai_insight}
-                        </p>
-                      </div>
-
-                      {/* Recommended Action */}
-                      <div>
-                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 block">Recommended Action</span>
-                        <p className="text-[11.5px] text-slate-750 mt-1 leading-normal font-semibold">
-                          {aiExplanation?.recommended_action || selectedRow.suggested_action}
-                        </p>
-                      </div>
-
-                      {/* Expected ITC Impact */}
-                      <div>
-                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-rose-600 block">Expected ITC Impact</span>
-                        <p className="text-[12px] text-rose-700 font-extrabold font-mono mt-1">
-                          {selectedRow.status === 'value_mismatch'
-                            ? `Claim variance credit of ${formatCurrency(getITC(selectedRow.difference))}`
-                            : selectedRow.status === 'matched'
-                            ? `Fully protected ITC: ${formatCurrency(getITC(selectedRow.taxable_value_pr))}`
-                            : `Secure input credit: ${formatCurrency(getITC(Math.max(selectedRow.taxable_value_pr, selectedRow.taxable_value_2b)))}`}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 flex gap-2">
-                      <button
-                        onClick={() => {
-                          const isReviewed = reviewedRows.includes(selectedRow.id);
-                          if (isReviewed) {
-                            setReviewedRows(reviewedRows.filter(id => id !== selectedRow.id));
-                            showToast("Reverted review status.");
-                          } else {
-                            setReviewedRows([...reviewedRows, selectedRow.id]);
-                            showToast("✓ Marked as manually reviewed.");
-                          }
-                        }}
-                        className={`flex-1 h-9 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          reviewedRows.includes(selectedRow.id) 
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
-                            : 'bg-slate-900 border-slate-900 text-white hover:bg-slate-800 shadow-sm'
-                        }`}
-                      >
-                        <ShieldCheck size={12} />
-                        <span>{reviewedRows.includes(selectedRow.id) ? 'Reviewed ✓' : 'Mark Reviewed'}</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          const isFlagged = flaggedRows.includes(selectedRow.id);
-                          if (isFlagged) {
-                            setFlaggedRows(flaggedRows.filter(id => id !== selectedRow.id));
-                            showToast("Unflagged invoice.");
-                          } else {
-                            setFlaggedRows([...flaggedRows, selectedRow.id]);
-                            showToast("Flagged invoice for partner review.");
-                          }
-                        }}
-                        className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
-                          flaggedRows.includes(selectedRow.id) 
-                            ? 'bg-rose-50 border-rose-200 text-rose-600' 
-                            : 'bg-slate-50 border-slate-200 text-slate-650 hover:text-slate-850 hover:bg-slate-100'
-                        }`}
-                      >
-                        <AlertTriangle size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  // Global AI Findings Panel (displays when no row is selected)
-                  <div className="space-y-4 text-xs font-sans">
-                    <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col gap-1">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase">Audit Target Summary</span>
-                      <h4 className="font-bold text-slate-800">{clientInfo?.business_name}</h4>
-                      <p className="text-[10px] text-slate-500">March 2024 Reconciliation Run</p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-slate-450 block">Aggregate Cause</span>
-                        <p className="text-[11.5px] text-slate-750 mt-1 leading-normal font-medium">
-                          Supplier GSTR-1 delays represent 68% of outstanding match errors. Typos in ERP manual entries account for the remaining 32% of risk.
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-700 block">Recommended Strategy</span>
-                        <p className="text-[11.5px] text-slate-750 mt-1 leading-normal font-semibold">
-                          Run automated outreach for missing GSTR-2B invoices. Correct identified GSTIN typos inside ERP master registry.
-                        </p>
-                      </div>
-
-                      <div>
-                        <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-rose-600 block">Estimated ITC Claim Impact</span>
-                        <p className="text-[12px] text-rose-700 font-extrabold font-mono mt-1">
-                          Recoverable ITC: {formatCurrency(itcExposedVal)} in next GST filing cadence.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {/* Content area with info-rows */}
+            <div className="p-4 space-y-4">
+              <div className="bg-slate-50 rounded p-3 border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Active Selection</span>
+                <span className="text-[13px] font-extrabold text-slate-900 block font-mono mt-0.5">{selectedRow.invoice_number}</span>
+                <span className="text-[11px] text-[#6B7280] block mt-0.5 font-mono">{selectedRow.supplier_gstin}</span>
               </div>
 
-              {/* Quick Actions Panel */}
-              <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-3.5">
-                <span className="text-[10px] font-bold text-indigo-650 tracking-wider uppercase font-mono block">Resolution Center</span>
-                <h3 className="text-sm font-extrabold text-slate-800 mt-0.5">Quick Actions</h3>
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Invoice Audits</span>
+                
+                {/* Info-rows (same style as client detail: flex justify-between, label 11px, value 13px) */}
+                {[
+                  { label: "Invoice Date", value: selectedRow.invoice_date },
+                  { label: "Taxable Value (Books)", value: selectedRow.taxable_value_pr > 0 ? formatCurrency(selectedRow.taxable_value_pr) : '—', mono: true },
+                  { label: "Taxable Value (Portal)", value: selectedRow.taxable_value_2b > 0 ? formatCurrency(selectedRow.taxable_value_2b) : '—', mono: true },
+                  { label: "Variance Gap", value: selectedRow.difference > 0 ? formatCurrency(selectedRow.difference) : '—', mono: true, highlight: selectedRow.difference > 0 },
+                  { label: "CGST (Books)", value: selectedRow.cgst_pr > 0 ? formatCurrency(selectedRow.cgst_pr) : '—', mono: true },
+                  { label: "CGST (Portal)", value: selectedRow.cgst_2b > 0 ? formatCurrency(selectedRow.cgst_2b) : '—', mono: true },
+                  { label: "SGST (Books)", value: selectedRow.sgst_pr > 0 ? formatCurrency(selectedRow.sgst_pr) : '—', mono: true },
+                  { label: "SGST (Portal)", value: selectedRow.sgst_2b > 0 ? formatCurrency(selectedRow.sgst_2b) : '—', mono: true },
+                  { label: "IGST (Books)", value: selectedRow.igst_pr > 0 ? formatCurrency(selectedRow.igst_pr) : '—', mono: true },
+                  { label: "IGST (Portal)", value: selectedRow.igst_2b > 0 ? formatCurrency(selectedRow.igst_2b) : '—', mono: true },
+                  { label: "Audit Action", value: selectedRow.suggested_action }
+                ].map((row, idx) => (
+                  <div key={idx} className="flex justify-between py-1.5 border-b border-slate-100 text-[12px] last:border-b-0">
+                    <span className="text-[#6B7280] font-medium text-[11px]">{row.label}</span>
+                    <span className={`text-[13px] text-[#111827] text-right truncate max-w-[200px] ${
+                      row.mono ? 'font-mono' : 'font-semibold'
+                    } ${row.highlight ? 'text-red-650' : ''}`}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
 
-                <div className="grid grid-cols-2 gap-3 text-[10.5px]">
-                  <button
-                    onClick={() => {
-                      showToast("✓ Executive Client Summary generated!");
-                      setClientSummaryModalOpen(true);
-                    }}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <FileSpreadsheet size={12} className="text-indigo-600" />
-                    <span>Client Summary</span>
-                  </button>
+              {/* AI Diagnostic Explanation */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">AI Explanation</span>
+                <p className="text-[12px] text-slate-650 leading-relaxed font-medium">
+                  {aiExplanation?.likely_cause || selectedRow.ai_insight}
+                </p>
+              </div>
 
-                  <button
-                    onClick={() => {
-                      setScheduleFollowupModalOpen(true);
-                    }}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <CalendarIcon size={12} className="text-[#10B981]" />
-                    <span>Schedule Followup</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      showToast("✓ Working papers excel book compiled & added to draft folders.");
-                    }}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <Sliders size={12} className="text-violet-650" />
-                    <span>Create Papers</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleExport('pdf')}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    <Download size={12} className="text-rose-600" />
-                    <span>Export Brief</span>
-                  </button>
-                </div>
+              {/* Action Toolbar */}
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={() => {
+                    const isReviewed = reviewedRows.includes(selectedRow.id);
+                    if (isReviewed) {
+                      setReviewedRows(reviewedRows.filter(id => id !== selectedRow.id));
+                      showToast("Reverted review status.");
+                    } else {
+                      setReviewedRows([...reviewedRows, selectedRow.id]);
+                      showToast("✓ Marked reviewed.");
+                    }
+                  }}
+                  className={`flex-1 h-9 rounded text-[11px] font-bold uppercase tracking-wider border flex items-center justify-center gap-1 transition-colors ${
+                    reviewedRows.includes(selectedRow.id)
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100/50'
+                      : 'bg-slate-900 border-slate-900 text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <ShieldCheck size={12} />
+                  <span>{reviewedRows.includes(selectedRow.id) ? 'Reviewed' : 'Review'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const isFlagged = flaggedRows.includes(selectedRow.id);
+                    if (isFlagged) {
+                      setFlaggedRows(flaggedRows.filter(id => id !== selectedRow.id));
+                      showToast("Unflagged invoice.");
+                    } else {
+                      setFlaggedRows([...flaggedRows, selectedRow.id]);
+                      showToast("Flagged invoice for partner review.");
+                    }
+                  }}
+                  className={`w-9 h-9 rounded border flex items-center justify-center transition-colors ${
+                    flaggedRows.includes(selectedRow.id)
+                      ? 'bg-rose-50 border-rose-200 text-rose-600'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <AlertTriangle size={12} />
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
 
       {/* ======================================================
-          MODAL: GENERATE CLIENT SUMMARY
+          MODALS
           ====================================================== */}
       {clientSummaryModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 w-full max-w-lg rounded-3xl p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setClientSummaryModalOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 w-7 h-7 rounded-full hover:bg-slate-50 flex items-center justify-center cursor-pointer"
-            >
-              <X size={15} />
+          <div className="bg-white border border-[#E5E7EB] w-full max-w-lg rounded p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
+            <button onClick={() => setClientSummaryModalOpen(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-900">
+              <X size={16} />
             </button>
-            <span className="text-[9px] font-black tracking-widest uppercase font-mono text-indigo-650">Intelligence Generation</span>
-            <h3 className="text-base font-bold text-slate-900 mt-0.5">Executive Client Summary</h3>
-            <p className="text-[11.5px] text-slate-500">Drafted summary ready to copy or email to your client.</p>
-
-            <div className="mt-4 p-4 bg-slate-50 border border-slate-150 rounded-2xl font-mono text-[11px] text-slate-750 select-all whitespace-pre-line leading-relaxed shadow-inner h-64 overflow-y-auto hidden-scrollbar">
-              {`Dear ${clientInfo?.business_name || 'Team'},
-
-Subject: GST Reconciliation Audit Summary - March 2024
-
-We have completed the AI reconciliation matching for your books against GSTR-2B filings:
-
-1. Reconciliation Health Score: ${healthScore.toFixed(1)}% (matched credit value).
-2. Fully Reconciled: ${fullyReconciled} invoices representing ${formatCurrency(matchedITCValue)} in protected input tax credits.
-3. Discrepancies Found: ${reconRows.length - fullyReconciled} entries placing ${formatCurrency(itcExposedVal)} in Input Tax Credit (ITC) at risk:
-   - Missing in GSTR-2B: ${categoryMetrics.missing_2b.count} invoices (${formatCurrency(categoryMetrics.missing_2b.exposure)} ITC at risk)
-   - Missing in Books: ${categoryMetrics.missing_books.count} invoices (${formatCurrency(categoryMetrics.missing_books.exposure)} ITC)
-   - GSTIN Mismatch: ${categoryMetrics.gstin_mismatch.count} invoices (${formatCurrency(categoryMetrics.gstin_mismatch.exposure)} ITC)
-   - Invoice Value Mismatch: ${categoryMetrics.value_mismatch.count} invoices (${formatCurrency(categoryMetrics.value_mismatch.exposure)} ITC)
-
-Prioritized Action Items:
-- Follow up with high-exposure suppliers (including Wayne Enterprises) to upload outstanding invoices in GSTR-1.
-- Correct supplier GSTIN entries inside your ERP database to resolve transcription mismatches.
-
-Our team has prepared the formal working papers and will schedule automatic email outreach to vendors. Let us know if you have any questions.
-
-Regards,
-Partner CA,
-Reckon AI Operations Team`}
+            <h3 className="text-sm font-bold text-slate-900">Executive Client Summary</h3>
+            <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded font-mono text-[11px] whitespace-pre-wrap h-64 overflow-y-auto">
+              {/* Summary template body */}
+              {`Dear client, completed matching. Health Score: ${healthScore.toFixed(1)}%`}
             </div>
-
-            <div className="mt-5 flex gap-2.5 justify-end">
-              <button
-                onClick={() => setClientSummaryModalOpen(false)}
-                className="btn btn-secondary btn-sm"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  const summaryText = `GST Reconciliation Audit Summary - March 2024 for ${clientInfo?.business_name || 'Client'}\n\nHealth Score: ${healthScore.toFixed(1)}%\nITC At Risk: ${formatCurrency(itcExposedVal)}\nMismatches: ${reconRows.length - fullyReconciled} rows`;
-                  navigator.clipboard.writeText(summaryText);
-                  showToast("✓ Copied executive summary brief!");
-                  setClientSummaryModalOpen(false);
-                }}
-                className="btn btn-primary btn-sm"
-              >
-                <span>Copy Summary Text</span>
-              </button>
+            <div className="mt-4 flex gap-2 justify-end">
+              <button onClick={() => setClientSummaryModalOpen(false)} className="h-8 px-4 border border-[#E5E7EB] text-[12px] font-medium rounded hover:bg-slate-50">Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ======================================================
-          MODAL: SCHEDULE FOLLOWUP
-          ====================================================== */}
       {scheduleFollowupModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 w-full max-w-md rounded-3xl p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setScheduleFollowupModalOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-900 w-7 h-7 rounded-full hover:bg-slate-50 flex items-center justify-center cursor-pointer"
-            >
-              <X size={15} />
+          <div className="bg-white border border-[#E5E7EB] w-full max-w-md rounded p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
+            <button onClick={() => setScheduleFollowupModalOpen(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-900">
+              <X size={16} />
             </button>
-            <span className="text-[9px] font-black tracking-widest uppercase font-mono text-indigo-650">Outreach Manager</span>
-            <h3 className="text-base font-bold text-slate-900 mt-0.5">Schedule Vendor Follow-ups</h3>
-            <p className="text-[11.5px] text-slate-500">Configure email outreach for discrepancy resolution.</p>
-
-            <div className="mt-4 space-y-4 text-xs text-left">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase text-slate-450 tracking-wider">Follow-up Cadence</label>
-                <select className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-3 font-semibold text-slate-800 cursor-pointer focus:outline-none">
-                  <option>Send immediately and repeat weekly</option>
-                  <option>Send once immediately</option>
-                  <option>Weekly reminders every Monday</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase text-slate-450 tracking-wider">Outreach Target Suppliers</label>
-                <select className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-3 font-semibold text-slate-800 cursor-pointer focus:outline-none">
-                  <option>All suppliers with outstanding mismatches ({topRiskSuppliers.length})</option>
-                  <option>High risk suppliers only</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase text-slate-450 tracking-wider">Email Template Style</label>
-                <select className="w-full h-10 bg-slate-50 border border-slate-200 rounded-xl px-3 font-semibold text-slate-800 cursor-pointer focus:outline-none">
-                  <option>Standard Professional (Strict Compliance Alert)</option>
-                  <option>Casual Partner (Friendly reminder)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-6 flex gap-2.5 justify-end">
-              <button
-                onClick={() => setScheduleFollowupModalOpen(false)}
-                className="btn btn-secondary btn-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  showToast("✓ Scheduled automatic vendor outreach emails!");
-                  setScheduleFollowupModalOpen(false);
-                }}
-                className="btn btn-primary btn-sm"
-              >
-                <span>Activate Follow-ups</span>
-              </button>
+            <h3 className="text-sm font-bold text-slate-900">Schedule Vendor Follow-ups</h3>
+            <div className="mt-4 flex gap-2 justify-end">
+              <button onClick={() => setScheduleFollowupModalOpen(false)} className="h-8 px-4 border border-[#E5E7EB] text-[12px] font-medium rounded hover:bg-slate-50">Cancel</button>
+              <button onClick={() => { showToast("✓ Scheduled automatic vendor outreach!"); setScheduleFollowupModalOpen(false); }} className="h-8 px-4 bg-[#1B4F8A] text-white text-[12px] font-semibold rounded hover:bg-[#163F6E]">Activate</button>
             </div>
           </div>
         </div>
