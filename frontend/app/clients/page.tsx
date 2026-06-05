@@ -414,9 +414,9 @@ export default function ClientPortfolioPage() {
             const isCopied = copiedId === client.id;
             
             let fillStyleColor = 'var(--color-success)';
-            if (healthScore > 70) {
+            if (healthScore < 60) {
               fillStyleColor = 'var(--color-error)';
-            } else if (healthScore >= 40) {
+            } else if (healthScore < 80) {
               fillStyleColor = 'var(--color-warning)';
             }
 
@@ -431,7 +431,10 @@ export default function ClientPortfolioPage() {
                 {/* Top Row: [avatar circle] [name + email + state badge] [right: "CRITICAL ALERT" badge] */}
                 <div className="flex items-start justify-between gap-3 w-full">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-sm shadow-inner avatar-circle shrink-0">
+                    <div 
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-sm shadow-inner avatar-circle shrink-0"
+                      style={{ backgroundColor: client.avatar_color + '20', color: client.avatar_color }}
+                    >
                       {client.initials}
                     </div>
                     <div className="min-w-0">
@@ -730,21 +733,6 @@ export default function ClientPortfolioPage() {
 
   return (
     <div className="space-y-8 pb-16 animate-in fade-in duration-500 relative font-sans text-slate-800">
-      <style dangerouslySetInnerHTML={{ __html: `
-        .avatar-circle {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 800;
-          font-size: 14px;
-        }
-        .std-card:nth-child(5n+1) .avatar-circle { background-color: #EDE9FE !important; color: #6D28D9 !important; }
-        .std-card:nth-child(5n+2) .avatar-circle { background-color: #DBEAFE !important; color: #1E40AF !important; }
-        .std-card:nth-child(5n+3) .avatar-circle { background-color: #FEF3C7 !important; color: #B45309 !important; }
-        .std-card:nth-child(5n+4) .avatar-circle { background-color: #D1FAE5 !important; color: #065F46 !important; }
-        .std-card:nth-child(5n+5) .avatar-circle { background-color: #F1F5F9 !important; color: #475569 !important; }
-      `}} />
-
       <PageHeader
         sectionLabel="Enterprise Portfolio"
         title="Client Directory"
@@ -1111,7 +1099,7 @@ export default function ClientPortfolioPage() {
           
           {/* 1. Critical Clients Section */}
           {sortedCriticalClients.length > 0 && (
-            <div className="space-y-4 bg-[#FFF5F5]/35 p-6 rounded-[28px] border border-red-100/50">
+            <div className="space-y-4 bg-red-50/30 p-6 rounded-[28px] border border-red-100/50">
               <div className="flex items-center justify-between border-b border-red-100/60 pb-3">
                 <div className="flex items-center">
                   <span 
