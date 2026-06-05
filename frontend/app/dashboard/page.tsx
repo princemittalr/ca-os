@@ -5,6 +5,8 @@ import axios from "axios";
 import { useDropzone } from 'react-dropzone';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   FileText,
   CheckCircle,
@@ -94,6 +96,17 @@ function iconBox(hex: string, rgb: string): React.CSSProperties {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
+
+  const formatCurrency = (val: number) => {
+    if (val === 0) return '₹0';
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(val);
+  };
+
   // Tab control
   const [activeTab, setActiveTab] = React.useState<'parser' | 'reconciler'>('parser');
   const [expandedRow, setExpandedRow] = React.useState<number | null>(null);
@@ -103,7 +116,8 @@ export default function DashboardPage() {
     blocked_itc: 0,
     high_risk_clients: 0,
     pending_reconciliations: 0,
-    active_jobs_run: 0
+    active_jobs_run: 0,
+    clients: []
   });
 
   const [barData, setBarData] = React.useState<any[]>([]);
@@ -558,15 +572,16 @@ export default function DashboardPage() {
                       Protected ITC (Mo)
                     </span>
                     <span className="text-2xl font-black text-emerald-400 mt-1 block leading-none">
-                      ₹4.2 Cr
+                      {formatCurrency(dashStats.blocked_itc || 0)}
                     </span>
                   </div>
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
                     <CheckCircle size={15} />
                   </div>
                 </div>
               </div>
             </div>
+
           </div>
 
           {/* Bottom Quick Actions Bar */}
@@ -579,10 +594,7 @@ export default function DashboardPage() {
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => {
-                  setActiveTab('reconciler');
-                  setToast({ message: "GST Reconciliation panel opened.", type: "success" });
-                }}
+                onClick={() => router.push("/gst-recon")}
                 className="btn btn-secondary btn-sm"
                 style={{ height: '36px', color: '#FFFFFF', borderColor: 'rgba(255, 255, 255, 0.2)' }}
               >
@@ -590,7 +602,7 @@ export default function DashboardPage() {
                 <span>Run GST Recon</span>
               </button>
               <button
-                onClick={() => setToast({ message: "Directing to Litigaton Desk / Notices...", type: "success" })}
+                onClick={() => router.push("/notices")}
                 className="btn btn-secondary btn-sm"
                 style={{ height: '36px', color: '#FFFFFF', borderColor: 'rgba(255, 255, 255, 0.2)' }}
               >
@@ -598,7 +610,7 @@ export default function DashboardPage() {
                 <span>Review Notices</span>
               </button>
               <button
-                onClick={() => setToast({ message: "Opening Compliance Calendar...", type: "success" })}
+                onClick={() => router.push("/compliance")}
                 className="btn btn-secondary btn-sm"
                 style={{ height: '36px', color: '#FFFFFF', borderColor: 'rgba(255, 255, 255, 0.2)' }}
               >
@@ -625,18 +637,28 @@ export default function DashboardPage() {
                 Top Priorities
               </span>
               <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2 font-medium">
-                  <span className="text-slate-700">ABC Manufacturing</span>
-                  <span className="font-bold text-red-500">₹4.2L unmatched</span>
-                </div>
-                <div className="flex items-center justify-between text-xs border-b border-slate-100 pb-2 font-medium">
-                  <span className="text-slate-700">XYZ Imports</span>
-                  <span className="font-bold text-amber-600">BOE mismatch</span>
-                </div>
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-slate-700">Delta Industries</span>
-                  <span className="font-bold text-indigo-600">GSTR-3B due in 2d</span>
-                </div>
+                {dashStats.total_mismatches === 0 ? (
+                  <div className="text-xs text-slate-500 font-medium py-4 text-center">
+                    No critical priorities today.
+                  </div>
+                ) : (
+                  (dashStats.clients || [])
+                    .filter((c: any) => c.mismatch_count > 0)
+                    .slice(0, 3)
+                    .map((client: any, idx: number, arr: any[]) => (
+                      <div
+                        key={client.id}
+                        className={`flex items-center justify-between text-xs pb-2 font-medium ${
+                          idx < arr.length - 1 ? 'border-b border-slate-100' : ''
+                        }`}
+                      >
+                        <span className="text-slate-700">{client.business_name}</span>
+                        <span className={`font-bold ${client.risk_score === 'HIGH' ? 'text-red-500' : 'text-amber-600'}`}>
+                          {client.mismatch_count} mismatch{client.mismatch_count > 1 ? 'es' : ''}
+                        </span>
+                      </div>
+                    ))
+                )}
               </div>
             </div>
             <div className="mt-3 text-[10px] text-slate-400 italic">
@@ -1556,11 +1578,19 @@ export default function DashboardPage() {
             <div aria-hidden className="pointer-events-none absolute -top-10 -right-10 w-44 h-44 rounded-full"
               style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.03) 0%, transparent 70%)', filter: 'blur(20px)' }} />
 
-            <div className="relative z-10 space-y-1">
-              {dashStats.total_mismatches > 0 ? (
-                <div className="text-xs text-slate-500 font-medium py-4 text-center">
-                  {dashStats.total_mismatches} active mismatches — view Clients tab for details.
-                </div>
+            <div className="relative z-10 space-y-3">
+              {dashStats.total_mismatches > 0 && (dashStats.clients || []).filter((c: any) => c.mismatch_count > 0).length > 0 ? (
+                (dashStats.clients || [])
+                  .filter((c: any) => c.mismatch_count > 0)
+                  .slice(0, 3)
+                  .map((client: any) => (
+                    <div key={client.id} className="flex items-center justify-between text-xs border-b border-slate-100 pb-2 last:border-0 last:pb-0 font-medium">
+                      <span className="text-slate-700">{client.business_name}</span>
+                      <span className="font-bold text-red-500">
+                        {client.mismatch_count} mismatch{client.mismatch_count > 1 ? 'es' : ''}
+                      </span>
+                    </div>
+                  ))
               ) : (
                 <div className="text-xs text-slate-500 font-medium py-4 text-center">
                   No active outreach items.
@@ -1697,7 +1727,11 @@ export default function DashboardPage() {
                 <span className="text-[9px] font-black text-secondary uppercase tracking-[0.22em]">Financial Security</span>
                 <h2 className="text-card-title text-slate-800 mt-0.5">Total ITC Protected</h2>
                 <div className="flex items-baseline gap-2 mt-1.5">
-                  <span className="text-2xl font-black text-slate-800 tracking-tight">₹4.2 Cr</span>
+                  <span className="text-2xl font-black text-slate-800 tracking-tight">
+                    {dashStats.blocked_itc > 0
+                      ? `₹${(dashStats.blocked_itc / 10000000).toFixed(2)} Cr`
+                      : "₹0"}
+                  </span>
                   <span
                     className="flex items-center gap-0.5 px-1.5 py-0.2 rounded-full text-[8.5px] font-bold"
                     style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981', border: '1px solid rgba(16,185,129,0.15)' }}
@@ -1868,97 +1902,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Bottom Bar: Status Row */}
-      <div 
-        className="mt-6 pt-4 border-t border-slate-200 w-full"
-        style={{
-          display: 'flex',
-          gap: '12px',
-          justifyContent: 'flex-end',
-          alignItems: 'center'
-        }}
-      >
-        {/* AI Toggle Pill */}
-        <button
-          onClick={() => handleToggleFlag('AI_ENABLED')}
-          style={{
-            background: featureFlags.AI_ENABLED ? 'var(--color-accent-soft)' : 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-full)',
-            padding: '4px 12px',
-            fontSize: '12px',
-            color: featureFlags.AI_ENABLED ? 'var(--color-primary-light)' : 'var(--color-text-secondary)',
-            fontWeight: 600,
-            height: 'auto'
-          }}
-          className="hover:opacity-90 transition-all cursor-pointer"
-        >
-          AI: {featureFlags.AI_ENABLED ? 'ON' : 'OFF'}
-        </button>
 
-        {/* Notices Toggle Pill */}
-        <button
-          onClick={() => handleToggleFlag('NOTICES_ENABLED')}
-          style={{
-            background: featureFlags.NOTICES_ENABLED ? 'var(--color-accent-soft)' : 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-full)',
-            padding: '4px 12px',
-            fontSize: '12px',
-            color: featureFlags.NOTICES_ENABLED ? 'var(--color-primary-light)' : 'var(--color-text-secondary)',
-            fontWeight: 600,
-            height: 'auto'
-          }}
-          className="hover:opacity-90 transition-all cursor-pointer"
-        >
-          NOTICES: {featureFlags.NOTICES_ENABLED ? 'ON' : 'OFF'}
-        </button>
-
-        {/* Reset DB Pill */}
-        <button
-          onClick={handleResetSandbox}
-          disabled={isResetting}
-          style={{
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-full)',
-            padding: '4px 12px',
-            fontSize: '12px',
-            color: 'var(--color-text-secondary)',
-            fontWeight: 600,
-            height: 'auto',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-          className="hover:bg-slate-100 transition-all cursor-pointer disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={isResetting ? "animate-spin" : ""} />
-          <span>Reset DB</span>
-        </button>
-
-        {/* Tour Pill */}
-        <button
-          onClick={handleStartOnboardingTour}
-          style={{
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-full)',
-            padding: '4px 12px',
-            fontSize: '12px',
-            color: 'var(--color-text-secondary)',
-            fontWeight: 600,
-            height: 'auto',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
-          className="hover:bg-slate-100 transition-all cursor-pointer"
-        >
-          <Play size={10} fill="currentColor" className="text-[#4F46E5]" />
-          <span>Tour</span>
-        </button>
-      </div>
 
       {/* ── Toast Notifications ───────────────────────────────── */}
       {toast && (

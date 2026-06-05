@@ -79,11 +79,30 @@ def get_dashboard_aggregations() -> Dict[str, Any]:
         elif latest_runs[cid][0]["mismatch_count"] > 0:
             pending_reconciliations += 1
             
+    clients_summary = []
+    for c in clients_list:
+        cid = c["id"]
+        mismatch_count = 0
+        itc_at_risk = 0.0
+        risk_score = "LOW"
+        if cid in latest_runs:
+            mismatch_count = latest_runs[cid][0]["mismatch_count"]
+            itc_at_risk = latest_runs[cid][0]["itc_at_risk"]
+            risk_score = latest_runs[cid][0]["risk_score"]
+        clients_summary.append({
+            "id": cid,
+            "business_name": c["business_name"],
+            "mismatch_count": mismatch_count,
+            "itc_at_risk": itc_at_risk,
+            "risk_score": risk_score
+        })
+
     return {
         "total_clients": total_clients,
         "total_mismatches": total_mismatches,
         "blocked_itc": blocked_itc,
         "high_risk_clients": high_risk_clients,
         "pending_reconciliations": pending_reconciliations,
-        "active_jobs_run": len(all_runs)
+        "active_jobs_run": len(all_runs),
+        "clients": clients_summary
     }
