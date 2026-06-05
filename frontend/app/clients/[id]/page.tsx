@@ -433,7 +433,7 @@ export default function ClientWorkspacePortal() {
         <button 
           onClick={() => setActiveTab('reconcile')}
           className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'reconcile' ? 'border-b-[#4F46E5] text-white' : 'border-b-transparent text-slate-500 hover:text-slate-900'
+            activeTab === 'reconcile' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
           Reconciliations ({history.length})
@@ -442,7 +442,7 @@ export default function ClientWorkspacePortal() {
         <button 
           onClick={() => setActiveTab('compliance')}
           className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'compliance' ? 'border-b-[#4F46E5] text-white' : 'border-b-transparent text-slate-500 hover:text-slate-900'
+            activeTab === 'compliance' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
           Compliance Calendar
@@ -451,7 +451,7 @@ export default function ClientWorkspacePortal() {
         <button 
           onClick={() => setActiveTab('notices')}
           className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'notices' ? 'border-b-[#4F46E5] text-white' : 'border-b-transparent text-slate-500 hover:text-slate-900'
+            activeTab === 'notices' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
           Notices & Outreach
@@ -460,7 +460,7 @@ export default function ClientWorkspacePortal() {
         <button 
           onClick={() => setActiveTab('vault')}
           className={`pb-4 px-6 text-xs font-black uppercase tracking-wider whitespace-nowrap transition-all border-b-2 ${
-            activeTab === 'vault' ? 'border-b-[#4F46E5] text-white' : 'border-b-transparent text-slate-500 hover:text-slate-900'
+            activeTab === 'vault' ? 'border-b-[#4F46E5] text-[var(--color-primary-light)]' : 'border-b-transparent text-slate-500 hover:text-slate-900'
           }`}
         >
           Document Vault
@@ -491,7 +491,7 @@ export default function ClientWorkspacePortal() {
                   history.map((run) => (
                     <tr key={run.reconciliation_id} className="hover:bg-white/[0.01] transition-all duration-200 h-16 relative">
                       {/* Filing Period */}
-                      <td className="pl-6 py-4 font-sans text-sm font-black text-white">
+                      <td className="pl-6 py-4 font-sans text-sm font-black text-slate-800">
                         {run.filing_period === '2024-03' ? 'March 2024' : run.filing_period === '2024-02' ? 'February 2024' : run.filing_period}
                       </td>
 
@@ -533,7 +533,7 @@ export default function ClientWorkspacePortal() {
                       <td className="pr-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 font-sans">
                           <Link href={`/gst-recon?client=${client.id}`}>
-                            <button className="h-8.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 hover:border-slate-200 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer">
+                            <button className="h-8.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 hover:border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer">
                               <ExternalLink size={11} className="text-[#4F46E5]" />
                               <span>Open Audit workspace</span>
                             </button>
@@ -559,7 +559,7 @@ export default function ClientWorkspacePortal() {
         <div className="std-card p-8 space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
           <div>
             <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.2em] uppercase block">Compliance Engine</span>
-            <h2 className="text-2xl font-black text-white tracking-tight mt-1">Compliance Filing Deadlines</h2>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Compliance Filing Deadlines</h2>
             <p className="text-xs text-slate-500 mt-1">Calendar tracking corporate Indian filing deadlines for {client.business_name}.</p>
           </div>
 
@@ -570,7 +570,7 @@ export default function ClientWorkspacePortal() {
                   <CheckCircle2 size={16} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white">GSTR-1 (Supplier Return)</h4>
+                  <h4 className="font-bold text-slate-800">GSTR-1 (Supplier Return)</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5">Filing due for March 2024 period</p>
                 </div>
               </div>
@@ -586,7 +586,7 @@ export default function ClientWorkspacePortal() {
                   <AlertCircle size={16} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white">GSTR-3B (Offset Tax Liabilities)</h4>
+                  <h4 className="font-bold text-slate-800">GSTR-3B (Offset Tax Liabilities)</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5">Filing due for March 2024 period</p>
                 </div>
               </div>
@@ -602,7 +602,7 @@ export default function ClientWorkspacePortal() {
                   <Clock size={16} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-white">Annual GSTR-9 C Audit</h4>
+                  <h4 className="font-bold text-slate-800">Annual GSTR-9 C Audit</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5">GST Annual return reconciliation statement</p>
                 </div>
               </div>
@@ -620,14 +620,14 @@ export default function ClientWorkspacePortal() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-[10px] font-black text-[#4F46E5] tracking-[0.2em] uppercase block">Supplier Communication Hub</span>
-              <h2 className="text-2xl font-black text-white tracking-tight mt-1">Supplier Follow-Ups & Notices</h2>
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Supplier Follow-Ups & Notices</h2>
               <p className="text-xs text-slate-500 mt-1">Manage official GSTIN compliance outreach, track resolving workflow status, and export official notice PDFs.</p>
             </div>
             
             <div className="flex items-center gap-3">
               <button 
                 onClick={() => showToast("✓ Automated notices poll completed. No new notices.")}
-                className="bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Sync Portal Records
               </button>
@@ -664,7 +664,7 @@ export default function ClientWorkspacePortal() {
                   {communications.map((comm) => (
                     <tr key={comm.id} className="hover:bg-white/[0.01] transition-all duration-200 h-16">
                       <td className="pl-6 py-4">
-                        <span className="font-bold text-white block">{comm.vendor_name}</span>
+                        <span className="font-bold text-slate-800 block">{comm.vendor_name}</span>
                         <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">{comm.gstin}</span>
                       </td>
                       <td className="py-4">
@@ -679,7 +679,7 @@ export default function ClientWorkspacePortal() {
                         ) : comm.issue === 'GSTIN_MISMATCH' ? (
                           <span className="text-slate-500 font-bold">GSTIN Record Mismatch</span>
                         ) : (
-                          <span className="text-white font-bold">{comm.issue}</span>
+                          <span className="text-slate-800 font-bold">{comm.issue}</span>
                         )}
                       </td>
                       <td className="py-4">
@@ -699,10 +699,10 @@ export default function ClientWorkspacePortal() {
                             comm.status === 'Resolved' ? 'border-[#10B981]/30 text-[#10B981]' :
                             comm.status === 'Vendor Responded' ? 'border-purple-500/30 text-purple-400' :
                             comm.status === 'Sent' ? 'border-blue-500/30 text-blue-400' :
-                            'border-slate-200 text-white'
+                            'border-slate-200 text-slate-800'
                           }`}
                         >
-                          <option value="Drafted" className="bg-white text-white">Drafted</option>
+                          <option value="Drafted" className="bg-white text-slate-800">Drafted</option>
                           <option value="Sent" className="bg-white text-blue-400">Sent</option>
                           <option value="Vendor Responded" className="bg-white text-purple-400">Vendor Responded</option>
                           <option value="Resolved" className="bg-white text-[#10B981]">Resolved</option>
@@ -714,7 +714,7 @@ export default function ClientWorkspacePortal() {
                             setSelectedComm(comm);
                             setIsPreviewModalOpen(true);
                           }}
-                          className="h-8.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 hover:border-slate-200 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-end gap-1.5 transition-all cursor-pointer ml-auto"
+                          className="h-8.5 px-3 rounded-xl bg-[#F8FAFC] border border-slate-200 hover:border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-wider flex items-center justify-end gap-1.5 transition-all cursor-pointer ml-auto"
                         >
                           <Eye size={11} className="text-[#4F46E5]" />
                           <span>Review Notice</span>
@@ -729,7 +729,7 @@ export default function ClientWorkspacePortal() {
             <div className="bg-[#F8FAFC] border border-slate-100 rounded-2xl p-10 text-center space-y-4 shadow-inner">
               <MailWarning size={32} className="mx-auto text-slate-500" />
               <div>
-                <h4 className="text-sm font-bold text-white">No active outreach follow-ups</h4>
+                <h4 className="text-sm font-bold text-slate-800">No active outreach follow-ups</h4>
                 <p className="text-[11px] text-slate-500 mt-1">There are no generated follow-ups or compliance warning drafts registered for this client portfolio yet.</p>
               </div>
               <button 
@@ -749,7 +749,7 @@ export default function ClientWorkspacePortal() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.2em] uppercase block">Secure Document Storage</span>
-              <h2 className="text-2xl font-black text-white tracking-tight mt-1">Audit Working Papers Document Vault</h2>
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Audit Working Papers Document Vault</h2>
               <p className="text-xs text-slate-500 mt-1">Secure repository preserving physical invoices, past returns, generated excels, and auditor verification trails.</p>
             </div>
             
@@ -768,7 +768,7 @@ export default function ClientWorkspacePortal() {
                 <FolderLock size={18} />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white group-hover:text-[#4F46E5] transition-colors">FY 2023-24 Working Papers</h4>
+                <h4 className="text-xs font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">FY 2023-24 Working Papers</h4>
                 <p className="text-[10px] text-slate-500 mt-0.5 font-mono">14 Audit Workbooks preservation</p>
               </div>
             </div>
@@ -778,7 +778,7 @@ export default function ClientWorkspacePortal() {
                 <FileCheck size={18} />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white group-hover:text-[#4F46E5] transition-colors">Official Filed GSTR returns</h4>
+                <h4 className="text-xs font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">Official Filed GSTR returns</h4>
                 <p className="text-[10px] text-slate-500 mt-0.5 font-mono">24 Signed portal receipts</p>
               </div>
             </div>
@@ -788,7 +788,7 @@ export default function ClientWorkspacePortal() {
                 <FileSpreadsheet size={18} />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-white group-hover:text-[#4F46E5] transition-colors">Physical Invoices Archive</h4>
+                <h4 className="text-xs font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">Physical Invoices Archive</h4>
                 <p className="text-[10px] text-slate-500 mt-0.5 font-mono">182 Scanned records uploads</p>
               </div>
             </div>
@@ -808,7 +808,7 @@ export default function ClientWorkspacePortal() {
             </button>
 
             <span className="text-[10px] font-black text-[#4F46E5] tracking-[0.2em] uppercase block">New Outreach</span>
-            <h3 className="text-2xl font-black text-white tracking-tight mt-1">Generate AI Notice Draft</h3>
+            <h3 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Generate AI Notice Draft</h3>
             <p className="text-xs text-slate-500 mt-1 mb-6">Select a mismatch scenario and supply transaction data to draft an official compliance notice.</p>
 
             <form onSubmit={handleCreateNotice} className="space-y-4">
@@ -821,7 +821,7 @@ export default function ClientWorkspacePortal() {
                     value={formVendorName}
                     onChange={e => setFormVendorName(e.target.value)}
                     placeholder="e.g. Wayne Enterprises"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#4F46E5]/50 font-sans"
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
                   />
                 </div>
                 <div>
@@ -832,7 +832,7 @@ export default function ClientWorkspacePortal() {
                     value={formGstin}
                     onChange={e => setFormGstin(e.target.value)}
                     placeholder="e.g. 27AAACT1234A1Z5"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#4F46E5]/50 font-mono"
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-mono"
                   />
                 </div>
               </div>
@@ -842,7 +842,7 @@ export default function ClientWorkspacePortal() {
                 <select 
                   value={formIssue}
                   onChange={e => setFormIssue(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#4F46E5]/50 font-sans"
+                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
                 >
                   <option value="MISSING_IN_2B">Missing in GSTR-2B Return</option>
                   <option value="VALUE_MISMATCH">Taxable Value Mismatch</option>
@@ -860,7 +860,7 @@ export default function ClientWorkspacePortal() {
                     value={formInvoiceNumber}
                     onChange={e => setFormInvoiceNumber(e.target.value)}
                     placeholder="e.g. INV/2026/89"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#4F46E5]/50 font-sans"
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
                   />
                 </div>
                 <div>
@@ -870,7 +870,7 @@ export default function ClientWorkspacePortal() {
                     value={formTaxableValue}
                     onChange={e => setFormTaxableValue(e.target.value)}
                     placeholder="e.g. 150000"
-                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#4F46E5]/50 font-mono"
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-mono"
                   />
                 </div>
               </div>
@@ -881,7 +881,7 @@ export default function ClientWorkspacePortal() {
                   type="date" 
                   value={formDeadline}
                   onChange={e => setFormDeadline(e.target.value)}
-                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#4F46E5]/50 font-sans"
+                  className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-4 py-2.5 text-xs text-slate-800 focus:outline-none focus:border-[#4F46E5]/50 font-sans"
                 />
               </div>
 
@@ -918,7 +918,7 @@ export default function ClientWorkspacePortal() {
 
             <div className="mb-6 flex-shrink-0">
               <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.2em] uppercase block">Audit Outreach Engine</span>
-              <h3 className="text-2xl font-black text-white tracking-tight mt-1">Compliance Letter & Email Preview</h3>
+              <h3 className="text-2xl font-black text-slate-800 tracking-tight mt-1">Compliance Letter & Email Preview</h3>
               <p className="text-xs text-slate-500 mt-1">Verify official tax compliance wording, download the legislative PDF notice, or copy the email body.</p>
             </div>
 
@@ -999,7 +999,7 @@ export default function ClientWorkspacePortal() {
             <div className="mt-8 pt-4 border-t border-slate-200 flex flex-col sm:flex-row justify-between gap-4 flex-shrink-0">
               <button 
                 onClick={() => handleCopyNoticeText(selectedComm.email_body)}
-                className="bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-white px-5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="bg-[#F8FAFC] hover:bg-slate-100 border border-slate-200 text-slate-700 px-5 py-3 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Copy size={13} className="text-[#4F46E5]" />
                 <span>Copy Email Wording</span>
