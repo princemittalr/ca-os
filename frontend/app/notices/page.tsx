@@ -299,7 +299,7 @@ For ${selectedNotice?.client_name}`;
 
   const handleCopyQuestions = () => {
     if (!selectedNotice) return;
-    const text = `Hi ${selectedNotice.client_name},\n\nWe are preparing the reply for GST notice ${selectedNotice.notice_number}. Please clarify the following questions:\n\n${selectedNotice.questions_for_client.map((q, i) => `${i+1}. ${q}`).join("\n")}\n\nWe also require these documents:\n${selectedNotice.missing_documents.map(d => `- ${d}`).join("\n")}\n\nThanks,\nAudit Team`;
+    const text = `Hi ${selectedNotice.client_name},\n\nWe are preparing the reply for GST notice ${selectedNotice.notice_number}. Please clarify the following questions:\n\n${(selectedNotice.questions_for_client || []).map((q, i) => `${i+1}. ${q}`).join("\n")}\n\nWe also require these documents:\n${(selectedNotice.missing_documents || []).map(d => `- ${d}`).join("\n")}\n\nThanks,\nAudit Team`;
     navigator.clipboard.writeText(text);
     showToast("✓ Client outreach questions copied to clipboard!");
   };
@@ -940,7 +940,7 @@ For ${selectedNotice?.client_name}`;
                         )}
                       </div>
 
-                      {(!responseDraft && !typedReply) ? (
+                      {(!responseDraft && !typedReply && !isDrafting) ? (
                         <div className="flex flex-col items-center justify-center py-6 text-center">
                           <p className="text-[10px] text-slate-500 font-medium max-w-sm mb-3">
                             The AI statutory response generator compiles an official reply addressing each section and mismatch.
@@ -954,11 +954,16 @@ For ${selectedNotice?.client_name}`;
                             <span>Compile Letter Reply</span>
                           </button>
                         </div>
+                      ) : isDrafting && !typedReply ? (
+                        <div className="flex items-center gap-2 py-6 justify-center">
+                          <RefreshCw size={14} className="animate-spin text-[#4F46E5]" />
+                          <span className="text-[11px] text-slate-500 font-medium">Compiling statutory response...</span>
+                        </div>
                       ) : (
                         <div className="bg-white border border-slate-200/80 rounded-xl p-4 text-[10.5px] leading-relaxed text-slate-600 font-mono h-48 overflow-y-auto pr-1">
                           <pre className="whitespace-pre-wrap font-mono text-[10px]">
                             {typedReply}
-                            {typedReply.length < responseDraft.length && (
+                            {(typedReply.length < responseDraft.length || isDrafting) && (
                               <span className="inline-block w-1.5 h-3 ml-0.5 bg-[#4F46E5] animate-pulse">|</span>
                             )}
                           </pre>
