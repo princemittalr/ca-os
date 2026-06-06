@@ -394,10 +394,8 @@ def reset_demo_workspace():
     cw.MOCK_RECON_HISTORY.clear()
     cw.MOCK_RECON_HISTORY.extend(get_seeded_reconciliations())
     
-    # 2. Reset In-Memory Lists in services.compliance_engine
-    import services.compliance_engine as ce
-    ce.MOCK_COMPLIANCE.clear()
-    ce.MOCK_COMPLIANCE.extend(get_seeded_compliance())
+    # 2. Compliance tasks are persisted via Supabase only (no in-memory mock).
+    #    The Supabase seeding block below handles demo compliance tasks.
     
     # 3. Reset In-Memory Lists in services.communication
     import services.communication as comm

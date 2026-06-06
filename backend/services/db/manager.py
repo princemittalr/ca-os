@@ -206,86 +206,184 @@ def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, An
 
 # -------------------------------------------------------------------------
 # COMPLIANCE DEADLINES CRUD ABSTRACTION
+# All operations are Supabase-only (no in-memory fallback).
+# Queries are firm-scoped via a client join to prevent cross-tenant leakage.
+# evaluate_status_and_risk() is applied after fetch — pure, no side-effects.
 # -------------------------------------------------------------------------
-def get_compliance(client_id: Optional[str] = None, 
-                   compliance_type: Optional[str] = None, 
-                   status: Optional[str] = None, 
-                   assigned_to: Optional[str] = None) -> List[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
+def get_compliance(
+    firm_id: Optional[str] = None,
+    client_id: Optional[str] = None,
+    compliance_type: Optional[str] = None,
+    status: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Fetches compliance tasks from Supabase, scoped to firm_id (via clients join).
+    If firm_id is None (e.g. called from background scheduler), returns unscoped results
+    so cron tasks still function correctly.
+    evaluate_status_and_risk() is applied on each row before returning.
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — returning empty compliance list.")
+        return []
+    try:
+        from services.compliance_engine import evaluate_status_and_risk
+
+        if firm_id:
+            # Firm-scoped: join through clients table to enforce tenant isolation
+            q = (
+                supabase_client.table("compliance_tasks")
+                .select("*, clients!inner(firm_id)")
+                .eq("clients.firm_id", firm_id)
+                .eq("is_deleted", False)
+            )
+        else:
+            # Unscoped — used only by background scheduler tasks
             q = supabase_client.table("compliance_tasks").select("*").eq("is_deleted", False)
-            if client_id:
-                q = q.eq("client_id", client_id)
-            if compliance_type:
-                q = q.eq("compliance_type", compliance_type)
-            if status:
-                q = q.eq("status", status)
-            if assigned_to:
-                q = q.eq("assigned_to", assigned_to)
-            res = q.execute()
-            from services.compliance_engine import evaluate_status_and_risk
-            return [evaluate_status_and_risk(task) for task in cast(List[Dict[str, Any]], res.data)]
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
 
-    # Fallback to compliance_engine query
-    from services.compliance_engine import get_all_compliance
-    return get_all_compliance(client_id, compliance_type, status, assigned_to)
+        if client_id:
+            q = q.eq("client_id", client_id)
+        if compliance_type:
+            q = q.eq("compliance_type", compliance_type)
+        if status:
+            q = q.eq("status", status)
+        if assigned_to:
+            q = q.eq("assigned_to", assigned_to)
 
-def create_compliance(data: Dict[str, Any]) -> Dict[str, Any]:
-    if is_supabase_active():
-        try:
-            payload = {
-                "compliance_id": str(uuid.uuid4()),
-                "client_id": data["client_id"],
-                "compliance_type": data["compliance_type"],
-                "filing_period": data["filing_period"],
-                "due_date": str(data["due_date"]),
-                "status": "Upcoming",
-                "assigned_to": data.get("assigned_to") or None,
-                "escalation_level": 0,
-                "risk_level": "LOW",
-                "risk_score": 15.00,
-                "is_deleted": False
-            }
-            res = supabase_client.table("compliance_tasks").insert(payload).execute()
-            if res.data:
-                return cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
+        res = q.execute()
+        rows = cast(List[Dict[str, Any]], res.data or [])
+        return [evaluate_status_and_risk(task) for task in rows]
+    except Exception as e:
+        print(f"[ERROR] Supabase compliance query error: {str(e)}")
+        return []
 
-    # Fallback to compliance_engine creation
-    from services.compliance_engine import create_compliance as engine_create
-    return engine_create(data)
+def create_compliance(data: Dict[str, Any], firm_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Inserts a new compliance task into Supabase.
+    Validates that client_id belongs to firm_id when firm_id is provided.
+    """
+    if not is_supabase_active():
+        raise RuntimeError("Supabase is not active. Cannot create compliance task.")
 
-def update_compliance_status(comp_id: str, new_status: str, filed_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            updates = {"status": new_status}
-            if filed_date:
-                updates["filed_date"] = filed_date
+    # Validate client ownership when firm_id is known
+    if firm_id:
+        client = get_client_by_id(data["client_id"])
+        if not client or client.get("firm_id") != firm_id:
+            raise ValueError(
+                f"client_id '{data['client_id']}' does not belong to the authenticated firm."
+            )
+
+    from services.compliance_engine import evaluate_status_and_risk
+
+    payload = {
+        "compliance_id": str(uuid.uuid4()),
+        "client_id": data["client_id"],
+        "compliance_type": data["compliance_type"],
+        "filing_period": data["filing_period"],
+        "due_date": str(data["due_date"]),
+        "status": "Upcoming",
+        "assigned_to": data.get("assigned_to") or None,
+        "escalation_level": 0,
+        "risk_level": "LOW",
+        "risk_score": 15.00,
+        "is_deleted": False,
+    }
+
+    try:
+        res = supabase_client.table("compliance_tasks").insert(payload).execute()
+        if res.data:
+            created = cast(Dict[str, Any], res.data[0])
+            evaluated = evaluate_status_and_risk(created)
+            # Sync evaluated status/risk back to DB
+            _update_compliance_evaluated_fields(created.get("id") or created.get("compliance_id"), evaluated)
+            # Sync to action engine
+            from services.compliance_engine import sync_compliance_to_action_engine
+            sync_compliance_to_action_engine(evaluated, firm_id)
+            return evaluated
+    except Exception as e:
+        raise RuntimeError(f"Failed to create compliance task: {str(e)}") from e
+
+    raise RuntimeError("Supabase insert returned no data.")
+
+def _update_compliance_evaluated_fields(row_pk: Optional[str], evaluated: Dict[str, Any]) -> None:
+    """
+    Internal helper: writes back the evaluated status/risk fields computed by
+    evaluate_status_and_risk() to the DB row identified by its UUID primary key.
+    Uses the `id` column (Supabase auto-PK) when available, falls back to compliance_id.
+    """
+    if not row_pk or not is_supabase_active():
+        return
+    try:
+        updates = {
+            "status": evaluated.get("status"),
+            "risk_level": evaluated.get("risk_level"),
+            "risk_score": evaluated.get("risk_score"),
+            "escalation_level": evaluated.get("escalation_level"),
+        }
+        # Try `id` first (Supabase UUID PK), fall back to `compliance_id`
+        res = supabase_client.table("compliance_tasks").update(updates).eq("id", row_pk).execute()
+        if not res.data:
+            supabase_client.table("compliance_tasks").update(updates).eq("compliance_id", row_pk).execute()
+    except Exception as e:
+        print(f"[WARN] Could not persist evaluated fields for task {row_pk}: {str(e)}")
+
+def update_compliance_status(
+    comp_id: str, new_status: str, filed_date: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Persists a status change (and optional filed_date) to Supabase.
+    comp_id may be the UUID `id` column OR the `compliance_id` string — we try both.
+    Evaluates status/risk after update and syncs to action engine.
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — compliance status update skipped.")
+        return None
+    try:
+        from services.compliance_engine import evaluate_status_and_risk, sync_compliance_to_action_engine
+
+        updates: Dict[str, Any] = {"status": new_status}
+        if filed_date:
+            updates["filed_date"] = filed_date
+
+        # Try `id` (UUID PK) first, then fall back to `compliance_id`
+        res = supabase_client.table("compliance_tasks").update(updates).eq("id", comp_id).execute()
+        if not res.data:
             res = supabase_client.table("compliance_tasks").update(updates).eq("compliance_id", comp_id).execute()
-            if res.data:
-                return cast(Optional[Dict[str, Any]], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
-    # Fallback
-    from services.compliance_engine import update_compliance_status as engine_status
-    return engine_status(comp_id, new_status, filed_date)
+        if res.data:
+            task = cast(Dict[str, Any], res.data[0])
+            evaluated = evaluate_status_and_risk(task)
+            # Persist evaluated risk fields back
+            row_pk = task.get("id") or task.get("compliance_id")
+            _update_compliance_evaluated_fields(row_pk, evaluated)
+            # Resolve firm_id for action engine sync
+            client = get_client_by_id(evaluated.get("client_id", ""))
+            firm_id = (client or {}).get("firm_id")
+            sync_compliance_to_action_engine(evaluated, firm_id)
+            return evaluated
+    except Exception as e:
+        print(f"[ERROR] Supabase compliance status update failed: {str(e)}")
+    return None
 
 def update_compliance_assignment(comp_id: str, staff: str) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
+    """
+    Updates the assigned_to field for a compliance task.
+    comp_id may be the UUID `id` column OR the `compliance_id` string — we try both.
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — compliance assignment update skipped.")
+        return None
+    try:
+        # Try `id` (UUID PK) first, then fall back to `compliance_id`
+        res = supabase_client.table("compliance_tasks").update({"assigned_to": staff}).eq("id", comp_id).execute()
+        if not res.data:
             res = supabase_client.table("compliance_tasks").update({"assigned_to": staff}).eq("compliance_id", comp_id).execute()
-            if res.data:
-                return cast(Optional[Dict[str, Any]], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
 
-    # Fallback
-    from services.compliance_engine import update_compliance_assignment as engine_assign
-    return engine_assign(comp_id, staff)
+        if res.data:
+            return cast(Optional[Dict[str, Any]], res.data[0])
+    except Exception as e:
+        print(f"[ERROR] Supabase compliance assignment update failed: {str(e)}")
+    return None
 
 # -------------------------------------------------------------------------
 # OUTREACH COMMUNICATIONS CRUD ABSTRACTION
