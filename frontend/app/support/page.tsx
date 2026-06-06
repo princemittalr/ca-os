@@ -19,59 +19,9 @@ import {
   ArrowUpRight,
   Plus
 } from 'lucide-react';
+import { getAuthToken } from '@/lib/auth';
 
-const initialTickets = [
-  {
-    id: 'TKT-001',
-    subject: 'GSTR-2B API connection timeout error',
-    category: 'API Integration',
-    priority: 'High', // High / Medium / Low
-    status: 'In Review', // Open / In Review / Resolved / Closed
-    date: '27-05-2026',
-    description: 'When running the automatic GSTR-2B matching pipeline, the portal gateway returns a 504 gateway timeout. Checked credentials and API endpoints, they seem valid.',
-    agent: 'CA Rahul Sharma (Senior Partner)',
-    timeline: [
-      { event: 'Ticket Created', date: '27-05-2026 10:14', description: 'User reported API connection timeout.' },
-      { event: 'Agent Assigned', date: '27-05-2026 11:30', description: 'Assigned to CA Rahul Sharma for compliance evaluation.' },
-      { event: 'Under Review', date: '27-05-2026 12:45', description: 'Investigating GSTR portal server connectivity logs.' }
-    ],
-    replies: [
-      { sender: 'agent', text: "Hello! I'm reviewing the API logs for GSTR-2B. The timeout seems to be on the government portal API side. We've queued an auto-retry loop.", date: '27-05-2026 12:50' }
-    ]
-  },
-  {
-    id: 'TKT-002',
-    subject: 'Mismatch in Q3 TDS summary computation',
-    category: 'Calculations',
-    priority: 'Medium',
-    status: 'Open',
-    date: '26-05-2026',
-    description: 'Form 26AS matching shows a mismatch of ₹14,250 in the calculated TDS credits for the client. The tax ledger seems to have duplicated two invoices.',
-    agent: 'CA Neha Verma (Tax Associate)',
-    timeline: [
-      { event: 'Ticket Created', date: '26-05-2026 09:30', description: 'Reported calculations mismatch in Q3 TDS.' }
-    ],
-    replies: []
-  },
-  {
-    id: 'TKT-003',
-    subject: 'Request for secondary assistant user seats',
-    category: 'Account Management',
-    priority: 'Low',
-    status: 'Resolved',
-    date: '20-05-2026',
-    description: 'We need to add two more Chartered Accountants from our firm as secondary handlers. Please advise on custom seat licensing pricing.',
-    agent: 'Karan Singh (Account Executive)',
-    timeline: [
-      { event: 'Ticket Created', date: '20-05-2026 14:15', description: 'Requested 2 additional CA seats.' },
-      { event: 'Agent Assigned', date: '20-05-2026 15:00', description: 'Assigned to Karan Singh.' },
-      { event: 'Resolved', date: '21-05-2026 10:00', description: 'Licenses upgraded and seats credited.' }
-    ],
-    replies: [
-      { sender: 'agent', text: "Seats have been credited to your CA workspace. You can invite your assistants via 'Firm Settings > User Management'.", date: '21-05-2026 09:45' }
-    ]
-  }
-];
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const helpCategories = [
   { icon: ShieldQuestion, name: 'Getting Started', count: '12 articles' },
@@ -97,9 +47,35 @@ const formatDate = (dateStr: string) => {
 };
 
 export default function SupportCenterPage() {
-  const [tickets, setTickets] = useState(initialTickets);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+
+  const loadTickets = async () => {
+    try {
+      setIsLoading(true);
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE}/api/support/tickets`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to load tickets");
+      const data = await res.json();
+      const formatted = data.map((t: any) => ({
+        ...t,
+        date: t.created_at ? new Date(t.created_at).toLocaleDateString('en-GB').replace(/\//g, '-') : t.date || ''
+      }));
+      setTickets(formatted);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTickets();
+  }, []);
 
   // Chat States
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -160,22 +136,27 @@ export default function SupportCenterPage() {
     ]);
   };
 
-  const sendBotReply = (userQuery: string) => {
+  const sendBotReply = async (userQuery: string) => {
     setIsBotTyping(true);
-    
-    setTimeout(() => {
-      let replyText = "Thank you for reaching out to Reckon AI support! I am processing your query to check our legal database. Would you like to map this to a specific GSTR return window?";
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE}/api/support/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ message: userQuery })
+      });
+      if (!res.ok) throw new Error("Failed to fetch chat response");
+      const data = await res.json();
       
-      const normalized = userQuery.toLowerCase();
-      if (normalized.includes('recon') || normalized.includes('gst')) {
-        replyText = "GST reconciliation discrepancies are usually caused by mismatching Form 2A/2B ledgers. I highly recommend running the 'Auto-Reconciliation Agent' in the Automation module to auto-resolve invoice discrepancies. Would you like me to connect you to a live CA on duty to double-check?";
-      } else if (normalized.includes('challan') || normalized.includes('tds') || normalized.includes('mismatch')) {
-        replyText = "TDS or GSTR challan mismatches usually indicate a filing discrepancy in Form 26AS. Please make sure that you've imported the correct quarterly challan XML inside our 'Import Recon' portal. Let me know if you want to connect to a live accountant.";
-      } else if (normalized.includes('human') || normalized.includes('live') || normalized.includes('talk') || normalized.includes('agent') || normalized.includes('person')) {
-        replyText = "Connecting you to a live senior Chartered Accountant on duty... CA Rahul Sharma (Partner / Audit Head) has joined the thread. 'Hi! I'm Rahul. How can I help you resolve your compliance error today?'";
-        setChatAgent({ name: 'Rahul Sharma (CA)', role: 'Senior CA / Audit Partner', avatar: 'RS' });
-      } else if (normalized.includes('license') || normalized.includes('seat') || normalized.includes('billing')) {
-        replyText = "For subscription, seat licensing, or invoice billing issues, you can upgrade your plan directly in 'Firm Settings > Billing' tab. Alternatively, I can route this to our accounts desk immediately.";
+      if (data.agent) {
+        setChatAgent({
+          name: data.agent.name,
+          role: data.agent.role,
+          avatar: data.agent.avatar
+        });
       }
       
       setChatMessages(prev => [
@@ -183,12 +164,16 @@ export default function SupportCenterPage() {
         {
           id: `msg-${Date.now()}`,
           sender: 'bot',
-          text: replyText,
+          text: data.reply,
           time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
         }
       ]);
+    } catch (err) {
+      console.error(err);
+      triggerToast("Failed to fetch chat response.");
+    } finally {
       setIsBotTyping(false);
-    }, 900);
+    }
   };
 
   const handleSendChatMessage = (textToSend?: string) => {
@@ -207,68 +192,81 @@ export default function SupportCenterPage() {
     sendBotReply(text);
   };
 
-  const handleSendTicketReply = () => {
+  const handleSendTicketReply = async () => {
     if (!replyInput.trim() || !selectedTicket) return;
 
-    const newReply = {
-      sender: 'user',
-      text: replyInput,
-      date: new Date().toLocaleString('en-GB').replace(',', '')
-    };
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE}/api/support/tickets/${selectedTicket.id}/replies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          sender: 'user',
+          text: replyInput,
+          date: new Date().toLocaleString('en-GB').replace(',', '')
+        })
+      });
+      if (!res.ok) throw new Error("Failed to post reply");
+      
+      const updatedTicket = await res.json();
+      const formattedTicket = {
+        ...updatedTicket,
+        date: updatedTicket.created_at ? new Date(updatedTicket.created_at).toLocaleDateString('en-GB').replace(/\//g, '-') : updatedTicket.date || ''
+      };
 
-    const updatedTickets = tickets.map(t => {
-      if (t.id === selectedTicket.id) {
-        const nextReplies = [...(t.replies || []), newReply];
-        setSelectedTicket({
-          ...t,
-          replies: nextReplies
-        });
-        return {
-          ...t,
-          replies: nextReplies
-        };
-      }
-      return t;
-    });
-
-    setTickets(updatedTickets);
-    setReplyInput('');
-    triggerToast("✓ Reply submitted to support ticket.");
+      setTickets(tickets.map(t => t.id === selectedTicket.id ? formattedTicket : t));
+      setSelectedTicket(formattedTicket);
+      setReplyInput('');
+      triggerToast("✓ Reply submitted to support ticket.");
+    } catch (err) {
+      console.error(err);
+      triggerToast("Failed to submit reply.");
+    }
   };
 
   const handleBrowseArticles = () => {
     triggerToast("📚 Opening Reckon AI Knowledge base.");
   };
 
-  const handleSubmitTicket = (e: React.FormEvent) => {
+  const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!subject || !description) return;
 
-    const newTicket = {
-      id: `TKT-00${tickets.length + 1}`,
-      subject,
-      category,
-      priority,
-      status: 'Open',
-      date: new Date().toLocaleDateString('en-GB').replace(/\//g, '-'), // DD-MM-YYYY
-      description,
-      agent: 'Awaiting Allocation',
-      timeline: [
-        { event: 'Ticket Created', date: new Date().toLocaleString('en-GB').replace(',', ''), description: 'Ticket successfully submitted to queue.' }
-      ],
-      replies: []
-    };
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE}/api/support/tickets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ category, subject, description, priority })
+      });
+      if (!res.ok) throw new Error("Failed to submit ticket");
+      
+      const newTicket = await res.json();
+      const formatted = {
+        ...newTicket,
+        date: newTicket.created_at ? new Date(newTicket.created_at).toLocaleDateString('en-GB').replace(/\//g, '-') : newTicket.date || ''
+      };
 
-    setTickets([newTicket, ...tickets]);
-    setIsModalOpen(false);
-    
-    // reset form
-    setSubject('');
-    setDescription('');
-    setCategory('API Integration');
-    setPriority('Medium');
+      setTickets([formatted, ...tickets]);
+      setIsModalOpen(false);
+      
+      // reset form
+      setSubject('');
+      setDescription('');
+      setCategory('API Integration');
+      setPriority('Medium');
 
-    triggerToast(`✓ Support ticket ${newTicket.id} created successfully!`);
+      triggerToast(`✓ Support ticket ${formatted.id} created successfully!`);
+    } catch (err) {
+      console.error(err);
+      triggerToast("Failed to submit support ticket.");
+    }
   };
 
   const getPriorityStyle = (prio: string) => {
@@ -443,68 +441,82 @@ export default function SupportCenterPage() {
                 </tr>
               </thead>
               <tbody className="font-medium text-slate-700">
-                {tickets.map((tkt) => {
-                  const isActive = selectedTicket?.id === tkt.id && isTicketOpen;
-                  return (
-                    <tr 
-                      key={tkt.id} 
-                      onClick={() => {
-                        console.log("[Support Desk] Opening ticket details for:", tkt.id);
-                        setSelectedTicket(tkt);
-                        setIsTicketOpen(true);
-                      }}
-                      className={`data-table-row-clickable group ${
-                        isActive ? 'bg-slate-50' : ''
-                      }`}
-                    >
-                      {/* ID */}
-                      <td className="relative" style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                        {isActive && (
-                          <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#4F46E5] shadow-[0_0_8px_#4F46E5]" />
-                        )}
-                        <span className={isActive ? 'text-[#4F46E5]' : ''}>
-                          {tkt.id}
-                        </span>
-                      </td>
-                      
-                      {/* Subject */}
-                      <td style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)' }} className="max-w-xs truncate group-hover:text-[#4F46E5] transition-colors">
-                        {tkt.subject}
-                      </td>
-                      
-                      {/* Category */}
-                      <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                        {tkt.category}
-                      </td>
- 
-                      {/* Priority */}
-                      <td className="text-center">
-                        <span className={`status-badge ${getPriorityStyle(tkt.priority)}`}>
-                          {renderBadgeDot(tkt.priority)}
-                          {tkt.priority}
-                        </span>
-                      </td>
- 
-                      {/* Status */}
-                      <td className="text-center">
-                        <span className={`status-badge ${getStatusStyle(tkt.status)}`}>
-                          {renderBadgeDot(tkt.status)}
-                          {tkt.status}
-                        </span>
-                      </td>
- 
-                      {/* Date */}
-                      <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                        {formatDate(tkt.date)}
-                      </td>
- 
-                      {/* Actions */}
-                      <td className="text-right">
-                        <ChevronRight size={16} style={{ color: 'var(--color-text-tertiary)' }} className="ml-auto" />
-                      </td>
-                    </tr>
-                  );
-                })}
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-slate-500">
+                      Loading support tickets...
+                    </td>
+                  </tr>
+                ) : tickets.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-slate-500">
+                      No support tickets found.
+                    </td>
+                  </tr>
+                ) : (
+                  tickets.map((tkt) => {
+                    const isActive = selectedTicket?.id === tkt.id && isTicketOpen;
+                    return (
+                      <tr 
+                        key={tkt.id} 
+                        onClick={() => {
+                          console.log("[Support Desk] Opening ticket details for:", tkt.id);
+                          setSelectedTicket(tkt);
+                          setIsTicketOpen(true);
+                        }}
+                        className={`data-table-row-clickable group ${
+                          isActive ? 'bg-slate-50' : ''
+                        }`}
+                      >
+                        {/* ID */}
+                        <td className="relative" style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          {isActive && (
+                            <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-[#4F46E5] shadow-[0_0_8px_#4F46E5]" />
+                          )}
+                          <span className={isActive ? 'text-[#4F46E5]' : ''}>
+                            {tkt.id}
+                          </span>
+                        </td>
+                        
+                        {/* Subject */}
+                        <td style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-text-primary)' }} className="max-w-xs truncate group-hover:text-[#4F46E5] transition-colors">
+                          {tkt.subject}
+                        </td>
+                        
+                        {/* Category */}
+                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          {tkt.category}
+                        </td>
+   
+                        {/* Priority */}
+                        <td className="text-center">
+                          <span className={`status-badge ${getPriorityStyle(tkt.priority)}`}>
+                            {renderBadgeDot(tkt.priority)}
+                            {tkt.priority}
+                          </span>
+                        </td>
+   
+                        {/* Status */}
+                        <td className="text-center">
+                          <span className={`status-badge ${getStatusStyle(tkt.status)}`}>
+                            {renderBadgeDot(tkt.status)}
+                            {tkt.status}
+                          </span>
+                        </td>
+   
+                        {/* Date */}
+                        <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                          {formatDate(tkt.date)}
+                        </td>
+   
+                        {/* Actions */}
+                        <td className="text-right">
+                          <ChevronRight size={16} style={{ color: 'var(--color-text-tertiary)' }} className="ml-auto" />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

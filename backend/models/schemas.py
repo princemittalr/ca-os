@@ -177,6 +177,9 @@ class SupportTicketResponse(SupportTicketBase):
     ticket_number: str
     status: str
     created_at: datetime
+    agent: Optional[str] = None
+    timeline: Optional[List[Dict[str, Any]]] = []
+    replies: Optional[List[Dict[str, Any]]] = []
     
     class Config:
         from_attributes = True
