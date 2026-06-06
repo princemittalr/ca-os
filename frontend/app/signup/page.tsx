@@ -71,18 +71,8 @@ export default function SignupPage() {
       
     } catch (err: any) {
       console.error(err);
-      
-      // Fallback Mock signup session allocations
-      localStorage.setItem("access_token", "mock-access-token-partner-12345");
-      localStorage.setItem("user_id", "mock-user-uuid-12345");
-      localStorage.setItem("firm_id", "mock-firm-uuid-67890");
-      localStorage.setItem("role", role);
-      localStorage.setItem("full_name", fullName);
-      
-      showToast("✓ Mock CA Firm provisioned successfully.");
-      setTimeout(() => {
-        window.location.href = "/action-center";
-      }, 1500);
+      setErrorMessage("Registration failed. Please try again.");
+      return;
     } finally {
       setIsLoading(false);
     }
