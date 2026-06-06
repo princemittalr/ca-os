@@ -18,14 +18,18 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
     const token = localStorage.getItem("access_token");
     console.log("TOKEN CHECK:", token, "isAuthPage:", isAuthPage, "pathname:", pathname);
     
-    // Reject mock tokens in production
-    const isProduction = process.env.NODE_ENV === "production";
-    const isMockToken = token?.startsWith("mock-access-token");
-    const isValid = !!token && !(isProduction && isMockToken);
-    setIsAuthenticated(isValid);
-    if (isProduction && isMockToken) {
+    // Reject mock tokens in all environments
+    const isMockToken = !!token?.startsWith("mock-access-token");
+    if (isMockToken) {
+      setIsAuthenticated(false);
       localStorage.clear();
+      router.replace("/login");
+      setIsMobileSidebarOpen(false);
+      return;
     }
+
+    const isValid = !!token;
+    setIsAuthenticated(isValid);
     setIsMobileSidebarOpen(false);
 
     if (!token && !isAuthPage) {
