@@ -59,7 +59,7 @@ def read_root():
     return {"status": "ok", "message": "Welcome to Reckon AI API"}
 
 # Import routers here and include them
-from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, demo, audit, notifications, staff, automation
+from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, demo, audit, notifications, staff, automation, messages
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
 app.include_router(reconcile.router, prefix="/api/reconcile", tags=["reconcile"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
@@ -76,6 +76,7 @@ app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(staff.router, prefix="/api/staff", tags=["staff"])
 app.include_router(automation.router, prefix="/api/automation", tags=["automation"])
+app.include_router(messages.router, prefix="/api/messages", tags=["messages"])
 
 from routers import support
 app.include_router(support.router, prefix="/api/support", tags=["support"])

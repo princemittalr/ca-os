@@ -92,6 +92,13 @@ export default function TopBar({
       .then(r => r.ok ? r.json() : [])
       .then(data => setNotifications(data))
       .catch(() => setNotifications([]));
+
+    fetch(`${API_BASE}/api/messages/`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setMessages(data))
+      .catch(() => setMessages([]));
   }, []);
 
   // Messages Dataset
@@ -141,12 +148,20 @@ export default function TopBar({
   // Handlers for Notifications
   const handleMarkNotificationRead = (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    fetch(`${API_BASE}/api/notifications/${id}/read`, { method: "POST" }).catch(() => {});
+    const token = getAuthToken();
+    fetch(`${API_BASE}/api/notifications/${id}/read`, {
+      method: "POST",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    }).catch(() => {});
   };
 
   const handleMarkAllNotificationsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    fetch(`${API_BASE}/api/notifications/read-all`, { method: "POST" }).catch(() => {});
+    const token = getAuthToken();
+    fetch(`${API_BASE}/api/notifications/read-all`, {
+      method: "POST",
+      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+    }).catch(() => {});
   };
 
   const handleClearNotifications = () => {
