@@ -181,21 +181,35 @@ export default function AutomationCenterPage() {
     }
   };
 
+  // TODO:
+  // Persist automation toggle state once a real backend
+  // automation configuration API exists.
   const handleToggleAgent = (id: string) => {
-    setAgents(agents.map(a => {
-      if (a.id === id) {
-        const nextState = !a.is_active;
-        triggerToast(`✓ ${a.name} turned ${nextState ? 'ON' : 'OFF'}.`);
-        
-        // update icon color as well for active style
-        return {
-          ...a,
-          is_active: nextState,
-          icon_color: nextState ? (id === 'a-1' ? '#4F46E5' : id === 'a-2' ? '#7C3AED' : id === 'a-3' ? '#F59E0B' : '#10B981') : '#6B7280'
-        };
-      }
-      return a;
-    }));
+    setAgents(prev =>
+      prev.map(agent =>
+        agent.id === id
+          ? {
+              ...agent,
+              is_active: !agent.is_active,
+              icon_color: !agent.is_active
+                ? (agent.id === 'a-1'
+                    ? '#4F46E5'
+                    : agent.id === 'a-2'
+                    ? '#7C3AED'
+                    : agent.id === 'a-3'
+                    ? '#F59E0B'
+                    : '#10B981')
+                : '#6B7280'
+            }
+          : agent
+      )
+    );
+
+    const agent = agents.find(a => a.id === id);
+    if (agent) {
+      const nextState = !agent.is_active;
+      triggerToast(`✓ ${agent.name} turned ${nextState ? 'ON' : 'OFF'}.`);
+    }
   };
 
   const handleRunWorkflow = async (workflowName: string) => {
