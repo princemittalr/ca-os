@@ -158,12 +158,44 @@ function GSTReconciliationPageContent() {
       setAiExplanation(null);
       setTypedSummary("");
 
+      const applyStaticFallback = () => {
+        const mockExpl = {
+          confidence_score: 98.6,
+          summary: `Discrepancy analyzed for Invoice ${selectedRow.invoice_number}. AI matches suggest this requires vendor confirmation or a ledger correction of ₹${selectedRow.difference.toLocaleString('en-IN')}.`,
+          likely_cause: selectedRow.status === 'gstin_mismatch'
+            ? "GSTIN transcription error in books during manual ledger entry."
+            : selectedRow.status === 'missing_in_2b'
+            ? "Supplier has failed to upload the GSTR-1 filing for the current period."
+            : "Taxable value discrepancies likely caused by freight, discounts, or rounding.",
+          recommended_action: selectedRow.status === 'gstin_mismatch'
+            ? `Update GSTIN in vendor master from '${selectedRow.supplier_gstin_books}' to '${selectedRow.supplier_gstin}'.`
+            : selectedRow.status === 'missing_in_2b'
+            ? `Initiate outreach asking supplier ${selectedRow.supplier_gstin} to file GSTR-1 immediately.`
+            : "Verify the original vendor invoice and adjust basic values in ERP.",
+          risk_assessment: selectedRow.status === 'matched' ? 'Low Risk compliance' : 'Medium-to-High Risk: Potential ITC denial by GST officers'
+        };
+        setAiExplanation(mockExpl);
+        let index = 0;
+        const text = mockExpl.summary;
+        const timer = setInterval(() => {
+          setTypedSummary((prev) => prev + text.charAt(index));
+          index++;
+          if (index >= text.length) {
+            clearInterval(timer);
+          }
+        }, 10);
+      };
+
       const fetchAIExplanation = async () => {
         setIsAiLoading(true);
         try {
           const token = getAuthToken();
           if (!token) {
-            window.location.href = "/login";
+            // Skip AI fetch entirely — use static fallback explanation only
+            setTimeout(() => {
+              applyStaticFallback();
+              setIsAiLoading(false);
+            }, 600);
             return;
           }
           const res = await fetch(`${API_BASE}/api/ai/explain-mismatch`, {
@@ -207,31 +239,7 @@ function GSTReconciliationPageContent() {
         } catch (err) {
           // Fallback static explanation
           setTimeout(() => {
-            const mockExpl = {
-              confidence_score: 98.6,
-              summary: `Discrepancy analyzed for Invoice ${selectedRow.invoice_number}. AI matches suggest this requires vendor confirmation or a ledger correction of ₹${selectedRow.difference.toLocaleString('en-IN')}.`,
-              likely_cause: selectedRow.status === 'gstin_mismatch'
-                ? "GSTIN transcription error in books during manual ledger entry."
-                : selectedRow.status === 'missing_in_2b'
-                ? "Supplier has failed to upload the GSTR-1 filing for the current period."
-                : "Taxable value discrepancies likely caused by freight, discounts, or rounding.",
-              recommended_action: selectedRow.status === 'gstin_mismatch'
-                ? `Update GSTIN in vendor master from '${selectedRow.supplier_gstin_books}' to '${selectedRow.supplier_gstin}'.`
-                : selectedRow.status === 'missing_in_2b'
-                ? `Initiate outreach asking supplier ${selectedRow.supplier_gstin} to file GSTR-1 immediately.`
-                : "Verify the original vendor invoice and adjust basic values in ERP.",
-              risk_assessment: selectedRow.status === 'matched' ? 'Low Risk compliance' : 'Medium-to-High Risk: Potential ITC denial by GST officers'
-            };
-            setAiExplanation(mockExpl);
-            let index = 0;
-            const text = mockExpl.summary;
-            const timer = setInterval(() => {
-              setTypedSummary((prev) => prev + text.charAt(index));
-              index++;
-              if (index >= text.length) {
-                clearInterval(timer);
-              }
-            }, 10);
+            applyStaticFallback();
           }, 600);
         } finally {
           setIsAiLoading(false);
