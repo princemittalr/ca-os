@@ -25,7 +25,6 @@ import {
   Loader2,
   TrendingUp,
   Sliders,
-  Sparkles,
   AlertTriangle,
   Clock,
   TrendingDown,
@@ -287,16 +286,7 @@ function GSTReconciliationPageContent() {
     setTimeout(() => setToastMessage(''), 3500);
   };
 
-  // Demo mode bypass
-  const handleLoadDemoDataset = () => {
-    if (clients.length > 0) {
-      setSelectedClient(clients[0].id);
-    }
-    setFile2B(new File([], "demo_gstr2b_fy23_24.json"));
-    setFilePR(new File([], "demo_purchase_register_march.xlsx"));
-    setStep(3); // Go straight to step 3 so they can see mapping & run
-    showToast("✓ Demo dataset loaded. Review mapping & proceed.");
-  };
+
 
   // Reusable report downloader mapping API stream downloads
   const handleExport = async (type: 'excel' | 'pdf') => {
@@ -673,13 +663,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
           <option value="2024-01">January 2024</option>
         </select>
 
-        <button
-          onClick={handleLoadDemoDataset}
-          className="h-8 px-3 bg-slate-100 hover:bg-slate-200 border border-[#E5E7EB] text-slate-700 text-[12px] font-medium rounded-[4px] flex items-center gap-1 cursor-pointer transition-colors"
-        >
-          <Sparkles size={12} className="text-amber-500" />
-          <span>Load Demo Dataset</span>
-        </button>
+
 
         {step !== 5 && (
           <div className="flex gap-2">
