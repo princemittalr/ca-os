@@ -93,14 +93,15 @@ async def create_compliance_deadline(payload: schemas.ComplianceCreate):
 async def update_deadline_status(
     compliance_id: str,
     new_status: Optional[str] = Query(None, description="Update status e.g. Filed"),
-    assigned_to: Optional[str] = Query(None, description="Re-assign staff member")
+    assigned_to: Optional[str] = Query(None, description="Re-assign staff member"),
+    filed_date: Optional[str] = Query(None, description="Filing date YYYY-MM-DD")
 ):
     """
     Update filing status or staff assignment on any compliance record.
     """
     task = None
     if new_status:
-        task = db_manager.update_compliance_status(compliance_id, new_status)
+        task = db_manager.update_compliance_status(compliance_id, new_status, filed_date)
     if assigned_to:
         task = db_manager.update_compliance_assignment(compliance_id, assigned_to)
         

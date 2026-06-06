@@ -34,6 +34,7 @@ interface ComplianceRecord {
   escalation_level: number;
   risk_level: string; // 'LOW', 'MEDIUM', 'HIGH'
   risk_score: number;
+  filed_date?: string | null;
 }
 
 
@@ -123,36 +124,40 @@ export default function ComplianceOperationsCenter() {
   }, []);
 
   const handleMarkAsFiled = async (compId: string) => {
+    const todayStr = new Date().toISOString().split('T')[0];
     try {
-      const res = await fetch(`${API_BASE}/api/compliance/${compId}/status?new_status=Filed`, {
+      const res = await fetch(`${API_BASE}/api/compliance/${compId}/status?new_status=Filed&filed_date=${todayStr}`, {
         method: "PUT"
       });
       if (!res.ok) throw new Error("Failed to update status");
       showToast("✓ Compliance successfully marked as FILED!");
+      setTasks(prev => prev.map(t => t.compliance_id === compId ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
       await loadCompliance();
     } catch (err) {
       console.error(err);
       // fallback local update
-      setTasks(prev => prev.map(t => t.compliance_id === compId ? { ...t, status: 'Filed', risk_score: 0, risk_level: 'LOW' } : t));
+      setTasks(prev => prev.map(t => t.compliance_id === compId ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
       showToast("✓ Return marked as FILED locally.");
     }
   };
 
   const handleBulkMarkAsFiled = async () => {
     if (selectedRowIds.length === 0) return;
+    const todayStr = new Date().toISOString().split('T')[0];
     try {
       setIsLoading(true);
       await Promise.all(
         selectedRowIds.map(id =>
-          fetch(`${API_BASE}/api/compliance/${id}/status?new_status=Filed`, { method: "PUT" })
+          fetch(`${API_BASE}/api/compliance/${id}/status?new_status=Filed&filed_date=${todayStr}`, { method: "PUT" })
         )
       );
       showToast(`✓ Marked ${selectedRowIds.length} returns as FILED!`);
+      setTasks(prev => prev.map(t => selectedRowIds.includes(t.compliance_id) ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
       setSelectedRowIds([]);
       await loadCompliance();
     } catch (err) {
       console.error(err);
-      setTasks(prev => prev.map(t => selectedRowIds.includes(t.compliance_id) ? { ...t, status: 'Filed', risk_score: 0, risk_level: 'LOW' } : t));
+      setTasks(prev => prev.map(t => selectedRowIds.includes(t.compliance_id) ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
       showToast("✓ Selected returns marked as FILED locally.");
       setSelectedRowIds([]);
     } finally {
@@ -508,8 +513,7 @@ export default function ComplianceOperationsCenter() {
                       const clientName = clientsMap[task.client_id] || "Client Firm";
                       const cat = getTaskCategory(task.status);
                       
-                      // Mock filing date if filed
-                      const filingDate = task.status === 'Filed' ? '2026-05-28' : '—';
+                      const filingDate = task.filed_date || '—';
 
                       // Penalty calculation: if overdue, assign mock late fee; else 0
                       const penalty = task.status === 'Overdue' ? 2000 : 0;

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 
@@ -40,12 +40,12 @@ class ClientBase(BaseModel):
 
 class ClientCreate(ClientBase):
     
-    @validator('gstin')
+    @field_validator('gstin')
     def gstin_must_be_valid(cls, v):
         from services.input_validator import validate_gstin
         return validate_gstin(v)
 
-    @validator('business_name')
+    @field_validator('business_name')
     def name_must_be_clean(cls, v):
         from services.input_validator import sanitize_string
         return sanitize_string(v, max_length=255)
@@ -235,6 +235,7 @@ class ComplianceResponse(BaseModel):
     escalation_level: int
     risk_level: str
     risk_score: float
+    filed_date: Optional[str] = None
 
 class ComplianceSummaryResponse(BaseModel):
     upcoming_filings: int

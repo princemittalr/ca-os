@@ -253,10 +253,13 @@ def create_compliance(data: Dict[str, Any]) -> Dict[str, Any]:
     from services.compliance_engine import create_compliance as engine_create
     return engine_create(data)
 
-def update_compliance_status(comp_id: str, new_status: str) -> Optional[Dict[str, Any]]:
+def update_compliance_status(comp_id: str, new_status: str, filed_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
     if is_supabase_active():
         try:
-            res = supabase_client.table("compliance_tasks").update({"status": new_status}).eq("compliance_id", comp_id).execute()
+            updates = {"status": new_status}
+            if filed_date:
+                updates["filed_date"] = filed_date
+            res = supabase_client.table("compliance_tasks").update(updates).eq("compliance_id", comp_id).execute()
             if res.data:
                 return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
@@ -264,7 +267,7 @@ def update_compliance_status(comp_id: str, new_status: str) -> Optional[Dict[str
 
     # Fallback
     from services.compliance_engine import update_compliance_status as engine_status
-    return engine_status(comp_id, new_status)
+    return engine_status(comp_id, new_status, filed_date)
 
 def update_compliance_assignment(comp_id: str, staff: str) -> Optional[Dict[str, Any]]:
     if is_supabase_active():

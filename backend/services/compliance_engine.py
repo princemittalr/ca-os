@@ -171,13 +171,15 @@ def create_compliance(data: Dict[str, Any]) -> Dict[str, Any]:
     MOCK_COMPLIANCE.append(new_comp)
     return new_comp
 
-def update_compliance_status(comp_id: str, new_status: str) -> Optional[Dict[str, Any]]:
+def update_compliance_status(comp_id: str, new_status: str, filed_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Updates the status or staff assignment of a compliance task.
     """
     for comp in MOCK_COMPLIANCE:
         if comp["compliance_id"] == comp_id:
             comp["status"] = new_status
+            if filed_date:
+                comp["filed_date"] = filed_date
             
             # Recalculate
             evaluated = evaluate_status_and_risk(comp)
