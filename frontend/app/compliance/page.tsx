@@ -35,6 +35,7 @@ interface ComplianceRecord {
   risk_level: string; // 'LOW', 'MEDIUM', 'HIGH'
   risk_score: number;
   filed_date?: string | null;
+  penalty_amount?: number;
 }
 
 
@@ -515,8 +516,7 @@ export default function ComplianceOperationsCenter() {
                       
                       const filingDate = task.filed_date || '—';
 
-                      // Penalty calculation: if overdue, assign mock late fee; else 0
-                      const penalty = task.status === 'Overdue' ? 2000 : 0;
+                      const penalty = task.penalty_amount;
 
                       return (
                         <tr
@@ -554,8 +554,10 @@ export default function ComplianceOperationsCenter() {
                             </span>
                           </td>
                           <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
-                            {penalty > 0 ? (
-                              <span className="text-red-600 font-bold">{formatCurrency(penalty)}</span>
+                            {penalty != null ? (
+                              <span className={penalty > 0 ? "text-red-600 font-bold" : ""}>
+                                {formatCurrency(penalty)}
+                              </span>
                             ) : (
                               <span className="text-[#9CA3AF]">—</span>
                             )}
