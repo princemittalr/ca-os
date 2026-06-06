@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, cast
@@ -778,4 +779,112 @@ def sync_notice_to_action_engine(notice: Dict[str, Any]):
     except Exception as e:
         print(f"[WARN] Failed to sync notice to action_items table: {str(e)}")
 
+
+# -------------------------------------------------------------------------
+# RECON ROWS — PER-ROW RECONCILIATION RESULT PERSISTENCE
+# -------------------------------------------------------------------------
+def save_recon_rows(reconciliation_id: str, results: Dict[str, Any]) -> None:
+    """
+    Batch-inserts every match/mismatch row into the recon_rows table.
+    Rows are inserted in chunks of 500 to avoid Supabase payload limits.
+    Also stores a compact JSON summary column for quick reads.
+    Falls back silently if Supabase is not active (dev mode).
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — skipping recon_rows persistence.")
+        return
+
+    try:
+        summary = results.get("summary", {})
+        matches = results.get("matches", [])
+        mismatches = results.get("mismatches", [])
+
+        rows: List[Dict[str, Any]] = []
+
+        for row in matches:
+            rows.append({
+                "id": str(uuid.uuid4()),
+                "reconciliation_id": reconciliation_id,
+                "row_type": "MATCH",
+                "gstin": row.get("gstin") or row.get("supplier_gstin") or "",
+                "invoice_number": row.get("invoice_number") or row.get("invoice_no") or "",
+                "invoice_date": str(row.get("invoice_date") or ""),
+                "taxable_value": float(row.get("taxable_value") or 0.0),
+                "tax_amount": float(row.get("tax_amount") or row.get("igst") or row.get("cgst") or 0.0),
+                "issue": None,
+                "row_data": json.dumps(row, default=str),
+                "summary_snapshot": json.dumps(summary, default=str),
+                "created_at": datetime.now().isoformat(),
+            })
+
+        for row in mismatches:
+            rows.append({
+                "id": str(uuid.uuid4()),
+                "reconciliation_id": reconciliation_id,
+                "row_type": "MISMATCH",
+                "gstin": row.get("gstin") or row.get("supplier_gstin") or "",
+                "invoice_number": row.get("invoice_number") or row.get("invoice_no") or "",
+                "invoice_date": str(row.get("invoice_date") or ""),
+                "taxable_value": float(row.get("taxable_value") or 0.0),
+                "tax_amount": float(row.get("tax_amount") or row.get("igst") or row.get("cgst") or 0.0),
+                "issue": row.get("issue") or row.get("reason"),
+                "row_data": json.dumps(row, default=str),
+                "summary_snapshot": json.dumps(summary, default=str),
+                "created_at": datetime.now().isoformat(),
+            })
+
+        if not rows:
+            return
+
+        # Chunk into batches of 500 to avoid payload limits
+        CHUNK_SIZE = 500
+        for i in range(0, len(rows), CHUNK_SIZE):
+            chunk = rows[i : i + CHUNK_SIZE]
+            supabase_client.table("recon_rows").insert(chunk).execute()
+
+        print(f"[INFO] Persisted {len(rows)} recon rows for reconciliation_id={reconciliation_id}")
+    except Exception as e:
+        print(f"[WARN] Failed to persist recon_rows: {str(e)}")
+
+
+def get_recon_rows(reconciliation_id: str) -> Dict[str, Any]:
+    """
+    Fetches all rows for a reconciliation_id from the recon_rows table.
+    Returns a dict with keys: summary, matches, mismatches — identical
+    structure to what reconcile_dataframes() returns, so export functions
+    can consume it without modification.
+    Raises ValueError if no rows are found (reconciliation_id unknown).
+    """
+    if not is_supabase_active():
+        raise ValueError("Supabase is not active. Cannot retrieve persisted reconciliation rows.")
+
+    try:
+        res = supabase_client.table("recon_rows") \
+            .select("*") \
+            .eq("reconciliation_id", reconciliation_id) \
+            .execute()
+
+        data: List[Dict[str, Any]] = cast(List[Dict[str, Any]], res.data or [])
+        if not data:
+            raise ValueError(f"No reconciliation rows found for id: {reconciliation_id}")
+
+        summary: Dict[str, Any] = {}
+        matches: List[Dict[str, Any]] = []
+        mismatches: List[Dict[str, Any]] = []
+
+        for row in data:
+            # Restore the full row payload from JSON
+            row_data = json.loads(row.get("row_data") or "{}")
+            if not summary and row.get("summary_snapshot"):
+                summary = json.loads(row["summary_snapshot"])
+            if row["row_type"] == "MATCH":
+                matches.append(row_data)
+            else:
+                mismatches.append(row_data)
+
+        return {"summary": summary, "matches": matches, "mismatches": mismatches}
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to retrieve reconciliation rows: {str(e)}")
 
