@@ -48,3 +48,22 @@ async def resolve_copilot_item(action_id: str):
         )
     return resolved_item
 
+from pydantic import BaseModel
+
+class ActionAssignRequest(BaseModel):
+    assigned_to: str
+
+@router.put("/{action_id}/assign", response_model=schemas.ActionItemResponse)
+async def assign_copilot_item(action_id: str, payload: ActionAssignRequest):
+    """
+    Assign a staff member to a copilot action item.
+    """
+    updated_item = db_manager.update_action_assignment(action_id, payload.assigned_to)
+    if not updated_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Action item with ID '{action_id}' not found."
+        )
+    return updated_item
+
+

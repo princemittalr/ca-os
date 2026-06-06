@@ -363,6 +363,19 @@ def resolve_action_item(action_id: str) -> Optional[Dict[str, Any]]:
     from services.action_center import resolve_action_item as engine_resolve
     return engine_resolve(action_id)
 
+def update_action_assignment(action_id: str, staff: str) -> Optional[Dict[str, Any]]:
+    if is_supabase_active():
+        try:
+            res = supabase_client.table("action_items").update({"assigned_to": staff}).eq("action_id", action_id).execute()
+            if res.data:
+                return cast(Optional[Dict[str, Any]], res.data[0])
+        except Exception as e:
+            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
+
+    # Fallback
+    from services.action_center import update_action_assignment as engine_assign
+    return engine_assign(action_id, staff)
+
 # -------------------------------------------------------------------------
 # MOCK STORES FOR JOBS & NOTIFICATIONS
 # -------------------------------------------------------------------------

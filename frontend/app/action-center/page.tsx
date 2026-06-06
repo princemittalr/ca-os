@@ -75,6 +75,7 @@ export default function SmartActionCenter() {
   const [statusTab, setStatusTab] = useState<'PENDING' | 'RESOLVED'>('PENDING');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
+  const [staffMembers, setStaffMembers] = useState<string[]>([]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -141,6 +142,19 @@ export default function SmartActionCenter() {
 
   useEffect(() => {
     fetchActionCenter();
+
+    const fetchStaff = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/staff`);
+        if (!res.ok) throw new Error("Failed to load staff");
+        const data = await res.json();
+        setStaffMembers(data);
+      } catch (err) {
+        console.error("Error fetching staff:", err);
+        setStaffMembers([]);
+      }
+    };
+    fetchStaff();
   }, []);
 
   const handleResolveAction = async (actionId: string) => {
@@ -163,11 +177,21 @@ export default function SmartActionCenter() {
 
   const handleAssignStaff = async (actionId: string, staff: string) => {
     try {
-      showToast(`✓ Staff member ${staff} assigned to execute this action.`);
-      // Update local state assignments to reflect in UI
+      // Update local state assignments to reflect in UI immediately
       setActions(prev => prev.map(a => a.action_id === actionId ? { ...a, assigned_to: staff } : a));
+      
+      const res = await fetch(`${API_BASE}/api/action-center/${actionId}/assign`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ assigned_to: staff })
+      });
+      if (!res.ok) throw new Error("Failed to persist staff assignment");
+      showToast(`✓ Staff member ${staff} assigned to execute this action.`);
     } catch (err) {
       console.error(err);
+      showToast("⚠ Failed to save staff assignment. Check API connection.");
     }
   };
 
@@ -658,13 +682,16 @@ export default function SmartActionCenter() {
                           <select 
                             onChange={(e) => handleAssignStaff(act.action_id, e.target.value)}
                             className="bg-transparent border border-slate-200 rounded-[2px] px-1 py-0.5 text-[11px] text-slate-600 focus:outline-none cursor-pointer font-medium"
-                            defaultValue={act.assigned_to || "Aditya Rao"}
+                            value={act.assigned_to || (staffMembers.length > 0 ? staffMembers[0] : "")}
                             aria-label={`Assign staff for ${act.title}`}
                           >
-                            <option value="Aditya Rao">Aditya Rao</option>
-                            <option value="Neha Sharma">Neha Sharma</option>
-                            <option value="Rohan Mehta">Rohan Mehta</option>
-                            <option value="Kunal Sen">Kunal Sen</option>
+                            {staffMembers.length > 0 ? (
+                              staffMembers.map(staff => (
+                                <option key={staff} value={staff}>{staff}</option>
+                              ))
+                            ) : (
+                              <option value="">No staff loaded</option>
+                            )}
                           </select>
                         )}
 
