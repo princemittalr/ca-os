@@ -130,7 +130,7 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
             log_audit_event(
                 action="LOGIN_SUCCESS",
     entity_type="auth",
-    actor_id=str(user.id),
+    actor_id=user.id,
     firm_id=firm_id,
     details={"email": email},
     ip_address=get_client_ip(request)
@@ -167,6 +167,8 @@ async def verify_password(payload: schemas.VerifyPasswordRequest, current_user: 
     Verify current authenticated user's password through Supabase Auth.
     """
     email = current_user.get("email")
+    if not isinstance(email, str):
+        return {"valid": False}
     if supabase_client is not None:
         try:
             res = supabase_client.auth.sign_in_with_password({
@@ -185,6 +187,11 @@ async def update_password(payload: schemas.PasswordUpdateRequest, current_user: 
     Update authenticated user's password through Supabase Auth.
     """
     user_id = current_user.get("user_id")
+    if not isinstance(user_id, str):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user context."
+        )
     if supabase_client is not None:
         try:
             supabase_client.auth.admin.update_user_by_id(user_id, {"password": payload.new_password})
