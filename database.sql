@@ -358,13 +358,15 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE TABLE IF NOT EXISTS automation_agents (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     firm_id      UUID NOT NULL REFERENCES firms(id) ON DELETE CASCADE,
+    agent_key    VARCHAR(50) NOT NULL,  -- stable key: 'compliance_reminder' | 'overdue_escalation' | 'vendor_communication' | 'reconciliation_sync'
     name         TEXT NOT NULL,
-    agent_type   TEXT NOT NULL,    -- 'reconciliation' | 'compliance' | 'notice' | 'communication'
+    agent_type   TEXT NOT NULL,         -- 'reconciliation' | 'compliance' | 'communication'
     config       JSONB NOT NULL DEFAULT '{}',
-    is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active    BOOLEAN NOT NULL DEFAULT FALSE,
     last_run_at  TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (firm_id, agent_key)         -- each firm has at most one row per agent type
 );
 
 
@@ -491,7 +493,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_firm_id       ON notifications(firm
 CREATE INDEX IF NOT EXISTS idx_support_tickets_firm_id     ON support_tickets(firm_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_firm_id          ON audit_logs(firm_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_id         ON audit_logs(actor_id);
-CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_id   ON automation_agents(firm_id);
+CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_id        ON automation_agents(firm_id);
+CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_key       ON automation_agents(firm_id, agent_key);
 
 
 -- =============================================================================

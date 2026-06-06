@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from fastapi import Request
 
@@ -53,10 +53,10 @@ def log_audit_event(
         "entity_id": entity_id,
         "details": details or {},
         "ip_address": ip_address,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if is_supabase_active():
+    if is_supabase_active() and supabase_client is not None:
         try:
             supabase_client.table("audit_logs").insert(log_entry).execute()
             return

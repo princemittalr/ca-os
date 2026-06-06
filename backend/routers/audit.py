@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from typing import List, Optional
+from typing import List, Optional, cast
+from supabase import Client
 from models import schemas
-from config.supabase import supabase_client, is_supabase_active
+from config.supabase import supabase_client as _raw_supabase, is_supabase_active
+
+_db: Client = cast(Client, _raw_supabase)
 from middleware.auth import verify_token
 
 router = APIRouter()
@@ -28,7 +31,7 @@ async def get_audit_logs(
 
     try:
         q = (
-            supabase_client.table("audit_logs")
+            _db.table("audit_logs")
             .select("*")
             .order("created_at", desc=True)
             .limit(limit)
