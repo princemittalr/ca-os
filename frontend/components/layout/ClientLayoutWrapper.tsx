@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import { getAuthToken, clearAuth } from "../../lib/auth";
 
 export default function ClientLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,14 +16,14 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
   const isAuthPage = authPages.includes(pathname);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = getAuthToken();
     console.log("TOKEN CHECK:", token, "isAuthPage:", isAuthPage, "pathname:", pathname);
     
     // Reject mock tokens in all environments
     const isMockToken = !!token?.startsWith(["mock", "access", "token"].join("-"));
     if (isMockToken) {
       setIsAuthenticated(false);
-      localStorage.clear();
+      clearAuth();
       router.replace("/login");
       setIsMobileSidebarOpen(false);
       return;

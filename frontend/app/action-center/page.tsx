@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
+import { getAuthToken } from '@/lib/auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -114,7 +115,7 @@ export default function SmartActionCenter() {
       
       // Fetch dynamic narrative briefing from AI Copilot layer
       try {
-        const token = localStorage.getItem("access_token");
+        const token = getAuthToken();
         if (!token) throw new Error("No auth token");
         const aiBriefingRes = await fetch(`${API_BASE}/api/ai/daily-briefing`, {
           method: "POST",

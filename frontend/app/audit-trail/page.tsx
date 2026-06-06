@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
+import { getAuthToken } from '@/lib/auth';
 import { 
   ClipboardList, 
   Search, 
@@ -60,7 +61,7 @@ export default function AuditTrailPage() {
   const fetchLogs = async () => {
     try {
       setIsLoadingLogs(true);
-      const token = localStorage.getItem("access_token");
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE}/api/audit/`, {
         headers: token ? { "Authorization": `Bearer ${token}` } : {}
       });

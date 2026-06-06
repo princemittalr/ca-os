@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import { getAuthToken } from '@/lib/auth';
 import {
   Building,
   Calendar as CalendarIcon,
@@ -160,7 +161,7 @@ function GSTReconciliationPageContent() {
       const fetchAIExplanation = async () => {
         setIsAiLoading(true);
         try {
-          const token = localStorage.getItem("access_token");
+          const token = getAuthToken();
           if (!token) {
             window.location.href = "/login";
             return;

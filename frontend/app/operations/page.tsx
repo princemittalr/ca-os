@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import { getAuthToken } from '@/lib/auth';
 import {
   Activity,
   Play,
@@ -76,7 +77,7 @@ export default function OperationsDashboard() {
 
   const fetchLogs = async () => {
     try {
-      const token = localStorage.getItem("access_token");
+      const token = getAuthToken();
       if (!token) {
         window.location.href = "/login";
         return;
@@ -117,7 +118,7 @@ export default function OperationsDashboard() {
   const handleForceTrigger = async (jobType: string) => {
     try {
       setIsActioning(jobType);
-      const token = localStorage.getItem("access_token");
+      const token = getAuthToken();
       if (!token) {
         window.location.href = "/login";
         return;
@@ -145,7 +146,7 @@ export default function OperationsDashboard() {
   const handleRetryJob = async (jobId: string) => {
     try {
       setIsActioning(jobId);
-      const token = localStorage.getItem("access_token");
+      const token = getAuthToken();
       if (!token) {
         window.location.href = "/login";
         return;

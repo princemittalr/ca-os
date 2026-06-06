@@ -15,6 +15,8 @@ import {
   Menu
 } from 'lucide-react';
 
+import { getAuthToken } from "../../lib/auth";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 function formatTimeAgo(dateString: string) {
@@ -83,7 +85,7 @@ export default function TopBar({
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = getAuthToken();
     fetch(`${API_BASE}/api/notifications/`, {
       headers: token ? { "Authorization": `Bearer ${token}` } : {}
     })

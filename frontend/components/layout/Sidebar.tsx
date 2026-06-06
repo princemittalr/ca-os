@@ -23,6 +23,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
+import { clearAuth } from '../../lib/auth';
 
 /* ─── Data Structures & Grouping ─────────────────────────── */
 interface NavItem {
@@ -294,7 +295,7 @@ export default function Sidebar({
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
+    clearAuth();
     window.location.href = "/login";
   };
 
