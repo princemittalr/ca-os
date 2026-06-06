@@ -52,6 +52,7 @@ export default function ClientWorkspacePortal() {
   const [activeTab, setActiveTab] = useState<'overview' | 'reconcile' | 'compliance' | 'notices' | 'vault' | 'activity'>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
+  const [fetchError, setFetchError] = useState<string|null>(null);
 
   // Edit client modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -104,35 +105,7 @@ export default function ClientWorkspacePortal() {
       setCommunications(data);
     } catch (err) {
       console.error(err);
-      // Premium Fallback Mock Communications
-      setCommunications([
-        {
-          id: "comm-1",
-          client_id: clientId,
-          vendor_name: "Sharma Traders",
-          gstin: "09AABCS7890E1Z9",
-          issue: "MISSING_IN_2B",
-          subject: "URGENT: GSTR-2B Invoice Mismatch - Action Required for ITC Claim - Sharma Traders",
-          email_body: "Dear Accounts Team at Sharma Traders,\n\nWe are writing on behalf of our client to notify you of a discrepancy identified during our monthly automated GST reconciliation for the filing period March 2024.\n\nRECONCILIATION OBSERVATIONS:\nInvoice Number: SH/2024/77\nTaxable Value: ₹185,000\nObservation: This invoice is recorded in our purchase register but is entirely MISSING in our GSTR-2B portal records, indicating that it has not been uploaded in your GSTR-1 return yet.\n\nCOMPLIANCE & ITC IMPLICATIONS:\nUnder Section 16(2)(aa) of the CGST Act 2017, we are legally barred from claiming Input Tax Credit (ITC) on this invoice until you upload it in your GSTR-1. This is causing significant working capital blockage and potential tax interest liabilities for our firm.\n\nREQUIRED ACTION:\nKindly upload this invoice in your upcoming GSTR-1 return immediately, or file an amendment if required, so that it reflects in our GSTR-2B. We request you to resolve this on priority before 2026-06-10.\n\nPlease confirm once uploaded with the filing ARN.\n\nRegards,\nAudit & Compliance Team\nReckon CA Operating Workspace Partner",
-          priority: "HIGH",
-          recommended_deadline: "2026-06-10",
-          status: "Drafted",
-          created_at: new Date().toISOString()
-        },
-        {
-          id: "comm-2",
-          client_id: clientId,
-          vendor_name: "Apex Innovations Pvt Ltd",
-          gstin: "29AABCA5678B1Z3",
-          issue: "VALUE_MISMATCH",
-          subject: "NOTICE: GST Taxable Value Discrepancy - Action Required - Apex Innovations Pvt Ltd",
-          email_body: "Dear Accounts Team at Apex Innovations Pvt Ltd,\n\nWe are writing on behalf of our client to report a taxable value mismatch detected during our GST portal reconciliation for the filing period March 2024.\n\nRECONCILIATION OBSERVATIONS:\nInvoice Number: IN-34305\nOur Books Value: ₹215,500\nObservation: There is a discrepancy between the invoice amount recorded in our purchase register and the corresponding value reported by you in the GSTR-1 portal.\n\nCOMPLIANCE & ITC IMPLICATIONS:\nMismatches in taxable values trigger system warnings under GSTR-3B matching, risking credit reversals and GST audit notices from the tax department.\n\nREQUIRED ACTION:\nPlease verify this transaction against your physical invoice copies and accounting records. If there has been a booking error on your side, kindly amend the invoice in your GSTR-1 or issue an appropriate Debit/Credit Note by 2026-06-12.\n\nThank you for your prompt cooperation.\n\nRegards,\nAudit & Compliance Team\nReckon CA Operating Workspace Partner",
-          priority: "MEDIUM",
-          recommended_deadline: "2026-06-12",
-          status: "Sent",
-          created_at: new Date().toISOString()
-        }
-      ]);
+      setCommunications([]);
     } finally {
       setIsCommsLoading(false);
     }
@@ -245,6 +218,7 @@ export default function ClientWorkspacePortal() {
   const fetchWorkspace = async () => {
     try {
       setIsLoading(true);
+      setFetchError(null);
       // Fetch Client details
       const clientRes = await fetch(`${API_BASE}/api/clients/${clientId}`);
       if (!clientRes.ok) throw new Error("Failed to load client details");
@@ -259,34 +233,9 @@ export default function ClientWorkspacePortal() {
       setHistory(historyData);
     } catch (err) {
       console.error(err);
-      // Premium Fallback Mock Workspace
-      setClient({
-        id: clientId,
-        business_name: clientId === '1' ? 'TechNova Solutions Pvt Ltd' : clientId === '2' ? 'Apex Innovations Pvt Ltd' : clientId === '3' ? 'Wayne Enterprises Ltd' : clientId === '4' ? 'Global Trade LLC' : 'Sharma Traders',
-        legal_name: clientId === '1' ? 'TechNova Solutions Private Limited' : 'Corporate Entity Ltd',
-        gstin: clientId === '1' ? '27AAACT1234A1Z5' : clientId === '2' ? '29AABCA5678B1Z3' : '07AABCW9012C1Z1',
-        state: 'Maharashtra',
-        filing_frequency: 'monthly',
-        assigned_manager: 'Aditya Rao',
-        email: 'accounts@technova.co.in'
-      });
-      setHistory([
-        {
-          reconciliation_id: "recon-mock-01",
-          client_id: clientId,
-          filing_period: "2024-03",
-          reconciliation_status: "Completed with Mismatches",
-          total_invoices: 15,
-          matched_count: 11,
-          mismatch_count: 4,
-          missing_in_2b_count: 2,
-          missing_in_books_count: 2,
-          itc_at_risk: 183780.0,
-          itc_protected: 15810.0,
-          risk_score: "HIGH",
-          upload_timestamp: new Date().toISOString()
-        }
-      ]);
+      setClient(null);
+      setHistory([]);
+      setFetchError("Unable to load client. Please retry.");
     } finally {
       setIsLoading(false);
     }
@@ -326,6 +275,15 @@ export default function ClientWorkspacePortal() {
       return dateStr;
     }
   };
+
+  if (fetchError) {
+    return (
+      <div className="min-h-[400px] flex flex-col items-center justify-center gap-4 text-rose-600 text-sm font-semibold tracking-wide">
+        <AlertCircle size={32} className="text-rose-600 animate-pulse" />
+        <span>{fetchError}</span>
+      </div>
+    );
+  }
 
   if (isLoading || !client) {
     return (
@@ -458,8 +416,8 @@ export default function ClientWorkspacePortal() {
                   { label: 'GSTIN', value: client.gstin, mono: true },
                   { label: 'State / Jurisdiction', value: client.state },
                   { label: 'Filing Frequency', value: client.filing_frequency || 'Monthly' },
-                  { label: 'Contact Email', value: client.email || 'accounts@technova.co.in', mono: true },
-                  { label: 'Assigned CA Principal', value: client.assigned_manager || 'Aditya Rao' },
+                  { label: 'Contact Email', value: client.email || '—', mono: true },
+                  { label: 'Assigned CA Principal', value: client.assigned_manager || '—' },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between h-[28px] border-b border-[#F3F4F6] last:border-b-0">
                     <span className="text-[11px] text-[#6B7280]">{row.label}</span>
@@ -859,7 +817,7 @@ export default function ClientWorkspacePortal() {
                     <input
                       type="text" required value={formVendorName}
                       onChange={e => setFormVendorName(e.target.value)}
-                      placeholder="e.g. Wayne Enterprises"
+                      placeholder="e.g. Acme Corp"
                       className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none"
                     />
                   </div>

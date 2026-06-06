@@ -160,7 +160,11 @@ function GSTReconciliationPageContent() {
       const fetchAIExplanation = async () => {
         setIsAiLoading(true);
         try {
-          const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
+          const token = localStorage.getItem("access_token");
+          if (!token) {
+            window.location.href = "/login";
+            return;
+          }
           const res = await fetch(`${API_BASE}/api/ai/explain-mismatch`, {
             method: "POST",
             headers: {
@@ -275,11 +279,12 @@ function GSTReconciliationPageContent() {
   };
 
   // Demo mode bypass
-  // Note: Keep handleLoadDemoDataset() as-is; it pre-fills files for real API submission, not mock data.
   const handleLoadDemoDataset = () => {
-    setSelectedClient('1'); // TechNova Solutions
-    setFile2B(new File([], "technova_gstr2b_fy23_24.json"));
-    setFilePR(new File([], "technova_purchase_register_march.xlsx"));
+    if (clients.length > 0) {
+      setSelectedClient(clients[0].id);
+    }
+    setFile2B(new File([], "demo_gstr2b_fy23_24.json"));
+    setFilePR(new File([], "demo_purchase_register_march.xlsx"));
     setStep(3); // Go straight to step 3 so they can see mapping & run
     showToast("✓ Demo dataset loaded. Review mapping & proceed.");
   };

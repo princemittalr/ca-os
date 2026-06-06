@@ -17,60 +17,9 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         raise e
 
 def generate_mock_ocr_fallback(filename: str) -> str:
-    """
-    An intelligent mock OCR text generator for images/screenshots.
-    Simulates a scanned GST notice text layer.
-    """
-    fn = filename.lower()
-    if "drc" in fn or "drc01" in fn:
-        return (
-            "OFFICE OF THE DEPUTY COMMISSIONER OF CENTRAL TAX, AUDIT COMMISSIONERATE, MUMBAI\n"
-            "FORM GST DRC-01\n"
-            "SHOW CAUSE NOTICE UNDER SECTION 73 OF CGST ACT, 2017\n"
-            "Reference No: GST/TNV/2026/DRC-01/992\n"
-            "Date of Issue: 2026-05-20\n"
-            "GSTIN: 27AAACT1234A1Z5\n"
-            "To,\n"
-            "TechNova Solutions Pvt Ltd,\n"
-            "Subject: Discrepancy in Input Tax Credit claimed in GSTR-3B vs GSTR-2B for FY 2025-26\n"
-            "Discrepancy Amount: Taxable Value INR 1,02,780.00 with IGST Rs. 18,500.00\n"
-            "You are hereby required to file your reply in Form GST DRC-03 within 30 days of this notice.\n"
-            "Response Deadline: 2026-06-20\n"
-            "Personal Hearing Date: 2026-06-12\n"
-            "Statutory Section: Section 73 read with Section 16(4) of Central Goods and Services Tax Act."
-        )
-    elif "asmt" in fn or "asmt10" in fn:
-        return (
-            "GOVERNMENT OF UTTAR PRADESH, DEPARTMENT OF STATE TAX\n"
-            "FORM GST ASMT-10\n"
-            "NOTICE FOR SCRUTINY OF RETURNS UNDER SECTION 61\n"
-            "Reference No: GST/SHR/2026/ASMT-10/773\n"
-            "Date of Issue: 2026-05-15\n"
-            "GSTIN: 09AABCS7890E1Z9\n"
-            "To,\n"
-            "Sharma Traders,\n"
-            "Subject: Scrutiny of returns filed for Q3 FY 2025-26 - Scrutiny of records under Section 61\n"
-            "Discrepancies identified: Difference in outward supplies reported in GSTR-1 vs GSTR-3B\n"
-            "Taxable value variance Rs 2,50,000.00. Short payment CGST Rs. 22,500.00, SGST Rs. 22,500.00. Total Rs 45,000.00.\n"
-            "Please submit your explanation in Form GST ASMT-11 within fifteen days.\n"
-            "Response Deadline: 2026-05-30"
-        )
-    else:
-        # Default mock notice text
-        return (
-            "GOVERNMENT OF INDIA, DEPARTMENT OF REVENUE, CENTRAL BOARD OF INDIRECT TAXES\n"
-            "GST COMPLIANCE AUDIT NOTICE UNDER SECTION 65\n"
-            "Reference No: GST/GEN/2026/AUDIT-65/12\n"
-            "Date of Issue: 2026-05-24\n"
-            "GSTIN: 29AABCA5678B1Z3\n"
-            "To,\n"
-            "Apex Innovations Pvt Ltd,\n"
-            "Discrepancy: Mismatch detected in ITC claim threshold values.\n"
-            "Tax Amount At Risk: Rs. 92,000.00\n"
-            "Please submit audit documents within 15 days.\n"
-            "Response Deadline: 2026-06-08\n"
-            "Filing Section: Section 65 of CGST Act, 2017."
-        )
+    raise RuntimeError(
+        "Mock OCR fallback is disabled in production."
+    )
 
 def parse_deterministic_metadata(text: str) -> Dict[str, Any]:
     """

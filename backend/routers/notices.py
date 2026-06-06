@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
 from datetime import date, datetime, timedelta
+import logging
 
 from middleware.auth import verify_token, RequireRoles
 from services.db import manager as db_manager
 from services.notice_engine import ocr, intelligence
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -32,14 +36,43 @@ async def upload_gst_notice(
     if filename.lower().endswith(".pdf"):
         try:
             raw_text = ocr.extract_text_from_pdf(contents)
-        except Exception:
-            raw_text = ocr.generate_mock_ocr_fallback(filename)
+        except Exception as e:
+            logger.error(
+                f"OCR text extraction failed for file '{filename}'. "
+                f"Reason: PyMuPDF extraction failed: {str(e)}"
+            )
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content={
+                    "success": False,
+                    "error": "Unable to extract notice text from uploaded file."
+                }
+            )
     else:
-        # Fallback for Scanned Images/Screenshots
-        raw_text = ocr.generate_mock_ocr_fallback(filename)
+        logger.error(
+            f"OCR text extraction failed for file '{filename}'. "
+            f"Reason: Unsupported file extension."
+        )
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "success": False,
+                "error": "Unable to extract notice text from uploaded file."
+            }
+        )
 
-    if not raw_text:
-         raw_text = ocr.generate_mock_ocr_fallback(filename)
+    if not raw_text or not raw_text.strip():
+        logger.error(
+            f"OCR text extraction failed for file '{filename}'. "
+            f"Reason: Extracted text is empty."
+        )
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "success": False,
+                "error": "Unable to extract notice text from uploaded file."
+            }
+        )
 
     # 3. Deterministic regex extraction
     det = ocr.parse_deterministic_metadata(raw_text)

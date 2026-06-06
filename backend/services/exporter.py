@@ -95,7 +95,7 @@ def generate_excel_report(summary: Dict[str, Any], matches: List[Dict[str, Any]]
     meta_style = Font(name="Calibri", size=10, bold=True, color="374151")
     ws_summary["A4"] = "Client Corporate Name:"
     ws_summary["A4"].font = meta_style
-    ws_summary["B4"] = "TechNova Solutions Pvt Ltd" # Default fallback
+    ws_summary["B4"] = "Client Firm" # Default fallback
     
     ws_summary["A5"] = "Filing Period:"
     ws_summary["A5"].font = meta_style
@@ -459,7 +459,7 @@ def generate_pdf_summary(summary: Dict[str, Any], matches: List[Dict[str, Any]],
             Paragraph("AUDITOR PLATFORM SYSTEM", meta_label)
         ],
         [
-            Paragraph("TechNova Solutions Pvt Ltd", meta_val),
+            Paragraph("Client Firm", meta_val),
             Paragraph("March 2024 (FY 2023-24)", meta_val),
             Paragraph("CA-OS Intelligence Core", meta_val)
         ],

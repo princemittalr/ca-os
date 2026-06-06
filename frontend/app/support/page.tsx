@@ -46,7 +46,7 @@ const initialTickets = [
     priority: 'Medium',
     status: 'Open',
     date: '26-05-2026',
-    description: 'Form 26AS matching shows a mismatch of ₹14,250 in the calculated TDS credits for TechNova Solutions. The tax ledger seems to have duplicated two invoices.',
+    description: 'Form 26AS matching shows a mismatch of ₹14,250 in the calculated TDS credits for the client. The tax ledger seems to have duplicated two invoices.',
     agent: 'CA Neha Verma (Tax Associate)',
     timeline: [
       { event: 'Ticket Created', date: '26-05-2026 09:30', description: 'Reported calculations mismatch in Q3 TDS.' }

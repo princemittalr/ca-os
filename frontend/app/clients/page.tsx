@@ -689,7 +689,7 @@ export default function ClientPortfolioPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. TechNova Solutions Pvt Ltd"
+                    placeholder="e.g. Acme Corp Pvt Ltd"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"

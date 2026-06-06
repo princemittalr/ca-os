@@ -452,7 +452,8 @@ def reset_demo_workspace():
 
     # 6. Database reset (if Supabase persistent connection is active)
     from config.supabase import is_supabase_active, supabase_client
-    if is_supabase_active():
+    if is_supabase_active() and supabase_client is not None:
+        db = supabase_client
         try:
             logger.info("Supabase active. Seeding persistent database tables...")
             # Truncate tables for default demo scopes (or soft wipe scoped entries)
@@ -460,19 +461,21 @@ def reset_demo_workspace():
             # We delete existing demo clients and re-insert
             client_ids = ["client-1", "client-2", "client-3", "client-4"]
             for cid in client_ids:
-                supabase_client.table("clients").delete().eq("id", cid).execute()
-                supabase_client.table("reconciliation_runs").delete().eq("client_id", cid).execute()
-                supabase_client.table("compliance_tasks").delete().eq("client_id", cid).execute()
-                supabase_client.table("communications").delete().eq("client_id", cid).execute()
-                supabase_client.table("action_items").delete().eq("client_id", cid).execute()
-                supabase_client.table("gst_notices").delete().eq("client_id", cid).execute()
+                db.table("clients").delete().eq("id", cid).execute()
+                db.table("reconciliation_runs").delete().eq("client_id", cid).execute()
+                db.table("compliance_tasks").delete().eq("client_id", cid).execute()
+                db.table("communications").delete().eq("client_id", cid).execute()
+                db.table("action_items").delete().eq("client_id", cid).execute()
+                db.table("gst_notices").delete().eq("client_id", cid).execute()
                 
             # Seed them in Supabase
             # Insert clients
             for c in get_seeded_clients():
-                payload = {**c, "firm_id": "mock-firm-uuid-12345", "contact_person": c["contact_person"], "is_deleted": False}
-                payload["created_at"] = payload["created_at"].isoformat()
-                supabase_client.table("clients").insert(payload).execute()
+                payload = {**c, "firm_id": "demo-firm-uuid-12345", "contact_person": c["contact_person"], "is_deleted": False}
+                created_at = payload.get("created_at")
+                if hasattr(created_at, "isoformat"):
+                    payload["created_at"] = created_at.isoformat()
+                db.table("clients").insert(payload).execute()
                 
             # Insert Reconciliations
             for r in get_seeded_reconciliations():
@@ -491,7 +494,7 @@ def reset_demo_workspace():
                     "risk_score": r["risk_score"],
                     "is_deleted": False
                 }
-                supabase_client.table("reconciliation_runs").insert(payload).execute()
+                db.table("reconciliation_runs").insert(payload).execute()
                 
             # Insert Compliance Tasks
             for comp in get_seeded_compliance():
@@ -508,7 +511,7 @@ def reset_demo_workspace():
                     "risk_score": comp["risk_score"],
                     "is_deleted": False
                 }
-                supabase_client.table("compliance_tasks").insert(payload).execute()
+                db.table("compliance_tasks").insert(payload).execute()
                 
             # Insert Notices
             for n in get_seeded_notices():
@@ -532,7 +535,7 @@ def reset_demo_workspace():
                     "gstin": n["gstin"],
                     "is_deleted": False
                 }
-                supabase_client.table("gst_notices").insert(payload).execute()
+                db.table("gst_notices").insert(payload).execute()
                 
             # Insert Action Items
             for a in get_seeded_action_items():
@@ -550,7 +553,7 @@ def reset_demo_workspace():
                     "status": a["status"],
                     "is_deleted": False
                 }
-                supabase_client.table("action_items").insert(payload).execute()
+                db.table("action_items").insert(payload).execute()
                 
             logger.info("✓ Persistent Database Tables Seeding: OK")
         except Exception as err:

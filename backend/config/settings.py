@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     """
     ENV: str = Field("development", validation_alias="ENV")
     DEBUG: bool = Field(True, validation_alias="DEBUG")
+    ENABLE_DEMO_MODE: bool = Field(False, validation_alias="ENABLE_DEMO_MODE")
     
     # Auth secrets
     SECRET_KEY: str = Field(..., validation_alias="SECRET_KEY")

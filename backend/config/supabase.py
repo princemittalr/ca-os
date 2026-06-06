@@ -13,17 +13,24 @@ SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_ROLE_KEY"
 # Singleton client reference
 supabase_client: Optional[Client] = None
 
-# Service role key should ONLY be used in the backend for elevated access
-active_key = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY
+# Enforce credentials existence on startup
+if (not SUPABASE_URL or SUPABASE_URL == "mock_url" or
+    not SUPABASE_ANON_KEY or SUPABASE_ANON_KEY == "mock_key" or
+    not SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_ROLE_KEY == "mock_key"):
+    missing = []
+    if not SUPABASE_URL or SUPABASE_URL == "mock_url": missing.append("SUPABASE_URL")
+    if not SUPABASE_ANON_KEY or SUPABASE_ANON_KEY == "mock_key": missing.append("SUPABASE_ANON_KEY")
+    if not SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_ROLE_KEY == "mock_key": missing.append("SUPABASE_SERVICE_ROLE_KEY")
+    raise RuntimeError(
+        f"Required Supabase credentials missing or set to mock defaults: {', '.join(missing)}. "
+        f"Application startup failed."
+    )
 
-if SUPABASE_URL and active_key:
-    try:
-        supabase_client = create_client(SUPABASE_URL, active_key)
-        print("[SUCCESS] Supabase Persistent Infrastructure Client Singleton Initialized.")
-    except Exception as e:
-        print(f"[WARN] Failed to initialize Supabase client: {str(e)}")
-else:
-    print("[WARN] Supabase credentials not found in environment. Operating in zero-friction MOCK fallback mode.")
+try:
+    supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    print("[SUCCESS] Supabase Persistent Infrastructure Client Singleton Initialized.")
+except Exception as e:
+    raise RuntimeError(f"Failed to initialize Supabase client: {str(e)}")
 
 def is_supabase_active() -> bool:
     """

@@ -11,7 +11,6 @@ async def verify_token(authorization: Optional[str] = Header(None)) -> dict:
     """
     HTTP Bearer JWT Token verification middleware.
     Decodes Supabase Auth session JWTs, injecting user context.
-    If Supabase is unconfigured, automatically fallbacks to a high-privilege mock context.
     """
     # 1. Check if Supabase Persistent database is active
     if not is_supabase_active():
@@ -42,7 +41,12 @@ async def verify_token(authorization: Optional[str] = Header(None)) -> dict:
         # Extract custom user roles & metadata
         metadata = user.user_metadata or {}
         role = metadata.get("role", "ARTICLE") # Default to standard auditor associate
-        firm_id = metadata.get("firm_id", "mock-firm-uuid-67890")
+        firm_id = metadata.get("firm_id")
+        if not firm_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed. User metadata is missing the required firm association."
+            )
         full_name = metadata.get("full_name", "CA Auditor")
         
         return {

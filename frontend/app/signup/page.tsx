@@ -118,7 +118,7 @@ export default function SignupPage() {
                 required
                 value={fullName}
                 onChange={e => setFullName(e.target.value)}
-                placeholder="Aditya Rao"
+                placeholder="e.g. Rahul Sharma"
                 className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
               />
             </div>
@@ -129,7 +129,7 @@ export default function SignupPage() {
                 required
                 value={firmName}
                 onChange={e => setFirmName(e.target.value)}
-                placeholder="Rao & Associates"
+                placeholder="e.g. Sharma & Associates"
                 className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
               />
             </div>
@@ -156,7 +156,7 @@ export default function SignupPage() {
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="e.g. aditya@firm.com"
+              placeholder="e.g. auditor@firm.com"
               className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
             />
           </div>

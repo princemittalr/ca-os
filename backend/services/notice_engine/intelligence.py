@@ -212,7 +212,7 @@ async def generate_statutory_reply_draft(notice_data: Dict[str, Any]) -> str:
     notice_type = notice_data.get("notice_type", "Notice")
     notice_num = notice_data.get("notice_number", "N/A")
     authority = notice_data.get("issuing_authority", "GST Tax Authority Office")
-    client_name = notice_data.get("client_name", "TechNova Solutions Pvt Ltd")
+    client_name = notice_data.get("client_name", "Client Firm")
     gstin = notice_data.get("gstin", "N/A")
     sections = ", ".join(notice_data.get("section_references", ["GST Regulations"]))
     tax_amount = notice_data.get("tax_amount", 0.0)

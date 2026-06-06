@@ -36,19 +36,13 @@ interface ComplianceRecord {
   risk_score: number;
 }
 
-const CLIENTS_LOOKUP: Record<string, string> = {
-  "client-1": "TechNova Solutions Pvt Ltd",
-  "client-2": "Apex Innovations Pvt Ltd",
-  "client-3": "Wayne Enterprises Ltd",
-  "client-4": "Global Trade LLC",
-  "client-5": "Sharma Traders"
-};
 
 export default function ComplianceOperationsCenter() {
   const [tasks, setTasks] = useState<ComplianceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState('');
   const [clientsMap, setClientsMap] = useState<Record<string, string>>({});
+  const [staffList, setStaffList] = useState<string[]>([]);
 
   // Toolbar state
   const [selectedEntity, setSelectedEntity] = useState('ALL');
@@ -65,11 +59,11 @@ export default function ComplianceOperationsCenter() {
 
   // Create Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [formClientId, setFormClientId] = useState('client-1');
+  const [formClientId, setFormClientId] = useState('');
   const [formType, setFormType] = useState('GSTR-1');
   const [formPeriod, setFormPeriod] = useState('March 2024');
   const [formDueDate, setFormDueDate] = useState('2026-06-05');
-  const [formAssignedTo, setFormAssignedTo] = useState('Aditya Rao');
+  const [formAssignedTo, setFormAssignedTo] = useState('');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -85,9 +79,27 @@ export default function ComplianceOperationsCenter() {
           map[c.id] = c.business_name;
         });
         setClientsMap(map);
+        if (data.length > 0) {
+          setFormClientId(data[0].id);
+        }
       })
       .catch(err => {
         console.error("Client lookup failed:", err);
+      });
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/staff`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => {
+        setStaffList(data);
+        if (data.length > 0) {
+          setFormAssignedTo(data[0]);
+        }
+      })
+      .catch(err => {
+        console.error("Staff lookup failed:", err);
+        setStaffList([]);
       });
   }, []);
 
@@ -318,20 +330,20 @@ export default function ComplianceOperationsCenter() {
           {/* Entity Selector */}
           <div className="flex items-center gap-1.5">
             <span className="text-[#6B7280] font-medium">Entity:</span>
-            <select
-              value={selectedEntity}
-              onChange={(e) => setSelectedEntity(e.target.value)}
-              className="h-7 bg-slate-50 border border-[#E5E7EB] rounded px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-[#1B4F8A] cursor-pointer"
-            >
-              <option value="ALL">All Entities</option>
-              {Object.entries(clientsMap).map(([id, name]) => (
-                <option key={id} value={id}>{name}</option>
-              ))}
-              {Object.entries(CLIENTS_LOOKUP).map(([id, name]) => {
-                if (clientsMap[id]) return null;
-                return <option key={id} value={id}>{name}</option>;
-              })}
-            </select>
+            {Object.keys(clientsMap).length === 0 ? (
+              <span className="text-[12px] text-rose-600 font-semibold">No client data available.</span>
+            ) : (
+              <select
+                value={selectedEntity}
+                onChange={(e) => setSelectedEntity(e.target.value)}
+                className="h-7 bg-slate-50 border border-[#E5E7EB] rounded px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-[#1B4F8A] cursor-pointer"
+              >
+                <option value="ALL">All Entities</option>
+                {Object.entries(clientsMap).map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Period Selectors */}
@@ -493,7 +505,7 @@ export default function ComplianceOperationsCenter() {
                   {filteredTasks.length > 0 ? (
                     filteredTasks.map(task => {
                       const isSelected = selectedRowIds.includes(task.compliance_id);
-                      const clientName = clientsMap[task.client_id] || CLIENTS_LOOKUP[task.client_id] || "Client Firm";
+                      const clientName = clientsMap[task.client_id] || "Client Firm";
                       const cat = getTaskCategory(task.status);
                       
                       // Mock filing date if filed
@@ -652,7 +664,7 @@ export default function ComplianceOperationsCenter() {
                       {/* Tasks List */}
                       <div className="flex-1 space-y-1 overflow-y-auto pr-0.5 mt-1">
                         {dayTasks.map(task => {
-                          const clientShort = clientsMap[task.client_id] || CLIENTS_LOOKUP[task.client_id] || "Firm";
+                          const clientShort = clientsMap[task.client_id] || "Firm";
                           const fillStyle = getMutedFillColor(task.status);
                           return (
                             <div
@@ -692,18 +704,19 @@ export default function ComplianceOperationsCenter() {
             <form onSubmit={handleCreateDeadline} className="space-y-4 font-sans text-xs">
               <div>
                 <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5">Select Corporate Client *</label>
-                <select
-                  value={formClientId}
-                  onChange={e => setFormClientId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
-                >
-                  {Object.entries(clientsMap).map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                  {Object.entries(CLIENTS_LOOKUP).map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                </select>
+                {Object.keys(clientsMap).length === 0 ? (
+                  <div className="text-[12px] text-rose-600 font-semibold py-1">No client data available.</div>
+                ) : (
+                  <select
+                    value={formClientId}
+                    onChange={e => setFormClientId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
+                  >
+                    {Object.entries(clientsMap).map(([id, name]) => (
+                      <option key={id} value={id}>{name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -750,16 +763,19 @@ export default function ComplianceOperationsCenter() {
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5">Assign Staff *</label>
-                  <select
-                    value={formAssignedTo}
-                    onChange={e => setFormAssignedTo(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
-                  >
-                    <option value="Aditya Rao">Aditya Rao</option>
-                    <option value="Neha Sharma">Neha Sharma</option>
-                    <option value="Rohan Mehta">Rohan Mehta</option>
-                    <option value="Kunal Sen">Kunal Sen</option>
-                  </select>
+                  {staffList.length === 0 ? (
+                    <div className="text-[12px] text-rose-600 font-semibold py-1">No staff available</div>
+                  ) : (
+                    <select
+                      value={formAssignedTo}
+                      onChange={e => setFormAssignedTo(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
+                    >
+                      {staffList.map((staff) => (
+                        <option key={staff} value={staff}>{staff}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 

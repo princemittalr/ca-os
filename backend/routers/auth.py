@@ -60,8 +60,14 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 details={"firm_name": firm_name, "role": role}
             )
             
+            if not res.session:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Registration succeeded but session could not be established. Please verify your email."
+                )
+                
             return {
-                "access_token": res.session.access_token if res.session else "mock-access-token-999",
+                "access_token": res.session.access_token,
                 "token_type": "bearer",
                 "user_id": user.id,
                 "firm_id": firm_id,
@@ -104,7 +110,12 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
             user = res.user
             metadata = user.user_metadata or {}
             role = metadata.get("role", "ARTICLE")
-            firm_id = metadata.get("firm_id", "mock-firm-uuid-67890")
+            firm_id = metadata.get("firm_id")
+            if not firm_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentication failed. User profile metadata is missing the required firm association."
+                )
             full_name = metadata.get("full_name", "CA Partner")
             
             # Log audit

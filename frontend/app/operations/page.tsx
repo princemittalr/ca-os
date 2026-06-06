@@ -76,7 +76,11 @@ export default function OperationsDashboard() {
 
   const fetchLogs = async () => {
     try {
-      const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
       const headers = { "Authorization": `Bearer ${token}` };
 
       const [jobsRes, notifRes, statusRes] = await Promise.all([
@@ -113,7 +117,11 @@ export default function OperationsDashboard() {
   const handleForceTrigger = async (jobType: string) => {
     try {
       setIsActioning(jobType);
-      const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
       const res = await fetch(`${API_BASE}/api/jobs/trigger`, {
         method: "POST",
         headers: {
@@ -137,7 +145,11 @@ export default function OperationsDashboard() {
   const handleRetryJob = async (jobId: string) => {
     try {
       setIsActioning(jobId);
-      const token = localStorage.getItem("access_token") || "mock-access-token-partner-12345";
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        window.location.href = "/login";
+        return;
+      }
       const res = await fetch(`${API_BASE}/api/jobs/${jobId}/retry`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}` }

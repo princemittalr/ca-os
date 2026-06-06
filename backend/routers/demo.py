@@ -8,9 +8,23 @@ from services.demo_engine import (
     reset_demo_workspace, 
     record_demo_analytic
 )
+from config.settings import settings
 from middleware.auth import verify_token
 
-router = APIRouter()
+def check_demo_access(current_user: dict = Depends(verify_token)):
+    if not settings.ENABLE_DEMO_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo mode is disabled."
+        )
+    if current_user["role"] not in ["SUPER_ADMIN", "PARTNER"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Demo features require admin privileges."
+        )
+    return current_user
+
+router = APIRouter(dependencies=[Depends(check_demo_access)])
 
 # Schema validators
 class FeatureFlagsUpdate(BaseModel):

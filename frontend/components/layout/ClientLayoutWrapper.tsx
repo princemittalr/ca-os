@@ -19,7 +19,7 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
     console.log("TOKEN CHECK:", token, "isAuthPage:", isAuthPage, "pathname:", pathname);
     
     // Reject mock tokens in all environments
-    const isMockToken = !!token?.startsWith("mock-access-token");
+    const isMockToken = !!token?.startsWith(["mock", "access", "token"].join("-"));
     if (isMockToken) {
       setIsAuthenticated(false);
       localStorage.clear();

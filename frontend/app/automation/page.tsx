@@ -18,7 +18,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const formatJobType = (type: string) => {
   const displayNames: Record<string, string> = {
-    'nightly_reconciliation': 'TechNova Solutions Monthly Recon',
+    'nightly_reconciliation': 'Nightly Reconciliation',
     'compliance_reminders': 'Urgent Supplier Reminder Dispatcher',
     'overdue_escalation': 'ROC Filing Document Assembler',
     'action_center_refresh': 'Action Center Refresh'
@@ -195,7 +195,7 @@ export default function AutomationCenterPage() {
 
   const handleRunWorkflow = async (workflowName: string) => {
     const typeMap: Record<string, string> = {
-      'TechNova Solutions Monthly Recon': 'nightly_reconciliation',
+      'Nightly Reconciliation': 'nightly_reconciliation',
       'Urgent Supplier Reminder Dispatcher': 'compliance_reminders',
       'ROC Filing Document Assembler': 'overdue_escalation'
     };

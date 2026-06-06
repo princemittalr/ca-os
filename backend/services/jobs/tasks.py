@@ -77,7 +77,7 @@ def overdue_escalation_task(job_id: str):
                     print(f"[TASKS] ESCALATION CRITICAL: Client {client['business_name']} is overdue on filings by {overdue_days} days!")
                     
             db_manager.update_compliance_status(task["compliance_id"], new_status)
-            db_manager.update_compliance_assignment(task["compliance_id"], task.get("assigned_to") or "Aditya Rao")
+            db_manager.update_compliance_assignment(task["compliance_id"], task.get("assigned_to") or None)
             escalated_count += 1
             
     update_job(job_id, {"progress": 85.0})

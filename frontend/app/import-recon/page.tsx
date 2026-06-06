@@ -106,8 +106,8 @@ export default function BoeIntelligenceCenter() {
   }, []);
 
   const activeClient = clients.find(c => c.id === selectedClient) || {
-    business_name: 'TechNova Solutions Pvt Ltd',
-    gstin: '27AAACT1234A1Z5'
+    business_name: 'Client Firm',
+    gstin: '—'
   };
 
   // Helper formatter

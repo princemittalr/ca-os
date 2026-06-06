@@ -160,12 +160,12 @@ MOCK_COMMUNICATIONS = [
     {
         "id": "comm-2",
         "client_id": "client-1",
-        "vendor_name": "Apex Innovations Pvt Ltd",
+        "vendor_name": "Vertex Solutions Pvt Ltd",
         "gstin": "29AABCA5678B1Z3",
         "issue": "VALUE_MISMATCH",
-        "subject": "NOTICE: GST Taxable Value Discrepancy - Action Required - Apex Innovations Pvt Ltd",
+        "subject": "NOTICE: GST Taxable Value Discrepancy - Action Required - Vertex Solutions Pvt Ltd",
         "email_body": (
-            "Dear Accounts Team at Apex Innovations Pvt Ltd,\n\n"
+            "Dear Accounts Team at Vertex Solutions Pvt Ltd,\n\n"
             "We are writing on behalf of our client to report a taxable value mismatch detected during our GST portal "
             "reconciliation for the filing period March 2024.\n\n"
             "RECONCILIATION OBSERVATIONS:\n"

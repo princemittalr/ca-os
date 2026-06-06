@@ -93,12 +93,7 @@ export default function TopBar({
   }, []);
 
   // Messages Dataset
-  const [messages, setMessages] = useState([
-    { id: 'm1', sender: 'TechNova Solutions', text: 'Uploaded the Q4 purchase ledger Excel sheet.', time: '10m ago', unread: true },
-    { id: 'm2', sender: 'Gemini AI Assistant', text: 'Discrepancy alert: GSTIN mismatch detected in 4 invoices of Sharma Traders.', time: '1h ago', unread: true },
-    { id: 'm3', sender: 'System Audit', text: 'Reconciliation process completed for TechNova Solutions Pvt Ltd.', time: '2h ago', unread: false },
-    { id: 'm4', sender: 'Priyanka Patel (Assistant CA)', text: 'Draft GSTR-1 ready for review.', time: '1d ago', unread: false }
-  ]);
+  const [messages, setMessages] = useState<any[]>([]);
 
   // Notifications Dataset
   const [notifications, setNotifications] = useState<any[]>([]);

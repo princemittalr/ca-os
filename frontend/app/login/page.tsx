@@ -56,7 +56,7 @@ export default function LoginPage() {
       localStorage.setItem("user_id", data.user!.id);
       localStorage.setItem("full_name", data.user!.user_metadata?.full_name || email);
       localStorage.setItem("role", data.user!.user_metadata?.role || "PARTNER");
-      localStorage.setItem("firm_id", data.user!.user_metadata?.firm_id || "mock-firm-uuid-67890");
+      localStorage.setItem("firm_id", data.user!.user_metadata?.firm_id || "");
 
       showToast("✓ Authentication successful! Redirecting...");
       setTimeout(() => { window.location.href = "/action-center"; }, 1500);

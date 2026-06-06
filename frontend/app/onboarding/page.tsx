@@ -27,7 +27,7 @@ interface PredefinedProfile {
 const PREDEFINED_PROFILES: PredefinedProfile[] = [
   {
     id: 'manufacturing',
-    name: 'Apex Auto Components Ltd',
+    name: 'Acme Auto Components Ltd',
     type: 'Heavy Manufacturing',
     difficulty: '🚨 HIGH AUDIT RISK',
     difficultyColor: 'text-[#EF4444] bg-red-50/50 border-red-100 rounded-[3px]',

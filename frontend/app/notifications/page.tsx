@@ -12,73 +12,79 @@ import {
   Settings
 } from 'lucide-react';
 
-const initialNotifications = [
-  {
-    id: 'n-1',
-    type: 'reconciliation', // reconciliation / compliance / system / account
-    title: 'Reconciliation Complete',
-    message: 'Monthly GST reconciliation finalized for TechNova Solutions Pvt Ltd.',
-    subtext: '1,102 of 1,243 invoices successfully matched. ₹42.3L ITC protected.',
-    time_ago: '2 hours ago',
-    is_read: false
-  },
-  {
-    id: 'n-2',
-    type: 'reconciliation',
-    title: 'Mismatch Warning',
-    message: 'Value mismatches detected in GSTR-2B run for Apex Innovations.',
-    subtext: '3 invoices show discrepancy in taxable value. ITC at Risk: ₹32,500.',
-    time_ago: '5 hours ago',
-    is_read: false
-  },
-  {
-    id: 'n-3',
-    type: 'compliance',
-    title: 'GSTR-1 filing due in 3 days',
-    message: 'Upcoming filing deadline approaching for Wayne Enterprises Ltd.',
-    subtext: 'Filing period: March 2024. Due Date: 11-04-2026. Avoid penalties.',
-    time_ago: 'Yesterday',
-    is_read: false
-  },
-  {
-    id: 'n-4',
-    type: 'compliance',
-    title: 'GSTR-3B OVERDUE return',
-    message: 'Filing period March 2024 is currently overdue for Global Trade LLC.',
-    subtext: 'Accumulating active daily late penalties. Filing must be completed.',
-    time_ago: '2 days ago',
-    is_read: false
-  },
-  {
-    id: 'n-5',
-    type: 'system',
-    title: 'System Maintenance Scheduled',
-    message: 'Scheduled server optimization and database indexing running this weekend.',
-    subtext: 'Expect minor API response latency of 1-2 seconds between 2:00 AM and 4:00 AM IST.',
-    time_ago: '3 days ago',
-    is_read: true
-  },
-  {
-    id: 'n-6',
-    type: 'account',
-    title: 'New Session Login',
-    message: 'Successful user authentication logged from new IP address in Mumbai.',
-    subtext: 'Device: Chrome Browser (Windows 11). IP: 103.44.82.10.',
-    time_ago: '4 days ago',
-    is_read: true
-  }
-];
+import { useEffect } from 'react';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all'); // all / unread / reconciliation / compliance / system
 
-  const handleMarkRead = (id: string) => {
-    setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+  const formatTime = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      
+      const now = new Date();
+      const diffMs = now.getTime() - d.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays === 1) return 'Yesterday';
+      return `${diffDays} days ago`;
+    } catch {
+      return dateStr;
+    }
   };
 
-  const handleMarkAllRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+  const loadNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/api/notifications/`);
+      if (!res.ok) throw new Error("Failed to load notifications");
+      const data = await res.json();
+      setNotifications(data);
+    } catch (err) {
+      console.error(err);
+      setNotifications([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/notifications/${id}/read`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error("Failed to mark read");
+      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch (err) {
+      console.error(err);
+      setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/notifications/read-all`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error("Failed to mark all read");
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error(err);
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -216,10 +222,10 @@ export default function NotificationsPage() {
                     <span className={`text-sm font-bold truncate ${!notif.is_read ? 'text-white font-black' : 'text-slate-900/80'}`}>
                       {notif.title}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-bold">• {notif.time_ago}</span>
+                    <span className="text-[10px] text-slate-500 font-bold">• {notif.time_ago || (notif.created_at ? formatTime(notif.created_at) : '')}</span>
                   </div>
                   <p className="text-xs text-white leading-relaxed">{notif.message}</p>
-                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{notif.subtext}</p>
+                  {notif.subtext && <p className="text-[11px] text-slate-500 font-semibold mt-0.5">{notif.subtext}</p>}
                 </div>
               </div>
 

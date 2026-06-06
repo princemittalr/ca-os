@@ -237,7 +237,7 @@ def create_compliance(data: Dict[str, Any]) -> Dict[str, Any]:
                 "filing_period": data["filing_period"],
                 "due_date": str(data["due_date"]),
                 "status": "Upcoming",
-                "assigned_to": data.get("assigned_to") or "Aditya Rao",
+                "assigned_to": data.get("assigned_to") or None,
                 "escalation_level": 0,
                 "risk_level": "LOW",
                 "risk_score": 15.00,
