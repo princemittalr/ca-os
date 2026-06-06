@@ -77,6 +77,7 @@ export default function ClientWorkspacePortal() {
   // Follow-ups & outreach states
   const [communications, setCommunications] = useState<any[]>([]);
   const [isCommsLoading, setIsCommsLoading] = useState(false);
+  const [commsError, setCommsError] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedComm, setSelectedComm] = useState<any>(null);
@@ -99,6 +100,7 @@ export default function ClientWorkspacePortal() {
   const fetchCommunications = async () => {
     try {
       setIsCommsLoading(true);
+      setCommsError(false);
       const res = await fetch(`${API_BASE}/api/communications/${clientId}`);
       if (!res.ok) throw new Error("Failed to load communications");
       const data = await res.json();
@@ -106,6 +108,7 @@ export default function ClientWorkspacePortal() {
     } catch (err) {
       console.error(err);
       setCommunications([]);
+      setCommsError(true);
     } finally {
       setIsCommsLoading(false);
     }
@@ -713,16 +716,29 @@ export default function ClientWorkspacePortal() {
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <MailWarning size={20} className="text-[#D1D5DB]" />
                 <div className="text-center">
-                  <div className="text-[13px] font-medium text-[#111827]">No active outreach follow-ups</div>
-                  <p className="text-[12px] text-[#6B7280] mt-0.5">No compliance warning drafts registered for this client yet.</p>
+                  <div className="text-[13px] font-medium text-[#111827]">
+                    {commsError ? "Failed to load notices. Try again." : "No active outreach follow-ups"}
+                  </div>
+                  {!commsError && (
+                    <p className="text-[12px] text-[#6B7280] mt-0.5">No compliance warning drafts registered for this client yet.</p>
+                  )}
                 </div>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="btn btn-primary h-[30px] text-[12px] px-3 font-medium rounded-[3px] flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
-                >
-                  <Plus size={12} />
-                  <span>Generate First Notice</span>
-                </button>
+                {!commsError ? (
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="btn btn-primary h-[30px] text-[12px] px-3 font-medium rounded-[3px] flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
+                  >
+                    <Plus size={12} />
+                    <span>Generate First Notice</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={fetchCommunications}
+                    className="btn btn-secondary h-[30px] text-[12px] px-3 font-medium rounded-[3px] hover:bg-slate-50 cursor-pointer"
+                  >
+                    Try Again
+                  </button>
+                )}
               </div>
             )}
           </div>
