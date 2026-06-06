@@ -12,13 +12,13 @@ MOCK_RECON_HISTORY: list = []
 
 from services.db import manager as db_manager
 
-def get_clients() -> List[Dict[str, Any]]:
-    """Retrieve all monitored clients."""
-    return db_manager.get_clients()
+def get_clients(firm_id: str) -> List[Dict[str, Any]]:
+    """Retrieve all monitored clients scoped to the authenticated firm."""
+    return db_manager.get_clients(firm_id=firm_id)
 
-def get_client_by_id(client_id: str) -> Optional[Dict[str, Any]]:
-    """Retrieve a single client by identity."""
-    return db_manager.get_client_by_id(client_id)
+def get_client_by_id(client_id: str, firm_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Retrieve a single client by identity, optionally firm-scoped."""
+    return db_manager.get_client_by_id(client_id, firm_id=firm_id)
 
 def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) -> Dict[str, Any]:
     """Onboards a new corporate client workspace scoped to the authenticated firm."""
@@ -30,6 +30,11 @@ def update_client(client_id: str, client_data: Dict[str, Any]) -> Optional[Dict[
     logger.info(f"Updating client workspace {client_id}")
     return db_manager.update_client(client_id, client_data)
 
+def soft_delete_client(client_id: str, firm_id: str) -> bool:
+    """Soft-deletes a client workspace (sets is_deleted = True)."""
+    logger.info(f"Soft-deleting client workspace {client_id} for firm {firm_id}")
+    return db_manager.soft_delete_client(client_id, firm_id=firm_id)
+
 def get_reconciliations_for_client(client_id: str) -> List[Dict[str, Any]]:
     """Retrieve all historical reconciliation runs for a specific client."""
     return db_manager.get_reconciliations(client_id)
@@ -39,11 +44,12 @@ def add_reconciliation_run(client_id: str, run_data: Dict[str, Any]) -> Dict[str
     logger.info(f"Registering new reconciliation run for client {client_id}")
     return db_manager.add_reconciliation(client_id, run_data)
 
-def get_dashboard_aggregations() -> Dict[str, Any]:
+def get_dashboard_aggregations(firm_id: str) -> Dict[str, Any]:
     """
-    Computes cumulative portfolio KPIs across all CA clients' latest filings.
+    Computes cumulative portfolio KPIs across the firm's CA clients' latest filings.
+    All queries are firm-scoped via firm_id from the authenticated user's token.
     """
-    clients_list = db_manager.get_clients()
+    clients_list = db_manager.get_clients(firm_id=firm_id)
     total_clients = len(clients_list)
     
     # Calculate aggregates from latest runs

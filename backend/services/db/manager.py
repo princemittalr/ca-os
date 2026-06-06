@@ -11,33 +11,49 @@ supabase_client: Client = cast(Client, _raw_client)
 # -------------------------------------------------------------------------
 # CLIENTS CRUD ABSTRACTION
 # -------------------------------------------------------------------------
-def get_clients() -> List[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("clients").select("*").eq("is_deleted", False).execute()
-            return cast(List[Dict[str, Any]], res.data)
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-            
-    # Fallback to local in-memory store
-    from services.client_workspace import MOCK_CLIENTS
-    return MOCK_CLIENTS
+def get_clients(firm_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetches all active clients scoped to the given firm.
+    firm_id MUST come from the authenticated user's token.
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — returning empty client list.")
+        return []
+    try:
+        res = (
+            supabase_client.table("clients")
+            .select("*")
+            .eq("firm_id", firm_id)
+            .eq("is_deleted", False)
+            .execute()
+        )
+        return cast(List[Dict[str, Any]], res.data)
+    except Exception as e:
+        print(f"[ERROR] Supabase get_clients error: {str(e)}")
+        return []
 
-def get_client_by_id(client_id: str) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            # Handle both UUID and string IDs
-            res = supabase_client.table("clients").select("*").eq("id", client_id).eq("is_deleted", False).execute()
-            if res.data:
-                return cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback to local in-memory store
-    from services.client_workspace import MOCK_CLIENTS
-    for c in MOCK_CLIENTS:
-        if c["id"] == client_id:
-            return c
+def get_client_by_id(client_id: str, firm_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Fetches a single active client by ID.
+    When firm_id is provided the query is firm-scoped, preventing cross-tenant reads.
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — client lookup unavailable.")
+        return None
+    try:
+        q = (
+            supabase_client.table("clients")
+            .select("*")
+            .eq("id", client_id)
+            .eq("is_deleted", False)
+        )
+        if firm_id:
+            q = q.eq("firm_id", firm_id)
+        res = q.execute()
+        if res.data:
+            return cast(Dict[str, Any], res.data[0])
+    except Exception as e:
+        print(f"[ERROR] Supabase get_client_by_id error: {str(e)}")
     return None
 
 def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) -> Dict[str, Any]:
@@ -95,31 +111,48 @@ def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) ->
     return new_client
 
 def update_client(client_id: str, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            payload = {}
-            for field in ["business_name", "legal_name", "trade_name", "gstin", "contact_person", "email", "phone", "state", "state_code", "filing_frequency", "assigned_manager"]:
-                if field in client_data:
-                    payload[field] = client_data[field]
-            if "gstin" in payload:
-                payload["gstin"] = payload["gstin"].upper()
-            res = supabase_client.table("clients").update(payload).eq("id", client_id).execute()
-            if res.data:
-                return cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase update error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback to local in-memory store
-    from services.client_workspace import MOCK_CLIENTS
-    for c in MOCK_CLIENTS:
-        if c["id"] == client_id:
-            for field in ["business_name", "legal_name", "trade_name", "gstin", "contact_person", "email", "phone", "state", "state_code", "filing_frequency", "assigned_manager"]:
-                if field in client_data:
-                    c[field] = client_data[field]
-            if "gstin" in c:
-                c["gstin"] = c["gstin"].upper()
-            return c
+    """
+    Updates mutable fields of an existing client record.
+    Caller must have already verified firm ownership before calling this.
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — client update unavailable.")
+        return None
+    try:
+        payload = {}
+        for field in ["business_name", "legal_name", "trade_name", "gstin", "contact_person", "email", "phone", "state", "state_code", "filing_frequency", "assigned_manager"]:
+            if field in client_data:
+                payload[field] = client_data[field]
+        if "gstin" in payload:
+            payload["gstin"] = payload["gstin"].upper()
+        res = supabase_client.table("clients").update(payload).eq("id", client_id).execute()
+        if res.data:
+            return cast(Dict[str, Any], res.data[0])
+    except Exception as e:
+        print(f"[ERROR] Supabase update_client error: {str(e)}")
     return None
+
+def soft_delete_client(client_id: str, firm_id: str) -> bool:
+    """
+    Sets is_deleted = True for the given client.
+    firm_id is used as an additional guard to prevent cross-tenant deletes.
+    Returns True on success, False otherwise.
+    """
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — client delete unavailable.")
+        return False
+    try:
+        res = (
+            supabase_client.table("clients")
+            .update({"is_deleted": True})
+            .eq("id", client_id)
+            .eq("firm_id", firm_id)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        print(f"[ERROR] Supabase soft_delete_client error: {str(e)}")
+    return False
 
 # -------------------------------------------------------------------------
 # RECONCILIATIONS CRUD ABSTRACTION

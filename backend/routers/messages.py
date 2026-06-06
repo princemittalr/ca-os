@@ -12,12 +12,11 @@ async def list_messages(current_user: dict = Depends(verify_token)):
     Get all user-specific/tenant-aware messages.
     """
     try:
-        clients = db_manager.get_clients()
-        # Filter clients by current_user's firm_id if clients have firm_id
         user_firm_id = current_user.get("firm_id")
-        if user_firm_id:
-            clients = [c for c in clients if c.get("firm_id") == user_firm_id]
-        
+        if not user_firm_id:
+            return []
+        clients = db_manager.get_clients(firm_id=user_firm_id)
+
         # If no clients are found, return empty array
         if not clients:
             return []
