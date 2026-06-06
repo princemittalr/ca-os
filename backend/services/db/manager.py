@@ -342,46 +342,57 @@ def update_communication_status(comm_id: str, new_status: str) -> bool:
 # -------------------------------------------------------------------------
 # ACTION CENTER CRUD ABSTRACTION
 # -------------------------------------------------------------------------
-def get_action_items() -> List[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("action_items").select("*").eq("status", "PENDING").eq("is_deleted", False).execute()
-            # Sort by risk score descending
-            data = cast(List[Dict[str, Any]], res.data)
-            data.sort(key=lambda x: float(x.get("risk_score", 0.0)), reverse=True)
-            return data
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
+def get_action_items(firm_id: str) -> List[Dict[str, Any]]:
+    """
+    Fetches all PENDING action items for the given firm from Supabase.
+    Always Supabase — no in-memory fallback.
+    """
+    res = supabase_client.table("action_items") \
+        .select("*") \
+        .eq("firm_id", firm_id) \
+        .eq("status", "PENDING") \
+        .eq("is_deleted", False) \
+        .order("risk_score", desc=True) \
+        .execute()
+    return cast(List[Dict[str, Any]], res.data or [])
 
-    # Fallback
-    from services.action_center import get_ranked_actions
-    return get_ranked_actions()
+def resolve_action_item(action_id: str, firm_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Marks an action item as RESOLVED in Supabase.
+    Scoped to firm_id to prevent cross-tenant mutations.
+    Always Supabase — no in-memory fallback.
+    """
+    now_str = datetime.now().isoformat()
+    updates = {
+        "status": "RESOLVED",
+        "action_state": "RESOLVED",
+        "resolved_at": now_str,
+        "updated_at": now_str,
+    }
+    res = supabase_client.table("action_items") \
+        .update(updates) \
+        .eq("action_id", action_id) \
+        .eq("firm_id", firm_id) \
+        .execute()
+    if res.data:
+        return cast(Optional[Dict[str, Any]], res.data[0])
+    return None
 
-def resolve_action_item(action_id: str) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("action_items").update({"status": "RESOLVED"}).eq("action_id", action_id).execute()
-            if res.data:
-                return cast(Optional[Dict[str, Any]], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback
-    from services.action_center import resolve_action_item as engine_resolve
-    return engine_resolve(action_id)
-
-def update_action_assignment(action_id: str, staff: str) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("action_items").update({"assigned_to": staff}).eq("action_id", action_id).execute()
-            if res.data:
-                return cast(Optional[Dict[str, Any]], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback
-    from services.action_center import update_action_assignment as engine_assign
-    return engine_assign(action_id, staff)
+def update_action_assignment(action_id: str, staff: str, firm_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Updates the assigned_to field for an action item.
+    Scoped to firm_id to prevent cross-tenant mutations.
+    Always Supabase — no in-memory fallback.
+    """
+    now_str = datetime.now().isoformat()
+    res = supabase_client.table("action_items") \
+        .update({"assigned_to": staff, "updated_at": now_str}) \
+        .eq("action_id", action_id) \
+        .eq("firm_id", firm_id) \
+        .execute()
+    if res.data:
+        return cast(Optional[Dict[str, Any]], res.data[0])
+    return None
 
 # -------------------------------------------------------------------------
 # MOCK STORES FOR JOBS & NOTIFICATIONS
@@ -619,83 +630,152 @@ def update_notice_status(notice_id: str, new_status: str) -> Optional[Dict[str, 
 
 # -------------------------------------------------------------------------
 # CENTRAL ACTION ENGINE SYNCHRONIZATION HELPERS
+# These helpers upsert directly to Supabase action_items — no in-memory engine.
+# firm_id is resolved from the client record so call-sites need not change.
 # -------------------------------------------------------------------------
 def sync_reconciliation_to_action_engine(client_id: str, run: Dict[str, Any]):
     try:
-        from services.action_engine import action_engine
-        
         mismatches = run.get("mismatch_count", 0)
         risk_val = float(run.get("itc_at_risk", 0.0))
         period = run.get("filing_period") or run.get("month") or "2024-03"
-        
+
         act_id = f"act-recon-{client_id}-{period}"
-        
+
+        # Resolve firm_id from the client record
+        client_info = get_client_by_id(client_id)
+        firm_id = (client_info or {}).get("firm_id")
+        client_name = (client_info or {}).get("business_name", "Unknown Client")
+
+        now_str = datetime.now().isoformat()
+
         if mismatches == 0 and risk_val == 0.0:
-            action_engine.resolve_action_item(act_id)
+            # Reconciled — mark any existing action item as resolved
+            if is_supabase_active():
+                supabase_client.table("action_items") \
+                    .update({"status": "RESOLVED", "action_state": "RESOLVED",
+                             "resolved_at": now_str, "updated_at": now_str}) \
+                    .eq("action_id", act_id) \
+                    .execute()
             return
-            
+
         risk_score = 30.0
         if mismatches > 3 or risk_val > 50000.0:
             risk_score = 90.0
         elif mismatches > 0 or risk_val > 0.0:
             risk_score = 65.0
-            
-        action_engine.push_action_item({
-            "id": act_id,
+
+        priority = "HIGH" if risk_score >= 85.0 else ("MEDIUM" if risk_score >= 50.0 else "LOW")
+        due_date = (date.today() + timedelta(days=5)).strftime("%Y-%m-%d")
+
+        payload: Dict[str, Any] = {
+            "action_id": act_id,
+            "firm_id": firm_id,
             "client_id": client_id,
+            "client_name": client_name,
             "source_module": "RECONCILIATION",
+            "category": "RECONCILIATION",
+            "priority": priority,
             "title": f"Reconciliation Discrepancy: {period}",
             "description": f"Reconciliation check identified {mismatches} mismatches and ₹{risk_val:,.2f} in at-risk ITC for filing period {period}.",
             "risk_score": risk_score,
             "exposure_amount": risk_val,
             "recommended_action": "Run GSTR-2B automated reconciliation audit matching invoices and withhold vendor payment.",
-            "due_date": (date.today() + timedelta(days=5)).strftime("%Y-%m-%d"),
+            "due_date": due_date,
+            "deadline": due_date,
+            "status": "PENDING",
             "action_state": "NEW",
             "source_url": "/gst-recon",
             "automation_candidate": True,
             "can_auto_resolve": True,
-            "confidence_score": 0.96
-        })
+            "confidence_score": 0.96,
+            "ai_summary": f"System signal flagged under RECONCILIATION.",
+            "predicted_impact": "Protects client ITC and prevents GST liability.",
+            "updated_at": now_str,
+            "created_at": now_str,
+            "is_deleted": False,
+        }
+
+        if is_supabase_active():
+            supabase_client.table("action_items") \
+                .upsert(payload, on_conflict="action_id") \
+                .execute()
     except Exception as e:
-        print(f"[WARN] Failed to sync reconciliation run to action engine: {str(e)}")
+        print(f"[WARN] Failed to sync reconciliation run to action_items table: {str(e)}")
 
 def sync_notice_to_action_engine(notice: Dict[str, Any]):
     try:
-        from services.action_engine import action_engine
-        
-        status = notice.get("status")
+        notice_status = notice.get("status")
         act_id = f"act-notice-{notice['id']}"
-        
-        if status in ["RESOLVED", "CLOSED"]:
-            action_engine.resolve_action_item(act_id)
+        client_id = notice.get("client_id")
+        now_str = datetime.now().isoformat()
+
+        # Resolve firm_id from client record (notice may not carry it directly)
+        firm_id = notice.get("firm_id")
+        if not firm_id and client_id:
+            client_info = get_client_by_id(client_id)
+            firm_id = (client_info or {}).get("firm_id")
+
+        if notice_status in ["RESOLVED", "CLOSED"]:
+            # Mark existing action item as resolved
+            if is_supabase_active():
+                supabase_client.table("action_items") \
+                    .update({"status": "RESOLVED", "action_state": "RESOLVED",
+                             "resolved_at": now_str, "updated_at": now_str}) \
+                    .eq("action_id", act_id) \
+                    .execute()
             return
-            
+
         action_state = "NEW"
-        if status == "DRAFTED":
+        if notice_status == "DRAFTED":
             action_state = "IN_PROGRESS"
-            
+
         due_date = notice.get("due_date")
         if isinstance(due_date, (date, datetime)):
             due_date = due_date.strftime("%Y-%m-%d")
-            
-        action_engine.push_action_item({
-            "id": act_id,
-            "client_id": notice.get("client_id"),
+        elif not due_date:
+            due_date = (date.today() + timedelta(days=7)).strftime("%Y-%m-%d")
+
+        risk_score = float(notice.get("risk_score", 60.0))
+        priority = "HIGH" if risk_score >= 85.0 else ("MEDIUM" if risk_score >= 50.0 else "LOW")
+        exposure = float(notice.get("total_exposure_est") or notice.get("tax_amount", 0.0))
+        sections = ", ".join(notice.get("section_references", [])) or "GST regulations"
+
+        payload: Dict[str, Any] = {
+            "action_id": act_id,
+            "firm_id": firm_id,
+            "client_id": client_id,
             "client_name": notice.get("client_name"),
             "source_module": "NOTICE",
+            "category": "NOTICE",
+            "priority": priority,
             "title": f"Notice Reply Required: {notice.get('notice_type', 'Notice')} SCN",
-            "description": f"GST notice {notice.get('notice_number')} issued under sections {', '.join(notice.get('section_references', [])) or 'GST regulations'}. Demanded tax amount: ₹{notice.get('tax_amount', 0.0):,.2f}.",
-            "risk_score": float(notice.get("risk_score", 60.0)),
-            "exposure_amount": float(notice.get("total_exposure_est") or notice.get("tax_amount", 0.0)),
+            "description": (
+                f"GST notice {notice.get('notice_number')} issued under sections {sections}. "
+                f"Demanded tax amount: ₹{notice.get('tax_amount', 0.0):,.2f}."
+            ),
+            "risk_score": risk_score,
+            "exposure_amount": exposure,
             "recommended_action": notice.get("required_action") or "Draft and submit statutory extension reply or pay liability.",
             "due_date": due_date,
+            "deadline": due_date,
+            "status": "PENDING",
             "action_state": action_state,
             "source_url": "/notices",
             "automation_candidate": False,
             "can_auto_resolve": False,
-            "confidence_score": 0.94
-        })
+            "confidence_score": 0.94,
+            "ai_summary": f"System signal flagged under NOTICE.",
+            "predicted_impact": "Statutory compliance and penalty avoidance.",
+            "updated_at": now_str,
+            "created_at": now_str,
+            "is_deleted": False,
+        }
+
+        if is_supabase_active():
+            supabase_client.table("action_items") \
+                .upsert(payload, on_conflict="action_id") \
+                .execute()
     except Exception as e:
-        print(f"[WARN] Failed to sync notice to action engine: {str(e)}")
+        print(f"[WARN] Failed to sync notice to action_items table: {str(e)}")
 
 

@@ -77,7 +77,9 @@ def overdue_escalation_task(job_id: str):
                     print(f"[TASKS] ESCALATION CRITICAL: Client {client['business_name']} is overdue on filings by {overdue_days} days!")
                     
             db_manager.update_compliance_status(task["compliance_id"], new_status)
-            db_manager.update_compliance_assignment(task["compliance_id"], task.get("assigned_to") or None)
+            assigned_to: str = task.get("assigned_to") or ""
+            if assigned_to:
+                db_manager.update_compliance_assignment(task["compliance_id"], assigned_to)
             escalated_count += 1
             
     update_job(job_id, {"progress": 85.0})
@@ -105,7 +107,9 @@ def action_center_refresh_task(job_id: str):
     update_job(job_id, {"progress": 30.0})
     time.sleep(0.4)
     
-    actions = db_manager.get_action_items()
+    # System-level diagnostic: use the unscoped engine query (no firm_id) for background stats only
+    from services.action_engine import action_engine
+    actions = action_engine.get_action_items()
     update_job(job_id, {"progress": 70.0})
     time.sleep(0.3)
     
