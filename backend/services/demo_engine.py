@@ -401,10 +401,8 @@ def reset_demo_workspace():
     import services.communication as comm
     comm.MOCK_COMMUNICATIONS = get_seeded_communications()
     
-    # 4. Reset In-Memory Lists in services.action_center
-    import services.action_center as ac
-    ac.MOCK_ACTIONS.clear()
-    ac.MOCK_ACTIONS.extend(get_seeded_action_items())
+    # 4. Action items are persisted via Supabase only (no in-memory mock).
+    #    The Supabase seeding block below handles demo action items.
     
     # 5. Reset In-Memory Lists in services.db.manager
     import services.db.manager as dbm

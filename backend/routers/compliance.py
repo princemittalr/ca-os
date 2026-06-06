@@ -48,6 +48,8 @@ async def get_upcoming_deadlines(
         due = task.get("due_date")
         if isinstance(due, str):
             due = date.fromisoformat(due)
+        if due is None:
+            continue
         if task["status"] in ["Upcoming", "Due Today"] and due <= target_date:
             upcoming.append(task)
 
