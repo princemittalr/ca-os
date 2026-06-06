@@ -1,44 +1,62 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import List, Optional
 from models import schemas
 from config.supabase import supabase_client, is_supabase_active
-from fastapi import HTTPException, status
+from middleware.auth import verify_token
 
 router = APIRouter()
 
+
 @router.get("/", response_model=List[schemas.AuditLogResponse])
 async def get_audit_logs(
-  limit: int = Query(50, description="Number of records to return"),
-  actor_id: Optional[str] = Query(None, description="Filter by actor user ID"),
-  entity_type: Optional[str] = Query(None, description="Filter by entity type")
+    limit: int = Query(50, description="Number of records to return"),
+    actor_id: Optional[str] = Query(None, description="Filter by actor user ID"),
+    entity_type: Optional[str] = Query(None, description="Filter by entity type"),
+    current_user: dict = Depends(verify_token),
 ):
-  """Fetch audit trail from persistent database."""
-  if not is_supabase_active():
-    raise HTTPException(
-      status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-      detail="Audit trail unavailable. Database not configured."
-    )
-  try:
-    q = supabase_client.table("audit_logs").select("*").order("created_at", desc=True).limit(limit)
-    if actor_id:
-      q = q.eq("actor_id", actor_id)
-    if entity_type:
-      q = q.eq("entity_type", entity_type)
-    res = q.execute()
-    
-    # Map database columns to match AuditLogResponse schema requirements (e.g. actor_id -> user_id, entity_id null safety)
-    mapped_data = []
-    for row in res.data:
-      mapped_row = dict(row)
-      if "user_id" not in mapped_row or not mapped_row["user_id"]:
-        mapped_row["user_id"] = mapped_row.get("actor_id") or "system"
-      if "entity_id" not in mapped_row or mapped_row["entity_id"] is None:
-        mapped_row["entity_id"] = str(mapped_row.get("entity_id") or "")
-      mapped_data.append(mapped_row)
-      
-    return mapped_data
-  except Exception as e:
-    raise HTTPException(
-      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-      detail=f"Failed to fetch audit logs: {str(e)}"
-    )
+    """
+    Fetch audit trail from persistent database.
+    - Standard roles see only their own firm's logs.
+    - SUPER_ADMIN can see all firms' logs.
+    - CLIENT_VIEWER role has ip_address redacted from results.
+    """
+    if not is_supabase_active():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Audit trail unavailable. Database not configured.",
+        )
+
+    try:
+        q = (
+            supabase_client.table("audit_logs")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+
+        # SUPER_ADMIN sees all firms; everyone else is scoped to their own firm
+        if current_user.get("role") != "SUPER_ADMIN":
+            q = q.eq("firm_id", current_user["firm_id"])
+
+        if actor_id:
+            q = q.eq("actor_id", actor_id)
+        if entity_type:
+            q = q.eq("entity_type", entity_type)
+
+        res = q.execute()
+
+        # CLIENT_VIEWER must not see IP addresses (PII / operational intel)
+        is_viewer = current_user.get("role") == "CLIENT_VIEWER"
+        if is_viewer:
+            for row in res.data:
+                row.pop("ip_address", None)
+
+        return res.data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch audit logs: {str(e)}",
+        )

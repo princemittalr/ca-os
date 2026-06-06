@@ -187,14 +187,15 @@ class SupportTicketResponse(SupportTicketBase):
 # --- Audit Log Schemas ---
 class AuditLogResponse(BaseModel):
     id: str
-    user_id: str
+    firm_id: Optional[str] = None
+    actor_id: str
     action: str
     entity_type: str
-    entity_id: str
+    entity_id: Optional[str] = None
     details: Dict[str, Any]
-    ip_address: Optional[str] = None
+    ip_address: Optional[str] = None  # Stripped for CLIENT_VIEWER role at router level
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 

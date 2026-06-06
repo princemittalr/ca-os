@@ -5,7 +5,7 @@ import uuid
 from models import schemas
 from middleware.auth import verify_token
 from config.supabase import supabase_client, is_supabase_active
-from services import security
+
 
 from services.audit_logger import log_audit_event, get_client_ip
 
@@ -74,13 +74,13 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 )
 
             # Step 3: Log audit trail
-            security.log_audit_event(
-                firm_id=firm_id,
-                actor_id=user.id,
-                action="signup_firm_user",
+            log_audit_event(
+                action="SIGNUP_FIRM_USER",
                 entity_type="users",
+                actor_id=user.id,
+                firm_id=firm_id,
                 entity_id=user.id,
-                details={"firm_name": firm_name, "role": role}
+                details={"firm_name": firm_name, "role": role},
             )
 
             if not res.session:
@@ -144,22 +144,15 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
             full_name = metadata.get("full_name", "CA Partner")
             
             # Log audit
-            security.log_audit_event(
-                firm_id=firm_id,
-                actor_id=user.id,
-                action="login_success",
-                entity_type="users",
-                entity_id=user.id,
-                details={"email": email}
-            )
             log_audit_event(
                 action="LOGIN_SUCCESS",
-    entity_type="auth",
-    actor_id=user.id,
-    firm_id=firm_id,
-    details={"email": email},
-    ip_address=get_client_ip(request)
-)
+                entity_type="auth",
+                actor_id=user.id,
+                firm_id=firm_id,
+                entity_id=user.id,
+                details={"email": email},
+                ip_address=get_client_ip(request),
+            )
             return {
                 "access_token": res.session.access_token,
                 "token_type": "bearer",
