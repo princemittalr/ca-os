@@ -15,7 +15,9 @@ router = APIRouter()
 async def signup_firm_user(payload: schemas.UserRegister):
     """
     Registers a new CA Firm user account using Supabase Auth.
-    Automatically provisions firm tenant context and assigns roles.
+    Automatically provisions firm tenant context, inserts the user profile
+    row into the users table, and assigns roles. Rolls back the auth user
+    if the DB insert fails to prevent orphan auth records.
     """
     email = payload.email
     password = payload.password
@@ -23,13 +25,12 @@ async def signup_firm_user(payload: schemas.UserRegister):
     firm_name = payload.firm_name
     role = payload.role or "PARTNER"
 
-    # Provision dynamic tenant firm UUID
+    # Provision dynamic tenant firm UUID — single source of truth for this firm
     firm_id = str(uuid.uuid4())
-    user_id = str(uuid.uuid4())
 
     if supabase_client is not None:
         try:
-            # Register user in Supabase Auth with custom metadata
+            # Step 1: Register user in Supabase Auth with custom metadata
             res = supabase_client.auth.sign_up({
                 "email": email,
                 "password": password,
@@ -42,15 +43,37 @@ async def signup_firm_user(payload: schemas.UserRegister):
                     }
                 }
             })
-            
+
             if not res.user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Auth signup request failed."
                 )
-                
+
             user = res.user
-            # Log audit trail
+
+            # Step 2: Insert user profile row — firm_id must match user_metadata exactly.
+            # If this fails, rollback the auth user to prevent orphan records.
+            try:
+                supabase_client.table("users").insert({
+                    "id": user.id,
+                    "full_name": full_name,
+                    "firm_name": firm_name,
+                    "firm_id": firm_id,
+                    "onboarding_complete": False
+                }).execute()
+            except Exception as db_err:
+                # Rollback: delete the auth user so we don't leave orphan records
+                try:
+                    supabase_client.auth.admin.delete_user(user.id)
+                except Exception:
+                    pass  # Best-effort rollback; log but don't mask original error
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"User profile creation failed: {str(db_err)}"
+                )
+
+            # Step 3: Log audit trail
             security.log_audit_event(
                 firm_id=firm_id,
                 actor_id=user.id,
@@ -59,13 +82,13 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 entity_id=user.id,
                 details={"firm_name": firm_name, "role": role}
             )
-            
+
             if not res.session:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Registration succeeded but session could not be established. Please verify your email."
                 )
-                
+
             return {
                 "access_token": res.session.access_token,
                 "token_type": "bearer",
@@ -74,12 +97,14 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 "role": role,
                 "full_name": full_name
             }
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Registration failed: {str(e)}"
             )
-            
+
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Registration service unavailable. Supabase is not configured."
@@ -252,3 +277,72 @@ async def logout_other_sessions(request: Request, current_user: dict = Depends(v
         detail="Missing or invalid authentication token."
     )
 
+
+@router.post("/logout")
+async def logout(request: Request, current_user: dict = Depends(verify_token)):
+    """
+    Invalidates the current session server-side by signing out the user.
+    The caller should also discard the access_token client-side.
+    """
+    authorization = request.headers.get("Authorization")
+    if supabase_client is not None and authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ")[1]
+        try:
+            # Invalidate the session associated with this JWT on the server
+            supabase_client.auth.admin.sign_out(jwt=token, scope="global")
+        except Exception as e:
+            # Non-fatal — the token will expire naturally; still return success
+            print(f"[WARN] Server-side sign-out error: {str(e)}")
+
+    log_audit_event(
+        action="LOGOUT",
+        entity_type="auth",
+        actor_id=current_user.get("user_id"),
+        firm_id=current_user.get("firm_id"),
+        details={"email": current_user.get("email")},
+        ip_address=get_client_ip(request)
+    )
+    return {"message": "Logged out successfully."}
+
+
+@router.post("/refresh", response_model=schemas.TokenResponse)
+async def refresh_token(payload: schemas.TokenRefreshRequest):
+    """
+    Accepts a Supabase refresh_token and returns a new access_token.
+    Used by clients to silently renew sessions before expiry.
+    """
+    if supabase_client is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable. Supabase is not configured."
+        )
+    try:
+        res = supabase_client.auth.refresh_session(payload.refresh_token)
+        if not res.session or not res.user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired refresh token."
+            )
+        user = res.user
+        metadata = user.user_metadata or {}
+        firm_id = metadata.get("firm_id")
+        if not firm_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User profile metadata is missing firm association."
+            )
+        return {
+            "access_token": res.session.access_token,
+            "token_type": "bearer",
+            "user_id": user.id,
+            "firm_id": firm_id,
+            "role": metadata.get("role", "ARTICLE"),
+            "full_name": metadata.get("full_name", "")
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Token refresh failed: {str(e)}"
+        )

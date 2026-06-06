@@ -20,10 +20,10 @@ def get_client_by_id(client_id: str) -> Optional[Dict[str, Any]]:
     """Retrieve a single client by identity."""
     return db_manager.get_client_by_id(client_id)
 
-def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Onboards a new corporate client workspace."""
-    logger.info(f"Onboarding new client workspace: {client_data.get('business_name')}")
-    return db_manager.create_client(client_data)
+def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) -> Dict[str, Any]:
+    """Onboards a new corporate client workspace scoped to the authenticated firm."""
+    logger.info(f"Onboarding new client workspace: {client_data.get('business_name')} for firm {firm_id}")
+    return db_manager.create_client(client_data, firm_id=firm_id)
 
 def update_client(client_id: str, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Updates an existing corporate client workspace."""

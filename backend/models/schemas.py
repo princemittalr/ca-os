@@ -312,6 +312,9 @@ class TokenResponse(BaseModel):
     role: str
     full_name: str
 
+class TokenRefreshRequest(BaseModel):
+    refresh_token: str
+
 class AuditLogCreate(BaseModel):
     action: str
     entity_type: str

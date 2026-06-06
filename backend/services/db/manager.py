@@ -39,13 +39,16 @@ def get_client_by_id(client_id: str) -> Optional[Dict[str, Any]]:
             return c
     return None
 
-def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
+def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) -> Dict[str, Any]:
     if is_supabase_active():
         try:
-            # Create production UUID and scope to default CA Firm ID
+            # Scope client to the authenticated user's firm.
+            # firm_id MUST come from the current user's token — never generate here.
+            if not firm_id:
+                raise ValueError("firm_id is required to create a client; cannot be empty.")
             payload = {
                 "id": str(uuid.uuid4()),
-                "firm_id": str(uuid.uuid4()), # Dynamic firm tenant
+                "firm_id": firm_id,
                 "business_name": client_data["business_name"],
                 "legal_name": client_data.get("legal_name") or client_data["business_name"],
                 "trade_name": client_data.get("trade_name") or client_data["business_name"],
@@ -71,6 +74,7 @@ def create_client(client_data: Dict[str, Any]) -> Dict[str, Any]:
     new_id = f"client-{len(MOCK_CLIENTS) + 1}"
     new_client = {
         "id": new_id,
+        "firm_id": firm_id or "mock-firm-uuid",
         "user_id": "mock-user-uuid-12345",
         "business_name": client_data.get("business_name"),
         "legal_name": client_data.get("legal_name") or client_data.get("business_name"),

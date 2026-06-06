@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Dict, Any
 from models import schemas
 from services import client_workspace
@@ -19,9 +19,12 @@ async def list_clients():
 
 @router.post("/", response_model=schemas.ClientResponse)
 async def create_client(client: schemas.ClientCreate, current_user: dict = Depends(RequireRoles(["SUPER_ADMIN", "PARTNER", "MANAGER"]))):
-    """Create a new client workspace."""
+    """Create a new client workspace scoped to the authenticated user's firm."""
+    firm_id = current_user.get("firm_id")
+    if not firm_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
     client_dict = client.model_dump()
-    return client_workspace.create_client(client_dict)
+    return client_workspace.create_client(client_dict, firm_id=firm_id)
 
 @router.get("/{client_id}", response_model=schemas.ClientResponse)
 async def get_client(client_id: str):
