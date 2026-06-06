@@ -294,8 +294,8 @@ export default function Sidebar({
     }
   }, []);
 
-  const handleLogout = () => {
-    clearAuth();
+  const handleLogout = async () => {
+    await clearAuth();
     window.location.href = "/login";
   };
 

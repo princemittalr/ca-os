@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
-import { getAuthToken, clearAuth } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 
 export default function ClientLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -12,36 +12,42 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  const authPages = ["/login", "/signup", "/forgot-password", "/onboarding"];
+  const authPages = ["/login", "/signup", "/forgot-password", "/onboarding", "/reset-password"];
   const isAuthPage = authPages.includes(pathname);
 
   useEffect(() => {
-    const token = getAuthToken();
-    console.log("TOKEN CHECK:", token, "isAuthPage:", isAuthPage, "pathname:", pathname);
-    
-    // Reject mock tokens in all environments
-    const isMockToken = !!token?.startsWith(["mock", "access", "token"].join("-"));
-    if (isMockToken) {
-      setIsAuthenticated(false);
-      clearAuth();
-      router.replace("/login");
+    // Initial check — avoids flicker on first render
+    supabase.auth.getSession().then(({ data }) => {
+      const session = data.session;
+      setIsAuthenticated(!!session);
       setIsMobileSidebarOpen(false);
-      return;
-    }
 
-    const isValid = !!token;
-    setIsAuthenticated(isValid);
-    setIsMobileSidebarOpen(false);
+      if (!session && !isAuthPage) {
+        router.replace("/login");
+      }
+      if (session && isAuthPage) {
+        router.replace("/action-center");
+      }
+    });
 
-    if (!token && !isAuthPage) {
-      router.replace("/login");
-    }
+    // Live subscription — handles TOKEN_REFRESHED, SIGNED_OUT, tab switches
+    const unsubscribe = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      setIsMobileSidebarOpen(false);
 
-    // ← ADD THIS: redirect away from login if already authenticated
-    if (token && isAuthPage) {
-      router.replace("/action-center");
-    }
-  }, [pathname]); // ← remove router/isAuthPage from deps
+      if (!session && !isAuthPage) {
+        router.replace("/login");
+      }
+      if (session && isAuthPage) {
+        router.replace("/action-center");
+      }
+    });
+
+    return () => {
+      // onAuthStateChange returns the subscription object directly
+      unsubscribe.data.subscription.unsubscribe();
+    };
+  }, [pathname]); // re-run when the route changes
 
   // Auth pages — no sidebar
   if (isAuthPage) {
@@ -52,7 +58,7 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
     );
   }
 
-  // Still checking
+  // Still checking session
   if (isAuthenticated === null) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-[#F8FAFC]">

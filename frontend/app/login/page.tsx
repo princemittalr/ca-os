@@ -14,6 +14,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '../../lib/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -38,12 +39,7 @@ export default function LoginPage() {
       setIsLoading(true);
       setErrorMessage('');
 
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-
+      // Use the singleton — no inline createClient()
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -51,12 +47,15 @@ export default function LoginPage() {
 
       if (error) throw error;
 
-      // Store real session
-      localStorage.setItem("access_token", data.session!.access_token);
+      // Supabase SDK auto-persists the session (access + refresh tokens) in its
+      // own namespaced localStorage key and refreshes before expiry.
+      // We only write profile metadata so Sidebar / TopBar can read them
+      // synchronously until those components are migrated.
+      const metadata = data.user!.user_metadata ?? {};
       localStorage.setItem("user_id", data.user!.id);
-      localStorage.setItem("full_name", data.user!.user_metadata?.full_name || email);
-      localStorage.setItem("role", data.user!.user_metadata?.role || "PARTNER");
-      localStorage.setItem("firm_id", data.user!.user_metadata?.firm_id || "");
+      localStorage.setItem("full_name", metadata.full_name || email);
+      localStorage.setItem("role", metadata.role || "PARTNER");
+      localStorage.setItem("firm_id", metadata.firm_id || "");
 
       showToast("✓ Authentication successful! Redirecting...");
       setTimeout(() => { window.location.href = "/action-center"; }, 1500);

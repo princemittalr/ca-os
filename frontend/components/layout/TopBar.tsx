@@ -85,20 +85,22 @@ export default function TopBar({
   }, []);
 
   useEffect(() => {
-    const token = getAuthToken();
-    fetch(`${API_BASE}/api/notifications/`, {
-      headers: token ? { "Authorization": `Bearer ${token}` } : {}
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setNotifications(data))
-      .catch(() => setNotifications([]));
+    (async () => {
+      const token = await getAuthToken();
+      fetch(`${API_BASE}/api/notifications/`, {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setNotifications(data))
+        .catch(() => setNotifications([]));
 
-    fetch(`${API_BASE}/api/messages/`, {
-      headers: token ? { "Authorization": `Bearer ${token}` } : {}
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setMessages(data))
-      .catch(() => setMessages([]));
+      fetch(`${API_BASE}/api/messages/`, {
+        headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      })
+        .then(r => r.ok ? r.json() : [])
+        .then(data => setMessages(data))
+        .catch(() => setMessages([]));
+    })();
   }, []);
 
   // Messages Dataset
@@ -146,18 +148,18 @@ export default function TopBar({
   };
 
   // Handlers for Notifications
-  const handleMarkNotificationRead = (id: string) => {
+  const handleMarkNotificationRead = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    const token = getAuthToken();
+    const token = await getAuthToken();
     fetch(`${API_BASE}/api/notifications/${id}/read`, {
       method: "POST",
       headers: token ? { "Authorization": `Bearer ${token}` } : {}
     }).catch(() => {});
   };
 
-  const handleMarkAllNotificationsRead = () => {
+  const handleMarkAllNotificationsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    const token = getAuthToken();
+    const token = await getAuthToken();
     fetch(`${API_BASE}/api/notifications/read-all`, {
       method: "POST",
       headers: token ? { "Authorization": `Bearer ${token}` } : {}

@@ -10,6 +10,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '../../lib/supabase';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -41,6 +42,7 @@ export default function SignupPage() {
       setIsLoading(true);
       setErrorMessage('');
       
+      // Step 1: Call the backend to provision firm UUID and create the Supabase user
       const res = await fetch(`${API_BASE}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,13 +55,28 @@ export default function SignupPage() {
         })
       });
       
-      if (!res.ok) throw new Error("Onboarding request failed.");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.detail || "Onboarding request failed.");
+      }
       
       const data = await res.json();
-      
-      // Save session details
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("user_id", data.user_id);
+
+      // Step 2: Sign in via the Supabase SDK so the SDK takes ownership of the
+      // session (auto-refresh, proper storage). The backend already created the
+      // Supabase user, so this will succeed immediately.
+      // Note: backend TokenResponse does not include refresh_token, so we
+      // re-authenticate rather than calling setSession().
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) throw signInError;
+
+      // Step 3: Write profile metadata to localStorage for Sidebar / TopBar
+      // compatibility (will be migrated to read from user_metadata in a follow-up).
+      localStorage.setItem("user_id", authData.user!.id);
       localStorage.setItem("firm_id", data.firm_id);
       localStorage.setItem("role", data.role);
       localStorage.setItem("full_name", data.full_name);
@@ -71,7 +88,7 @@ export default function SignupPage() {
       
     } catch (err: any) {
       console.error(err);
-      setErrorMessage("Registration failed. Please try again.");
+      setErrorMessage(err?.message || "Registration failed. Please try again.");
       return;
     } finally {
       setIsLoading(false);

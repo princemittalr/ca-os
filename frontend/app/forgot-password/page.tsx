@@ -3,23 +3,24 @@
 import React, { useState } from 'react';
 import { 
   Building, 
-  Zap, 
   CheckCircle2, 
   AlertCircle, 
   ArrowRight,
   MailWarning
 } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '../../lib/supabase';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [sent, setSent] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3000);
+    setTimeout(() => setToastMessage(''), 5000);
   };
 
   const handleReset = async (e: React.FormEvent) => {
@@ -33,14 +34,21 @@ export default function ForgotPasswordPage() {
       setIsLoading(true);
       setErrorMessage('');
       
-      // In a real environment, we'd trigger a Supabase reset:
-      // await supabase_client.auth.reset_password_for_email(email)
-      
-      showToast("✓ Reset email sent successfully! Check your inbox.");
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        // Supabase will append #access_token=... to this URL.
+        // The /reset-password page must call supabase.auth.updateUser({ password })
+        // after reading the hash fragment.
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      setSent(true);
+      showToast("✓ Reset email sent! Check your inbox.");
       
     } catch (err: any) {
       console.error(err);
-      setErrorMessage("Failed to send reset link.");
+      setErrorMessage(err?.message || "Failed to send reset link. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -48,28 +56,25 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-      {/* Background blurs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-100/50 rounded-full filter blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-100/50 rounded-full filter blur-[100px] pointer-events-none"></div>
 
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3.5">
-          <CheckCircle2 className="text-[#10B981] flex-shrink-0 animate-bounce" size={20} />
+        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-[3px] shadow-sm z-[100] max-w-sm flex items-center gap-3.5">
+          <CheckCircle2 className="text-[#10B981] flex-shrink-0" size={20} />
           <span className="text-[13px] font-bold tracking-wide">{toastMessage}</span>
         </div>
       )}
 
       {/* Reset Panel */}
-      <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-10 shadow-fintech-lg relative z-10 space-y-6 animate-in scale-in duration-300">
+      <div className="bg-white border border-slate-200 rounded-[3px] max-w-[480px] w-full p-10 shadow-sm relative z-10 space-y-6">
         
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[#4F46E5] text-white flex items-center justify-center mx-auto shadow-md shadow-indigo-200">
-            <Building size={20} />
+          <div className="w-12 h-12 rounded-[3px] bg-[#1B4F8A] text-white flex items-center justify-center mx-auto shadow-sm">
+            <MailWarning size={20} />
           </div>
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-900 mt-3">Reset Password</h2>
-            <span className="text-[10px] font-black text-[#7C3AED] tracking-[0.25em] uppercase mt-0.5 block">Statutory Access recovery</span>
+            <span className="text-[10px] font-black text-[#1B4F8A] tracking-[0.25em] uppercase mt-0.5 block">Statutory Access Recovery</span>
           </div>
         </div>
 
@@ -77,41 +82,54 @@ export default function ForgotPasswordPage() {
           Provide your registered CA firm email address. We will transmit an encrypted login bypass link to restore session access.
         </p>
 
-        <form onSubmit={handleReset} className="space-y-4 font-sans">
-          {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-[#EF4444] flex items-center gap-2">
-              <AlertCircle size={14} />
-              <span>{errorMessage}</span>
+        {sent ? (
+          // Success state — email dispatched
+          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-[3px] p-4 flex items-start gap-3">
+            <CheckCircle2 size={16} className="text-[#10B981] flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-[12px] font-bold text-[#166534]">Reset link dispatched</p>
+              <p className="text-[11px] text-[#166534] mt-0.5 leading-relaxed">
+                Check <span className="font-semibold">{email}</span> for the password reset email. The link expires in 1 hour.
+              </p>
             </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Registered Email *</label>
-            <input 
-              type="email"
-              required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="e.g. aditya@firm.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-indigo-100 transition-all duration-200"
-            />
           </div>
-
-          <button 
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-[#4F46E5] hover:bg-[#4338CA] text-white py-3.5 rounded-xl text-xs font-black shadow-md shadow-indigo-200 hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            {isLoading ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <>
-                <span>Transmit Reset Link</span>
-                <ArrowRight size={14} />
-              </>
+        ) : (
+          <form onSubmit={handleReset} className="space-y-4 font-sans">
+            {errorMessage && (
+              <div className="text-[11px] text-[#B91C1C] flex items-center gap-1.5">
+                <AlertCircle size={13} className="flex-shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
             )}
-          </button>
-        </form>
+
+            <div>
+              <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Registered Email *</label>
+              <input 
+                type="email"
+                required
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="e.g. aditya@firm.com"
+                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
+              />
+            </div>
+
+            <button 
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-[32px] bg-[#1B4F8A] text-[#FFFFFF] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <div className="w-[12px] h-[12px] border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <span>Transmit Reset Link</span>
+                  <ArrowRight size={12} />
+                </>
+              )}
+            </button>
+          </form>
+        )}
 
         <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
           <span>Remembered access? </span>
