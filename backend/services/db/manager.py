@@ -602,20 +602,33 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
 # -------------------------------------------------------------------------
 MOCK_NOTICES: list = []
 
-def get_notices(client_id: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_notices(
+    client_id: Optional[str] = None,
+    firm_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Fetches GST notices from Supabase, scoped to firm_id to enforce tenant isolation.
+    Optionally filtered further by client_id.
+    """
     if is_supabase_active():
         try:
             q = supabase_client.table("gst_notices").select("*").eq("is_deleted", False)
+            if firm_id:
+                q = q.eq("firm_id", firm_id)
             if client_id:
                 q = q.eq("client_id", client_id)
             res = q.order("risk_level", desc=True).execute()
             return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-    
+
+    # Fallback: apply firm_id and client_id filters to mock store
+    results = MOCK_NOTICES
+    if firm_id:
+        results = [n for n in results if n.get("firm_id") == firm_id]
     if client_id:
-        return [n for n in MOCK_NOTICES if n["client_id"] == client_id]
-    return MOCK_NOTICES
+        results = [n for n in results if n["client_id"] == client_id]
+    return results
 
 def get_notice_by_id(notice_id: str) -> Optional[Dict[str, Any]]:
     if is_supabase_active():
@@ -632,6 +645,13 @@ def get_notice_by_id(notice_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Persists a new GST notice dossier.
+    notice_data MUST contain firm_id sourced from the authenticated user's token.
+    """
+    if not notice_data.get("firm_id"):
+        raise ValueError("firm_id is required to create a notice; cannot be empty.")
+
     tax_amount = float(notice_data.get("tax_amount", 0.0))
     interest_est = float(notice_data.get("interest_exposure_est") or (tax_amount * 0.18))
     penalty_est = float(notice_data.get("penalty_exposure_est") or max(10000.0, tax_amount * 0.10))
@@ -640,6 +660,7 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
     new_notice = {
         "id": notice_data.get("id") or f"notice-{str(uuid.uuid4())[:8]}",
         "client_id": notice_data["client_id"],
+        "firm_id": notice_data["firm_id"],
         "client_name": notice_data["client_name"],
         "notice_number": notice_data["notice_number"],
         "issuing_authority": notice_data.get("issuing_authority") or "GST Tax Authority",

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
 from datetime import date, datetime, timedelta
 import logging
 
 from middleware.auth import verify_token, RequireRoles
+from middleware.rate_limit import limiter, UPLOAD_LIMIT
 from services.db import manager as db_manager
 from services.notice_engine import ocr, intelligence
 
@@ -13,14 +14,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/upload")
+@limiter.limit(UPLOAD_LIMIT)
 async def upload_gst_notice(
+    request: Request,
     client_id: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    current_user: dict = Depends(verify_token)
 ):
     """
     Ingests, parses, extracts, and summarizes statutory GST notices (PDF or Image).
+    Requires authentication. Validates that the target client belongs to the
+    authenticated user's firm before processing.
     """
-    # 1. Fetch Client Profile Context
+    # 1. Fetch Client Profile Context and enforce firm ownership
     client = db_manager.get_client_by_id(client_id)
     if not client:
         raise HTTPException(
@@ -28,10 +34,16 @@ async def upload_gst_notice(
             detail=f"Client with ID '{client_id}' not found."
         )
 
+    if client.get("firm_id") != current_user.get("firm_id"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Client does not belong to your firm."
+        )
+
     # 2. Extract Text (PyMuPDF or Fallback Scrutiny OCR)
     contents = await file.read()
     filename = file.filename or "notice.pdf"
-    
+
     raw_text = ""
     if filename.lower().endswith(".pdf"):
         try:
@@ -76,7 +88,7 @@ async def upload_gst_notice(
 
     # 3. Deterministic regex extraction
     det = ocr.parse_deterministic_metadata(raw_text)
-    
+
     # 4. Semantic LLM summarization
     client_context = {
         "trade_name": client.get("trade_name") or client.get("business_name"),
@@ -87,7 +99,7 @@ async def upload_gst_notice(
     # 5. Fuses extractions and calculate deadline thresholds
     notice_type = ai_data.get("notice_type") or intelligence.classify_notice(raw_text)
     tax_amount = det.get("tax_amount") or ai_data.get("tax_amount", 0.0)
-    
+
     # Standardize dates
     due_date_parsed = None
     due_str = det.get("due_date") or ai_data.get("response_deadline")
@@ -99,9 +111,9 @@ async def upload_gst_notice(
             try:
                 parts = due_str.split("-")
                 if len(parts) == 3:
-                    if len(parts[0]) == 4: # YYYY-MM-DD
+                    if len(parts[0]) == 4:  # YYYY-MM-DD
                         due_date_parsed = date(int(parts[0]), int(parts[1]), int(parts[2]))
-                    else: # DD-MM-YYYY
+                    else:  # DD-MM-YYYY
                         due_date_parsed = date(int(parts[2]), int(parts[1]), int(parts[0]))
             except Exception:
                 due_date_parsed = date.today() + timedelta(days=15)
@@ -130,7 +142,7 @@ async def upload_gst_notice(
     # Risk prioritize
     days_left = (due_date_parsed - date.today()).days
     risk_score = intelligence.calculate_notice_risk_score(tax_amount, notice_type, days_left)
-    
+
     risk_level = "LOW"
     if risk_score > 75.0:
         risk_level = "HIGH"
@@ -141,9 +153,10 @@ async def upload_gst_notice(
     penalty_est = max(10000.0, tax_amount * 0.10)
     total_est = tax_amount + interest_est + penalty_est
 
-    # 6. Save Notice Dossier Record
+    # 6. Save Notice Dossier Record (firm_id injected from token — never from client)
     notice_payload = {
         "client_id": client_id,
+        "firm_id": current_user["firm_id"],
         "client_name": client.get("business_name") or client.get("legal_name") or "Unknown Client",
         "notice_number": det.get("notice_number") or ai_data.get("notice_number") or f"GST/REF/{int(datetime.now().timestamp())}",
         "issuing_authority": det.get("issuing_authority") or "State Tax Officer, GST Department",
@@ -183,17 +196,28 @@ async def upload_gst_notice(
     new_notice = db_manager.create_notice(notice_payload)
     return new_notice
 
+
 @router.get("")
-async def list_gst_notices(client_id: Optional[str] = None):
+async def list_gst_notices(
+    client_id: Optional[str] = None,
+    current_user: dict = Depends(verify_token)
+):
     """
-    Returns list of all notice dossiers, optionally filtered by client.
+    Returns notice dossiers scoped to the authenticated user's firm,
+    optionally filtered by client_id.
     """
-    return db_manager.get_notices(client_id)
+    firm_id: str = current_user["firm_id"]
+    return db_manager.get_notices(client_id=client_id, firm_id=firm_id)
+
 
 @router.get("/{id}")
-async def get_gst_notice_details(id: str):
+async def get_gst_notice_details(
+    id: str,
+    current_user: dict = Depends(verify_token)
+):
     """
     Query full metadata and timeline records for a notice dossier.
+    Validates firm ownership before returning.
     """
     notice = db_manager.get_notice_by_id(id)
     if not notice:
@@ -201,12 +225,24 @@ async def get_gst_notice_details(id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Notice Dossier with ID '{id}' not found."
         )
+
+    if notice.get("firm_id") != current_user.get("firm_id"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Notice does not belong to your firm."
+        )
+
     return notice
 
+
 @router.post("/{id}/draft-response")
-async def compile_statutory_outreach_reply(id: str):
+async def compile_statutory_outreach_reply(
+    id: str,
+    current_user: dict = Depends(verify_token)
+):
     """
     Uses active LLM to generate statutory outreach reply responses to the notice.
+    Validates firm ownership before generating draft.
     """
     notice = db_manager.get_notice_by_id(id)
     if not notice:
@@ -214,11 +250,16 @@ async def compile_statutory_outreach_reply(id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Notice Dossier with ID '{id}' not found."
         )
-        
+
+    if notice.get("firm_id") != current_user.get("firm_id"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Notice does not belong to your firm."
+        )
+
     reply_text = await intelligence.generate_statutory_reply_draft(notice)
-    
+
     # Update status to DRAFTED
     db_manager.update_notice_status(id, "DRAFTED")
-    
-    return {"reply": reply_text}
 
+    return {"reply": reply_text}
