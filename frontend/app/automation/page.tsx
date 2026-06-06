@@ -140,13 +140,15 @@ export default function AutomationCenterPage() {
     setIsModalOpen(true);
   };
 
+  // TODO:
+  // Replace local-only configuration updates with backend persistence
+  // after a real automation configuration API is implemented.
   const handleSaveConfig = () => {
     if (!selectedAgent) return;
     setIsSaving(true);
-    console.log("[Configure Agent] Compiling and deploying agent config for:", selectedAgent.name);
+    console.log("[Configure Agent] Configuration updated locally.");
 
-    // Simulate cryptographic compilation & deployment to Supabase ledger
-    setTimeout(() => {
+    try {
       setAgents(agents.map(a => {
         if (a.id === selectedAgent.id) {
           return {
@@ -162,10 +164,13 @@ export default function AutomationCenterPage() {
         return a;
       }));
 
-      setIsSaving(false);
       setIsModalOpen(false);
-      triggerToast(`✓ ${selectedAgent.name} compiled and deployed successfully.`);
-    }, 1000);
+      triggerToast("Agent configuration updated locally.");
+    } catch (err) {
+      triggerToast("⚠ Failed to save config. Check connection.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleToggleChannel = (channel: string) => {
