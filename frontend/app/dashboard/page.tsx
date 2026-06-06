@@ -87,65 +87,14 @@ export default function DashboardPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Sandbox and Feature Flags state
-  const [featureFlags, setFeatureFlags] = React.useState({
-    AI_ENABLED: true,
-    NOTICES_ENABLED: true,
-    MOCK_MODE_ENABLED: true
-  });
-  const [isResetting, setIsResetting] = React.useState(false);
-
-  const fetchFlags = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/api/demo/feature-flags`);
-      if (res.data && res.data.feature_flags) {
-        setFeatureFlags(res.data.feature_flags);
-      }
-    } catch (err) {
-      console.error("Failed to load feature flags:", err);
-    }
-  };
-
-  const handleToggleFlag = async (flagName: 'AI_ENABLED' | 'NOTICES_ENABLED' | 'MOCK_MODE_ENABLED') => {
-    const updated = {
-      ...featureFlags,
-      [flagName]: !featureFlags[flagName]
-    };
-    setFeatureFlags(updated);
-    try {
-      await axios.post(`${API_BASE}/api/demo/feature-flags`, updated);
-      setToast({
-        message: `✓ Feature flag [${flagName}] toggled successfully!`,
-        type: 'success'
-      });
-    } catch (err) {
-      console.error("Failed to update feature flags:", err);
-    }
-  };
-
-  const handleResetSandbox = async () => {
-    setIsResetting(true);
-    try {
-      const res = await axios.post(`${API_BASE}/api/demo/reset`);
-      if (res.data && res.data.status === "SUCCESS") {
-        setToast({
-          message: "✓ Sandbox database wiped & re-seeded with fresh corporate portfolios!",
-          type: 'success'
-        });
-      }
-    } catch (err) {
-      console.error("Failed to reset sandbox:", err);
-      setToast({
-        message: "❌ Sandbox reset failed. Please ensure backend dev server is active.",
-        type: 'error'
-      });
-    } finally {
-      setIsResetting(false);
-    }
-  };
+  // Sandbox banner visibility state
+  const [isSandbox, setIsSandbox] = React.useState(false);
 
   React.useEffect(() => {
-    fetchFlags();
+    // Setup sandbox mode checks
+    const role = localStorage.getItem("role");
+    const isSandboxMode = process.env.NEXT_PUBLIC_SANDBOX_MODE === "true";
+    setIsSandbox(isSandboxMode && (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN"));
 
     // Setup local date greeting
     const hr = new Date().getHours();
@@ -215,8 +164,6 @@ export default function DashboardPage() {
   const [reconUploading, setReconUploading] = React.useState<boolean>(false);
   const [reconResult, setReconResult] = React.useState<any | null>(null);
   const [reconError, setReconError] = React.useState<string | null>(null);
-
-  const isSandbox = process.env.NEXT_PUBLIC_SANDBOX_MODE === "true";
 
   // Automatically clear toast after 4 seconds
   React.useEffect(() => {
