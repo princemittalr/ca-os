@@ -68,18 +68,26 @@ export default function AuditTrailPage() {
       if (!res.ok) throw new Error("Failed to fetch audit logs");
       const data = await res.json();
       // Map Supabase audit_logs fields to LogEntry format
-      const mapped = data.map((row: any) => ({
-        id: row.id,
-        timestamp: new Date(row.created_at).toLocaleString('en-IN', {
-          day: '2-digit', month: '2-digit', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        }).replace(',', '').replace(/\//g, '-'),
-        user: row.user_id || row.actor_id || "System",
-        action: row.action,
-        entity: row.entity_type || "—",
-        details: JSON.stringify(row.details || {}),
-        ip_address: row.ip_address || "—"
-      }));
+      const mapped = data.map((row: any) => {
+        const rawUser = row.user_id || row.actor_id;
+        const userDisplay =
+          rawUser && typeof rawUser === "string"
+            ? `${rawUser.slice(0, 8)}...`
+            : "System";
+
+        return {
+          id: row.id,
+          timestamp: new Date(row.created_at).toLocaleString('en-IN', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          }).replace(',', '').replace(/\//g, '-'),
+          user: userDisplay,
+          action: row.action,
+          entity: row.entity_type || "—",
+          details: JSON.stringify(row.details || {}),
+          ip_address: row.ip_address || "—"
+        };
+      });
       setLogs(mapped);
     } catch (err) {
       console.error("Audit fetch failed:", err);
@@ -89,7 +97,9 @@ export default function AuditTrailPage() {
     }
   };
   
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => {
+    fetchLogs();
+  }, []);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
