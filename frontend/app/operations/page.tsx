@@ -51,6 +51,7 @@ interface NotificationLog {
 export default function OperationsDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [notifications, setNotifications] = useState<NotificationLog[]>([]);
+  const [hasToken, setHasToken] = useState(true);
   const [telemetry, setTelemetry] = useState<{
     uptime_status: string;
     api_total_requests: number;
@@ -79,9 +80,11 @@ export default function OperationsDashboard() {
     try {
       const token = getAuthToken();
       if (!token) {
-        window.location.href = "/login";
+        setHasToken(false);
+        setIsLoading(false);
         return;
       }
+      setHasToken(true);
       const headers = { "Authorization": `Bearer ${token}` };
 
       const [jobsRes, notifRes, statusRes] = await Promise.all([
@@ -120,7 +123,7 @@ export default function OperationsDashboard() {
       setIsActioning(jobType);
       const token = getAuthToken();
       if (!token) {
-        window.location.href = "/login";
+        setToastMessage("Please login to access operations.");
         return;
       }
       const res = await fetch(`${API_BASE}/api/jobs/trigger`, {
@@ -148,7 +151,7 @@ export default function OperationsDashboard() {
       setIsActioning(jobId);
       const token = getAuthToken();
       if (!token) {
-        window.location.href = "/login";
+        setToastMessage("Please login to access operations.");
         return;
       }
       const res = await fetch(`${API_BASE}/api/jobs/${jobId}/retry`, {
@@ -229,6 +232,17 @@ export default function OperationsDashboard() {
           </button>
         }
       />
+
+      {/* Auth Alert Banner */}
+      {!hasToken && (
+        <div className="bg-red-50 border border-red-200 rounded-3xl p-5 flex items-center gap-4 text-slate-900 shadow-sm animate-in fade-in duration-300">
+          <AlertOctagon className="text-red-500 flex-shrink-0" size={24} />
+          <div>
+            <h4 className="text-sm font-bold text-red-700">Authentication Required</h4>
+            <p className="text-xs text-slate-500 mt-0.5">Please login to access operations dashboard features and trigger automation tasks.</p>
+          </div>
+        </div>
+      )}
 
       {/* Health Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -493,7 +507,7 @@ export default function OperationsDashboard() {
           
           <button
             onClick={() => handleForceTrigger("compliance_reminders")}
-            disabled={isActioning !== null}
+            disabled={isActioning !== null || !hasToken}
             className="flex items-center justify-between p-4 rounded-2xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 hover:border-slate-200 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
           >
             <div className="min-w-0 pr-2">
@@ -509,7 +523,7 @@ export default function OperationsDashboard() {
 
           <button
             onClick={() => handleForceTrigger("overdue_escalation")}
-            disabled={isActioning !== null}
+            disabled={isActioning !== null || !hasToken}
             className="flex items-center justify-between p-4 rounded-2xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 hover:border-slate-200 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
           >
             <div className="min-w-0 pr-2">
@@ -525,7 +539,7 @@ export default function OperationsDashboard() {
 
           <button
             onClick={() => handleForceTrigger("nightly_reconciliation")}
-            disabled={isActioning !== null}
+            disabled={isActioning !== null || !hasToken}
             className="flex items-center justify-between p-4 rounded-2xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 hover:border-slate-200 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
           >
             <div className="min-w-0 pr-2">
@@ -541,7 +555,7 @@ export default function OperationsDashboard() {
 
           <button
             onClick={() => handleForceTrigger("action_center_refresh")}
-            disabled={isActioning !== null}
+            disabled={isActioning !== null || !hasToken}
             className="flex items-center justify-between p-4 rounded-2xl bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 hover:border-slate-200 text-left transition-all duration-200 cursor-pointer disabled:opacity-50"
           >
             <div className="min-w-0 pr-2">
@@ -644,7 +658,7 @@ export default function OperationsDashboard() {
                         {job.status === 'FAILED' ? (
                           <button
                             onClick={() => handleRetryJob(job.job_id)}
-                            disabled={isActioning !== null}
+                            disabled={isActioning !== null || !hasToken}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-extrabold text-[#EF4444] bg-[#EF4444]/10 hover:bg-[#EF4444]/20 border border-[#EF4444]/20 rounded-lg cursor-pointer transition-all duration-150 disabled:opacity-50"
                           >
                             {isActioning === job.job_id ? (
