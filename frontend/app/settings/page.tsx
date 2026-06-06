@@ -3,6 +3,9 @@
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { useSearchParams } from 'next/navigation';
+import { getAuthToken } from '@/lib/auth';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { 
   User, 
@@ -279,9 +282,23 @@ function SettingsContent() {
 
   // Secure password update handled via multi-step workflow modal
 
-  const handleRevokeSession = (id: string, name: string) => {
-    setSessions(sessions.filter(s => s.id !== id));
-    triggerToast(`✓ Session revoked on ${name}`);
+  const handleRevokeSession = async (id: string, name: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/sessions/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${getAuthToken()}`
+        }
+      });
+      if (res.ok) {
+        setSessions(sessions.filter(s => s.id !== id));
+        triggerToast(`✓ Session revoked on ${name}`);
+      } else {
+        triggerToast("❌ Revocation Failed: Unable to revoke session.");
+      }
+    } catch (err) {
+      triggerToast("❌ Revocation Failed: Connection error.");
+    }
   };
 
   const handleInviteMember = (e: React.FormEvent) => {
@@ -761,188 +778,65 @@ function SettingsContent() {
                           <div className="space-y-1.5">
                             <h4 className="text-[14.5px] font-bold text-slate-900">Step 1: Multi-Factor Authentication</h4>
                             <p className="text-[13px] text-slate-400 leading-relaxed">
-                              To safeguard sensitive GSTR registries, verify your identity using either your current master password or a temporary security OTP.
+                              To safeguard sensitive GSTR registries, verify your identity using your current master password.
                             </p>
                           </div>
 
-                          {/* Verification Tabs */}
-                          <div className="grid grid-cols-2 bg-[#F8FAFC] p-1 rounded-xl border border-slate-200">
-                            <button
-                              type="button"
-                              onClick={() => { setVerifyMethod('password'); setOtpSent(false); }}
-                              className={`py-2 rounded-lg text-[12.5px] font-bold transition-all ${verifyMethod === 'password' ? 'bg-white border border-slate-200 text-slate-800 shadow' : 'text-slate-500 hover:text-slate-900'}`}
-                            >
-                              Master Password
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setVerifyMethod('otp')}
-                              className={`py-2 rounded-lg text-[12.5px] font-bold transition-all ${verifyMethod === 'otp' ? 'bg-white border border-slate-200 text-slate-800 shadow' : 'text-slate-500 hover:text-slate-900'}`}
-                            >
-                              Email OTP Alert
-                            </button>
-                          </div>
-
-                          {/* Tab Content A: Master Password */}
-                          {verifyMethod === 'password' && (
-                            <div className="space-y-4">
-                              <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                  <label className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Current Master Password</label>
-                                  <span className="text-[10px] text-slate-500 font-semibold italic">Demo pass: Password123</span>
-                                </div>
-                                <div className="relative">
-                                  <input
-                                    type={showVerifyPass ? "text" : "password"}
-                                    value={verifyPasswordInput}
-                                    onChange={(e) => setVerifyPasswordInput(e.target.value)}
-                                    placeholder="••••••••"
-                                    className="w-full h-11 bg-[#F8FAFC] border border-slate-200 focus:border-[#4F46E5]/40 rounded-xl pl-4 pr-10 text-[13.5px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 transition-all placeholder:text-gray-600"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowVerifyPass(!showVerifyPass)}
-                                    className="absolute right-3.5 inset-y-0 flex items-center text-slate-500 hover:text-slate-900 transition-colors"
-                                  >
-                                    {showVerifyPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                                  </button>
-                                </div>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-center">
+                                <label className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Current Master Password</label>
                               </div>
+                              <div className="relative">
+                                <input
+                                  type={showVerifyPass ? "text" : "password"}
+                                  value={verifyPasswordInput}
+                                  onChange={(e) => setVerifyPasswordInput(e.target.value)}
+                                  placeholder="••••••••"
+                                  className="w-full h-11 bg-[#F8FAFC] border border-slate-200 focus:border-[#4F46E5]/40 rounded-xl pl-4 pr-10 text-[13.5px] text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 transition-all placeholder:text-gray-600"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowVerifyPass(!showVerifyPass)}
+                                  className="absolute right-3.5 inset-y-0 flex items-center text-slate-500 hover:text-slate-900 transition-colors"
+                                >
+                                  {showVerifyPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                                </button>
+                              </div>
+                            </div>
 
-                              <button
-                                type="button"
-                                disabled={modalLoading || !verifyPasswordInput}
-                                onClick={async () => {
-                                  setModalLoading(true);
-                                  await new Promise(r => setTimeout(r, 1200));
-                                  setModalLoading(false);
-                                  if (verifyPasswordInput === 'Password123') {
+                            <button
+                              type="button"
+                              disabled={modalLoading || !verifyPasswordInput}
+                              onClick={async () => {
+                                setModalLoading(true);
+                                try {
+                                  const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                      "Authorization": `Bearer ${getAuthToken()}`
+                                    },
+                                    body: JSON.stringify({ password: verifyPasswordInput })
+                                  });
+                                  if (res.ok) {
                                     setModalStep(2);
                                   } else {
-                                    triggerToast("❌ Verification Failed: Invalid current master password!");
+                                    const errData = await res.json().catch(() => ({}));
+                                    triggerToast(`❌ Verification Failed: ${errData.detail || "Invalid current master password!"}`);
                                   }
-                                }}
-                                className="w-full h-11 rounded-xl bg-[#4F46E5] hover:bg-[#4F46E5]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#4F46E5]/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                              >
-                                {modalLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
-                                <span>Verify Identity</span>
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Tab Content B: Email OTP Flow */}
-                          {verifyMethod === 'otp' && (
-                            <div className="space-y-4">
-                              {!otpSent ? (
-                                <div className="bg-[#F8FAFC] p-5 rounded-xl border border-slate-200 text-center space-y-4">
-                                  <div className="w-10 h-10 rounded-full bg-[#7C3AED]/10 flex items-center justify-center text-[#7C3AED] mx-auto">
-                                    <Mail size={18} />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <div className="text-[13px] font-bold text-slate-800">Send Identity OTP</div>
-                                    <div className="text-[11.5px] text-slate-500">
-                                      A secure audit code will be transmitted to <strong>rahul.sharma@reckon.ai</strong>
-                                    </div>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    disabled={modalLoading}
-                                    onClick={async () => {
-                                      setModalLoading(true);
-                                      await new Promise(r => setTimeout(r, 1000));
-                                      setModalLoading(false);
-                                      setOtpSent(true);
-                                      setOtpTimer(60);
-                                      triggerToast("✉ OTP security code transmitted to rahul.sharma@reckon.ai");
-                                    }}
-                                    className="px-5 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#7C3AED]/90 text-white text-[12.5px] font-bold transition-all shadow-md cursor-pointer flex items-center justify-center gap-2 mx-auto"
-                                  >
-                                    {modalLoading && <Loader2 size={14} className="animate-spin" />}
-                                    <span>Transmit Security OTP</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="space-y-4">
-                                  <div className="space-y-2 text-center">
-                                    <label className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Input 6-Digit OTP</label>
-                                    <div className="flex justify-center gap-2.5">
-                                      {otpCode.map((digit, idx) => (
-                                        <input
-                                          key={idx}
-                                          id={`otp-${idx}`}
-                                          type="text"
-                                          maxLength={1}
-                                          value={digit}
-                                          onChange={(e) => {
-                                            const val = e.target.value;
-                                            if (!/^\d*$/.test(val)) return;
-                                            const newOtp = [...otpCode];
-                                            newOtp[idx] = val.slice(-1);
-                                            setOtpCode(newOtp);
-                                            if (val && idx < 5) {
-                                              document.getElementById(`otp-${idx + 1}`)?.focus();
-                                            }
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Backspace' && !otpCode[idx] && idx > 0) {
-                                              document.getElementById(`otp-${idx - 1}`)?.focus();
-                                            }
-                                          }}
-                                          className="w-10 h-12 bg-[#F8FAFC] border border-slate-200 rounded-lg text-center font-bold text-lg text-slate-800 focus:outline-none focus:border-[#7C3AED] transition-all focus:ring-1 focus:ring-[#7C3AED]/30"
-                                        />
-                                      ))}
-                                    </div>
-                                    <div className="flex items-center justify-between text-[11px] px-1 pt-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOtpCode(['1', '2', '3', '4', '5', '6']);
-                                          triggerToast("✓ Demo OTP auto-filled.");
-                                        }}
-                                        className="text-[#7C3AED] hover:underline font-bold"
-                                      >
-                                        [Auto-fill Demo Code]
-                                      </button>
-                                      
-                                      {otpTimer > 0 ? (
-                                        <span className="text-slate-500 font-semibold">Resend in {otpTimer}s</span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setOtpTimer(60);
-                                            triggerToast("✉ Resent secure OTP code.");
-                                          }}
-                                          className="text-[#4F46E5] hover:underline font-bold"
-                                        >
-                                          Resend Code
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    disabled={modalLoading || otpCode.some(c => !c)}
-                                    onClick={async () => {
-                                      setModalLoading(true);
-                                      await new Promise(r => setTimeout(r, 1200));
-                                      setModalLoading(false);
-                                      if (otpCode.join('') === '123456') {
-                                        setModalStep(2);
-                                      } else {
-                                        triggerToast("❌ Verification Failed: Invalid 6-digit OTP security code!");
-                                      }
-                                    }}
-                                    className="w-full h-11 rounded-xl bg-[#7C3AED] hover:bg-[#7C3AED]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#7C3AED]/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                                  >
-                                    {modalLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
-                                    <span>Verify Code</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                                } catch (err) {
+                                  triggerToast("❌ Verification Failed: Connection error.");
+                                } finally {
+                                  setModalLoading(false);
+                                }
+                              }}
+                              className="w-full h-11 rounded-xl bg-[#4F46E5] hover:bg-[#4F46E5]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#4F46E5]/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {modalLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
+                              <span>Verify Identity</span>
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -1141,15 +1035,23 @@ function SettingsContent() {
                                 onClick={async () => {
                                   setModalLoading(true);
                                   try {
-                                    // Simulate enterprise storage save & security trigger
-                                    await new Promise(r => setTimeout(r, 1600));
-                                    
-                                    // Invalidate sessions except current Windows one
-                                    setSessions(sessions.filter(s => s.last_active === 'Active now'));
-                                    
-                                    // Trigger success
-                                    setModalStep(4);
-                                    triggerToast("✓ Password updated. Dispatched security notification to rahul.sharma@reckon.ai.");
+                                    const res = await fetch(`${API_BASE}/api/auth/password`, {
+                                      method: "PUT",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                        "Authorization": `Bearer ${getAuthToken()}`
+                                      },
+                                      body: JSON.stringify({ new_password: newPassVal })
+                                    });
+                                    if (res.ok) {
+                                      // Invalidate sessions except current Windows one
+                                      setSessions(sessions.filter(s => s.last_active === 'Active now'));
+                                      setModalStep(4);
+                                      triggerToast("✓ Password updated. Dispatched security notification to rahul.sharma@reckon.ai.");
+                                    } else {
+                                      const errData = await res.json().catch(() => ({}));
+                                      triggerToast(`❌ Update Failed: ${errData.detail || "Unable to update password."}`);
+                                    }
                                   } catch (err) {
                                     triggerToast("❌ Connection Failure: Security logs mismatch.");
                                   } finally {
@@ -1380,7 +1282,6 @@ function SettingsContent() {
                             <div className="space-y-2">
                               <div className="flex justify-between items-center">
                                 <label className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Current Master Password</label>
-                                <span className="text-[10px] text-slate-500 font-semibold italic">Demo pass: Password123</span>
                               </div>
                               <div className="relative">
                                 <input
@@ -1405,12 +1306,25 @@ function SettingsContent() {
                               disabled={modalLoading || !twoFactorPasswordInput}
                               onClick={async () => {
                                 setModalLoading(true);
-                                await new Promise(r => setTimeout(r, 1200));
-                                setModalLoading(false);
-                                if (twoFactorPasswordInput === 'Password123') {
-                                  setTwoFactorStep(2);
-                                } else {
-                                  triggerToast("❌ Verification Failed: Invalid current master password!");
+                                try {
+                                  const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                      "Authorization": `Bearer ${getAuthToken()}`
+                                    },
+                                    body: JSON.stringify({ password: twoFactorPasswordInput })
+                                  });
+                                  if (res.ok) {
+                                    setTwoFactorStep(2);
+                                  } else {
+                                    const errData = await res.json().catch(() => ({}));
+                                    triggerToast(`❌ Verification Failed: ${errData.detail || "Invalid current master password!"}`);
+                                  }
+                                } catch (err) {
+                                  triggerToast("❌ Verification Failed: Connection error.");
+                                } finally {
+                                  setModalLoading(false);
                                 }
                               }}
                               className="w-full h-11 rounded-xl bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#F59E0B]/20 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1664,17 +1578,7 @@ function SettingsContent() {
                                   />
                                 ))}
                               </div>
-                              <div className="flex items-center justify-between text-[11px] px-1 pt-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTwoFactorCode(['4', '8', '9', '0', '1', '2']);
-                                    triggerToast("✓ Demo Code auto-filled.");
-                                  }}
-                                  className="text-[#F59E0B] hover:underline font-bold"
-                                >
-                                  [Auto-fill Code: 489012]
-                                </button>
+                              <div className="flex items-center justify-end text-[11px] px-1 pt-1.5">
                                 <span className="text-slate-500 font-semibold">Resets every 30s</span>
                               </div>
                             </div>
@@ -1829,65 +1733,7 @@ function SettingsContent() {
                         </div>
                       </div>
 
-                      {/* Factor 2: Email OTP */}
-                      <div className="space-y-2">
-                        <label className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">Factor 2: Secure Email OTP Alert</label>
-                        
-                        {!disableOtpSent ? (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              setDisableLoading(true);
-                              await new Promise(r => setTimeout(r, 1000));
-                              setDisableLoading(false);
-                              setDisableOtpSent(true);
-                              setDisableOtpTimer(60);
-                              triggerToast("✉ Dynamic secure override OTP alert dispatched to rahul.sharma@reckon.ai");
-                            }}
-                            className="w-full h-11 bg-[#F8FAFC] hover:bg-slate-50 border border-slate-200 text-white rounded-[3px] text-[12.5px] font-bold shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <span>Transmit Verification Code OTP</span>
-                          </button>
-                        ) : (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={disableOtpInput}
-                              onChange={(e) => setDisableOtpInput(e.target.value)}
-                              placeholder="Input 6-Digit OTP (Demo: 123456)"
-                              className="w-full h-11 bg-[#F8FAFC] border border-slate-200 focus:border-[#EF4444]/40 rounded-[3px] px-4 text-[13.5px] text-white focus:outline-none focus:ring-2 focus:ring-[#EF4444]/20 placeholder:text-gray-600"
-                            />
-                            
-                            <div className="flex justify-between items-center text-[11px] px-1 pt-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDisableOtpInput('123456');
-                                  triggerToast("✓ Demo OTP loaded.");
-                                }}
-                                className="text-[#7C3AED] hover:underline font-bold"
-                              >
-                                [Auto-fill OTP: 123456]
-                              </button>
-                              
-                              {disableOtpTimer > 0 ? (
-                                <span className="text-slate-500 font-semibold">Resend in {disableOtpTimer}s</span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDisableOtpTimer(60);
-                                    triggerToast("✉ Dynamic secure OTP resent.");
-                                  }}
-                                  className="text-[#4F46E5] hover:underline font-bold"
-                                >
-                                  Resend OTP
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      {/* Factor 2 removed */}
 
                       {/* Modal Footer Controls */}
                       <div className="flex gap-3 mt-6 pt-4 border-t border-slate-200">
@@ -1900,17 +1746,30 @@ function SettingsContent() {
                         </button>
                         <button
                           type="button"
-                          disabled={disableLoading || !disablePasswordInput || !disableOtpInput}
+                          disabled={disableLoading || !disablePasswordInput}
                           onClick={async () => {
                             setDisableLoading(true);
-                            await new Promise(r => setTimeout(r, 1600));
-                            setDisableLoading(false);
-                            if (disablePasswordInput === 'Password123' && disableOtpInput === '123456') {
-                              setIs2FAEnabled(false);
-                              setShowDisable2FAModal(false);
-                              triggerToast("✓ Two-Factor Authentication disabled. Account status set to unprotected.");
-                            } else {
-                              triggerToast("❌ Verification Failed: Invalid current master password or OTP security code!");
+                            try {
+                              const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                  "Authorization": `Bearer ${getAuthToken()}`
+                                },
+                                body: JSON.stringify({ password: disablePasswordInput })
+                              });
+                              if (res.ok) {
+                                setIs2FAEnabled(false);
+                                setShowDisable2FAModal(false);
+                                triggerToast("✓ Two-Factor Authentication disabled. Account status set to unprotected.");
+                              } else {
+                                const errData = await res.json().catch(() => ({}));
+                                triggerToast(`❌ Verification Failed: ${errData.detail || "Invalid current master password!"}`);
+                              }
+                            } catch (err) {
+                              triggerToast("❌ Verification Failed: Connection error.");
+                            } finally {
+                              setDisableLoading(false);
                             }
                           }}
                           className="flex-1 h-11 rounded-[3px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1937,7 +1796,24 @@ function SettingsContent() {
                   </h4>
                   {sessions.length > 1 && (
                     <button
-                      onClick={() => { setSessions(sessions.slice(0,1)); triggerToast("Logged out of all other devices successfully."); }}
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_BASE}/api/auth/sessions`, {
+                            method: "DELETE",
+                            headers: {
+                              "Authorization": `Bearer ${getAuthToken()}`
+                            }
+                          });
+                          if (res.ok) {
+                            setSessions(sessions.slice(0,1));
+                            triggerToast("Logged out of all other devices successfully.");
+                          } else {
+                            triggerToast("❌ Action Failed: Unable to revoke all sessions.");
+                          }
+                        } catch (err) {
+                          triggerToast("❌ Action Failed: Connection error.");
+                        }
+                      }}
                       className="btn btn-sm btn-destructive"
                       title="Revoke all non-current sessions"
                     >

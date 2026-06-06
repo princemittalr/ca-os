@@ -298,6 +298,12 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class VerifyPasswordRequest(BaseModel):
+    password: str
+
+class PasswordUpdateRequest(BaseModel):
+    new_password: str
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
