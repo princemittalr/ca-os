@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from typing import List, Dict, Any
 from io import BytesIO
+import logging
 
 from models import schemas
 from services.db import manager as db_manager
 from services import communication
 from middleware.auth import verify_token, RequireRoles
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -23,9 +26,10 @@ async def generate_outreach_draft(payload: schemas.CommunicationGenerateRequest)
         draft = db_manager.create_communication(data_dict)
         return draft
     except Exception as e:
+        logger.error(f"An error occurred while compiling notice drafts: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"An error occurred while compiling notice drafts: {str(e)}"
+            detail="An error occurred while compiling notice drafts. Please try again."
         )
 
 @router.put("/{comm_id}/status")
@@ -63,8 +67,9 @@ async def export_notice_pdf(vendor_name: str, gstin: str, issue: str, deadline: 
             }
         )
     except Exception as e:
+        logger.error(f"An error occurred while compiling notice PDF: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"An error occurred while compiling notice PDF: {str(e)}"
+            detail="An error occurred while compiling notice PDF. Please try again."
         )
 

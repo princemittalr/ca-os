@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from typing import Dict, Any
 import uuid
 from io import BytesIO
+import logging
 
 # Fix local relative imports
 from services import matching_engine, ai_service
@@ -12,6 +13,8 @@ from services.exporter import generate_excel_report, generate_pdf_summary
 from services import client_workspace
 from services.db import manager as db_manager
 from middleware.auth import verify_token, RequireRoles
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -161,9 +164,10 @@ async def reconcile_gstr2b(
     except HTTPException as he:
         raise he
     except Exception as e:
+        logger.error(f"An error occurred while reconciling the files: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"An error occurred while reconciling the files: {str(e)}"
+            detail="An error occurred while reconciling the files. Please try again."
         )
 
 
@@ -254,7 +258,8 @@ async def upload_and_reconcile(
     except HTTPException as he:
         raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Upload and reconcile failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Upload and reconcile failed. Please try again.")
 
 
 # -------------------------------------------------------------------------
@@ -272,7 +277,8 @@ async def export_reconciliation_excel(
     try:
         results = db_manager.get_recon_rows(reconciliation_id)
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ve))
+        logger.warning(f"Excel export failed: {str(ve)}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation data not found.")
 
     summary = results.get("summary", {})
     matches = results.get("matches", [])
@@ -305,7 +311,8 @@ async def export_reconciliation_pdf(
     try:
         results = db_manager.get_recon_rows(reconciliation_id)
     except ValueError as ve:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ve))
+        logger.warning(f"PDF export failed: {str(ve)}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation data not found.")
 
     summary = results.get("summary", {})
     matches = results.get("matches", [])
@@ -396,4 +403,5 @@ async def reconcile_import_boe(
     except HTTPException as he:
         raise he
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Import BOE customs reconciliation failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Import BOE customs reconciliation failed. Please try again.")

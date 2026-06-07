@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Dict, Any
+import logging
 from models import schemas
 from services import client_workspace
 from middleware.auth import verify_token, RequireRoles
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -17,7 +20,11 @@ async def get_dashboard_summary(
     firm_id = current_user.get("firm_id")
     if not firm_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
-    return client_workspace.get_dashboard_aggregations(firm_id=firm_id)
+    try:
+        return client_workspace.get_dashboard_aggregations(firm_id=firm_id)
+    except Exception as e:
+        logger.error(f"Dashboard summary retrieval failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve dashboard summary.")
 
 
 # ---------------------------------------------------------------------------
@@ -30,7 +37,11 @@ async def list_clients(current_user: dict = Depends(verify_token)):
     firm_id = current_user.get("firm_id")
     if not firm_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
-    return client_workspace.get_clients(firm_id=firm_id)
+    try:
+        return client_workspace.get_clients(firm_id=firm_id)
+    except Exception as e:
+        logger.error(f"Failed to list clients: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve clients list.")
 
 
 # ---------------------------------------------------------------------------
@@ -45,8 +56,12 @@ async def create_client(
     firm_id = current_user.get("firm_id")
     if not firm_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
-    client_dict = client.model_dump()
-    return client_workspace.create_client(client_dict, firm_id=firm_id)
+    try:
+        client_dict = client.model_dump()
+        return client_workspace.create_client(client_dict, firm_id=firm_id)
+    except Exception as e:
+        logger.error(f"Client creation failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create client.")
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +76,11 @@ async def get_client(
     firm_id = current_user.get("firm_id")
     if not firm_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
-    c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
+    try:
+        c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
+    except Exception as e:
+        logger.error(f"Failed to retrieve client details: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve client details.")
     if not c:
         raise HTTPException(status_code=404, detail="Client not found")
     return c
@@ -79,10 +98,16 @@ async def get_client_reconciliations(
     firm_id = current_user.get("firm_id")
     if not firm_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
-    c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
-    if not c:
-        raise HTTPException(status_code=404, detail="Client not found")
-    return client_workspace.get_reconciliations_for_client(client_id)
+    try:
+        c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="Client not found")
+        return client_workspace.get_reconciliations_for_client(client_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve client reconciliations: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve client reconciliations.")
 
 
 # ---------------------------------------------------------------------------
@@ -99,15 +124,21 @@ async def update_client(
     firm_id = current_user.get("firm_id")
     if not firm_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
-    c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
-    if not c:
-        raise HTTPException(status_code=404, detail="Client not found")
+    try:
+        c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="Client not found")
 
-    update_data = {k: v for k, v in client.model_dump().items() if v is not None}
-    updated = client_workspace.update_client(client_id, update_data)
-    if not updated:
-        raise HTTPException(status_code=500, detail="Failed to update client")
-    return updated
+        update_data = {k: v for k, v in client.model_dump().items() if v is not None}
+        updated = client_workspace.update_client(client_id, update_data)
+        if not updated:
+            raise HTTPException(status_code=500, detail="Failed to update client")
+        return updated
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Client update failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update client.")
 
 
 # ---------------------------------------------------------------------------
@@ -122,10 +153,16 @@ async def delete_client(
     firm_id = current_user.get("firm_id")
     if not firm_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="firm_id missing from user context.")
-    c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
-    if not c:
-        raise HTTPException(status_code=404, detail="Client not found")
-    success = client_workspace.soft_delete_client(client_id, firm_id=firm_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete client")
-    return {"detail": "Client archived successfully.", "client_id": client_id}
+    try:
+        c = client_workspace.get_client_by_id(client_id, firm_id=firm_id)
+        if not c:
+            raise HTTPException(status_code=404, detail="Client not found")
+        success = client_workspace.soft_delete_client(client_id, firm_id=firm_id)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete client")
+        return {"detail": "Client archived successfully.", "client_id": client_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Client deletion failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete client.")

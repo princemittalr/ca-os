@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, status, Query, Depends
 from typing import List, Optional
 from datetime import date, timedelta
+import logging
 
 from models import schemas
 from services.db import manager as db_manager
 from middleware.auth import verify_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -103,14 +106,16 @@ async def create_compliance_deadline(
         data = payload.model_dump()
         return db_manager.create_compliance(data, firm_id=current_user["firm_id"])
     except ValueError as e:
+        logger.warning(f"Compliance task validation failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e),
+            detail="Client does not belong to the authenticated firm.",
         )
     except Exception as e:
+        logger.error(f"An error occurred while compiling compliance task: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"An error occurred while compiling compliance task: {str(e)}",
+            detail="An error occurred while compiling compliance task. Please try again.",
         )
 
 

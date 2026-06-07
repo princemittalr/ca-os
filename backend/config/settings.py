@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     Centralized, Pydantic-validated environment configuration settings for CA-OS.
     """
     ENV: str = Field("development", validation_alias="ENV")
-    DEBUG: bool = Field(True, validation_alias="DEBUG")
+    DEBUG: bool = Field(False, validation_alias="DEBUG")
     ENABLE_DEMO_MODE: bool = Field(False, validation_alias="ENABLE_DEMO_MODE")
     
     # Auth secrets

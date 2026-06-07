@@ -2,6 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 from models import schemas
 from middleware.auth import verify_token
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -30,7 +33,8 @@ async def mark_notification_read(notification_id: str, current_user: dict = Depe
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to mark notification read: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to mark notification as read.")
 
 @router.post("/read-all")
 async def mark_all_read(current_user: dict = Depends(verify_token)):
@@ -41,5 +45,6 @@ async def mark_all_read(current_user: dict = Depends(verify_token)):
         supabase_client.table("notifications").update({"is_read": True}).eq("user_id", current_user["user_id"]).eq("is_read", False).execute()
         return {"status": "success", "message": "All notifications marked as read"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to mark all notifications read: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to mark all notifications as read.")
 

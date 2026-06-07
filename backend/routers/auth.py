@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from middleware.rate_limit import limiter, AUTH_LIMIT
 import uuid
+import logging
 
 from models import schemas
 from middleware.auth import verify_token
@@ -8,6 +9,8 @@ from config.supabase import supabase_client, is_supabase_active
 
 
 from services.audit_logger import log_audit_event, get_client_ip
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -64,13 +67,14 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 }).execute()
             except Exception as db_err:
                 # Rollback: delete the auth user so we don't leave orphan records
+                logger.error(f"User profile creation failed: {str(db_err)}", exc_info=True)
                 try:
                     supabase_client.auth.admin.delete_user(user.id)
                 except Exception:
                     pass  # Best-effort rollback; log but don't mask original error
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"User profile creation failed: {str(db_err)}"
+                    detail="User profile creation failed. Please contact support."
                 )
 
             # Step 3: Log audit trail
@@ -100,9 +104,10 @@ async def signup_firm_user(payload: schemas.UserRegister):
         except HTTPException:
             raise
         except Exception as e:
+            logger.error(f"Registration failed: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Registration failed: {str(e)}"
+                detail="Registration failed. Please check your details and try again."
             )
 
     raise HTTPException(
@@ -162,9 +167,10 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
                 "full_name": full_name
             }
         except Exception as e:
+            logger.error(f"Authentication failed: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Authentication failed: {str(e)}"
+                detail="Invalid email or password credentials."
             )
 
     raise HTTPException(
@@ -215,9 +221,10 @@ async def update_password(payload: schemas.PasswordUpdateRequest, current_user: 
             supabase_client.auth.admin.update_user_by_id(user_id, {"password": payload.new_password})
             return {"message": "Password updated successfully."}
         except Exception as e:
+            logger.error(f"Failed to update password: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to update password: {str(e)}"
+                detail="Failed to update password. Please try again."
             )
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -261,9 +268,10 @@ async def logout_other_sessions(request: Request, current_user: dict = Depends(v
                 supabase_client.auth.admin.sign_out(jwt=token, scope="others")
                 return {"message": "Logged out of all other devices successfully."}
             except Exception as e:
+                logger.error(f"Failed to logout other sessions: {str(e)}", exc_info=True)
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Failed to logout other sessions: {str(e)}"
+                    detail="Failed to logout other sessions. Please try again."
                 )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -335,7 +343,8 @@ async def refresh_token(payload: schemas.TokenRefreshRequest):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Token refresh failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token refresh failed: {str(e)}"
+            detail="Token refresh failed. Please login again."
         )

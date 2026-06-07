@@ -1,8 +1,11 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import List, Optional, cast, Dict, Any
 from supabase import Client
+import logging
 from models import schemas
 from config.supabase import supabase_client as _raw_supabase, is_supabase_active
+
+logger = logging.getLogger(__name__)
 
 _db: Client = cast(Client, _raw_supabase)
 from middleware.auth import verify_token
@@ -61,7 +64,8 @@ async def get_audit_logs(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Failed to fetch audit logs: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch audit logs: {str(e)}",
+            detail="Failed to fetch audit logs. Please try again.",
         )

@@ -16,11 +16,12 @@ async def upload_gstr2b(request: Request, file: UploadFile = File(...)):
 
     contents = await file.read()
 
+    filename = file.filename or "gstr2b.xlsx"
     # Security validation
-    file_meta = validate_and_secure_upload(contents, file.filename)
+    file_meta = validate_and_secure_upload(contents, filename)
 
     try:
-        df = parse_file_to_dataframe(contents, file.filename)
+        df = parse_file_to_dataframe(contents, filename)
         df = normalize_columns(df)
         columns_list = list(df.columns)
         detected = detect_gst_fields(columns_list)
@@ -36,4 +37,5 @@ async def upload_gstr2b(request: Request, file: UploadFile = File(...)):
     except HTTPException as he:
         raise he
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Parse error: {str(e)}")
+        logger.error(f"Parse error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to parse the uploaded file. Please verify its content and format.")
