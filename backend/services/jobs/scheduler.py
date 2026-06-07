@@ -1,5 +1,6 @@
 import threading
 import time
+from config.settings import settings
 from services.jobs.queue import job_queue
 from services.jobs.tasks import (
     compliance_reminders_task,
@@ -151,5 +152,5 @@ class BackgroundScheduler:
                     break
                 time.sleep(1)
 
-# Reusable Global Singleton instance
-cron_scheduler = BackgroundScheduler(interval_seconds=60)
+# Reusable Global Singleton instance — interval driven by settings.SCHEDULER_INTERVAL_SECONDS
+cron_scheduler = BackgroundScheduler(interval_seconds=settings.SCHEDULER_INTERVAL_SECONDS)
