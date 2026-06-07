@@ -20,53 +20,7 @@ import {
   Building
 } from 'lucide-react';
 import Link from 'next/link';
-import { supabase } from '../../lib/supabase';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-const getHeaders = async (customHeaders?: HeadersInit): Promise<Record<string, string>> => {
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
-  
-  const headersObj: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  
-  if (token) {
-    headersObj["Authorization"] = `Bearer ${token}`;
-  }
-  
-  if (customHeaders) {
-    if (customHeaders instanceof Headers) {
-      customHeaders.forEach((value, key) => {
-        headersObj[key] = value;
-      });
-    } else if (Array.isArray(customHeaders)) {
-      customHeaders.forEach(([key, value]) => {
-        headersObj[key] = value;
-      });
-    } else {
-      Object.assign(headersObj, customHeaders);
-    }
-  }
-  
-  return headersObj;
-};
-
-const authedFetch = async (url: string, options: RequestInit = {}) => {
-  const headers = await getHeaders(options.headers);
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
-  if (res.status === 401) {
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-    throw new Error("Unauthorized");
-  }
-  return res;
-};
+import { api } from '@/lib/api';
 
 
 interface ComplianceRecord {
@@ -119,8 +73,7 @@ export default function ComplianceOperationsCenter() {
   };
 
   useEffect(() => {
-    authedFetch(`${API_BASE}/api/clients/`)
-      .then(r => r.json())
+    api.get<any[]>('/api/clients/')
       .then(data => {
         const map: Record<string, string> = {};
         data.forEach((c: any) => {
@@ -137,8 +90,7 @@ export default function ComplianceOperationsCenter() {
   }, []);
 
   useEffect(() => {
-    authedFetch(`${API_BASE}/api/staff`)
-      .then(r => r.ok ? r.json() : [])
+    api.get<string[]>('/api/staff')
       .then(data => {
         setStaffList(data);
         if (data.length > 0) {
@@ -154,9 +106,7 @@ export default function ComplianceOperationsCenter() {
   const loadCompliance = async () => {
     try {
       setIsLoading(true);
-      const res = await authedFetch(`${API_BASE}/api/compliance`);
-      if (!res.ok) throw new Error("Failed to load compliance tasks");
-      const data = await res.json();
+      const data = await api.get<ComplianceRecord[]>('/api/compliance');
       setTasks(data);
     } catch (err) {
       console.error("Compliance fetch failed:", err);
@@ -173,10 +123,10 @@ export default function ComplianceOperationsCenter() {
   const handleMarkAsFiled = async (compId: string) => {
     const todayStr = new Date().toISOString().split('T')[0];
     try {
-      const res = await authedFetch(`${API_BASE}/api/compliance/${compId}/status?new_status=Filed&filed_date=${todayStr}`, {
-        method: "PUT"
-      });
-      if (!res.ok) throw new Error("Failed to update status");
+      await api.put(
+        `/api/compliance/${compId}/status?new_status=Filed&filed_date=${todayStr}`,
+        {}
+      );
       showToast("✓ Compliance successfully marked as FILED!");
       setTasks(prev => prev.map(t => t.compliance_id === compId ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
       await loadCompliance();
@@ -195,7 +145,7 @@ export default function ComplianceOperationsCenter() {
       setIsLoading(true);
       await Promise.all(
         selectedRowIds.map(id =>
-          authedFetch(`${API_BASE}/api/compliance/${id}/status?new_status=Filed&filed_date=${todayStr}`, { method: "PUT" })
+          api.put(`/api/compliance/${id}/status?new_status=Filed&filed_date=${todayStr}`, {})
         )
       );
       showToast(`✓ Marked ${selectedRowIds.length} returns as FILED!`);
@@ -215,18 +165,13 @@ export default function ComplianceOperationsCenter() {
   const handleCreateDeadline = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await authedFetch(`${API_BASE}/api/compliance/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_id: formClientId,
-          compliance_type: formType,
-          filing_period: formPeriod,
-          due_date: formDueDate,
-          assigned_to: formAssignedTo
-        })
+      await api.post('/api/compliance/create', {
+        client_id: formClientId,
+        compliance_type: formType,
+        filing_period: formPeriod,
+        due_date: formDueDate,
+        assigned_to: formAssignedTo
       });
-      if (!res.ok) throw new Error("Failed to insert filing record");
       showToast("✓ Compliance filing task generated successfully!");
       setIsCreateModalOpen(false);
       await loadCompliance();
