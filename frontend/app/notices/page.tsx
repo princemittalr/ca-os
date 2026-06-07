@@ -12,7 +12,7 @@ import {
   FolderOpen,
   CheckCircle
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { api } from '@/lib/api';
 
 interface NoticeDossier {
   id: string;
@@ -45,11 +45,6 @@ interface NoticeDossier {
 
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-const getToken = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token;
-};
 
 export default function NoticeIntelligenceCenter() {
   const [notices, setNotices] = useState<NoticeDossier[]>([]);
@@ -88,25 +83,8 @@ export default function NoticeIntelligenceCenter() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const token = await getToken();
-        const res = await fetch(`${API_BASE}/api/clients/`, {
-          headers: {
-            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-            "Content-Type": "application/json"
-          }
-        });
-        if (res.status === 401) {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
-          }
-          return;
-        }
-        if (res.ok) {
-          const data = await res.json();
-          setUploadClients(data);
-        } else {
-          setUploadClients([]);
-        }
+        const data = await api.get<any[]>('/api/clients/');
+        setUploadClients(data);
       } catch (err) {
         console.error("Client lookup failed:", err);
         setUploadClients([]);
@@ -146,21 +124,7 @@ export default function NoticeIntelligenceCenter() {
   const fetchNotices = async () => {
     try {
       setIsLoading(true);
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/notices`, {
-        headers: {
-          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-          "Content-Type": "application/json"
-        }
-      });
-      if (res.status === 401) {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
-        return;
-      }
-      if (!res.ok) throw new Error("Failed to load notice dossiers.");
-      const data = await res.json();
+      const data = await api.get<NoticeDossier[]>('/api/notices');
       setNotices(data);
     } catch (err) {
       console.error("Notices fetch failed:", err);
@@ -186,22 +150,9 @@ export default function NoticeIntelligenceCenter() {
     setResponseDraft("");
     setTypedReply("");
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/notices/${noticeId}/draft-response`, {
-        method: "POST",
-        headers: {
-          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-          "Content-Type": "application/json"
-        }
-      });
-      if (res.status === 401) {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
-        return;
-      }
-      if (!res.ok) throw new Error("Statutory reply compiler failed.");
-      const data = await res.json();
+      const data = await api.post<{reply: string}>(
+        `/api/notices/${noticeId}/draft-response`, {}
+      );
       setResponseDraft(data.reply);
 
       // Simulate live typing streams reveal
@@ -273,34 +224,11 @@ For ${selectedNotice?.client_name}`;
     formData.append("file", uploadFile);
 
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/notices/upload`, {
-        method: "POST",
-        headers: token ? { "Authorization": `Bearer ${token}` } : {},
-        body: formData
-      });
+      const newNotice = await api.postForm<NoticeDossier>('/api/notices/upload', formData);
 
       clearInterval(progTimer);
       setUploadProgress(100);
 
-      if (res.status === 401) {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
-        return;
-      }
-
-      if (res.status === 403) {
-        setUploadError("Client not in your firm");
-        showToast("⚠ Client not in your firm");
-        setIsUploading(false);
-        setUploadProgress(0);
-        return;
-      }
-
-      if (!res.ok) throw new Error("OCR notice parser failed.");
-
-      const newNotice = await res.json();
       showToast("✓ Notice parsed & analyzed in 12 seconds!");
 
       setNotices(prev => [newNotice, ...prev]);
@@ -309,12 +237,15 @@ For ${selectedNotice?.client_name}`;
       setUploadClientId("");
       setUploadError("");
       setSelectedNotice(newNotice);
-    } catch (err) {
-      console.error("Notice upload failed:", err);
-      showToast("⚠ Notice parsing failed. Please check the file and try again.");
+    } catch (err: any) {
       clearInterval(progTimer);
       setUploadProgress(0);
-      setIsUploading(false);
+      const msg = err.message || '';
+      if (msg.includes('403') || msg.includes('firm')) {
+        setUploadError("Client not in your firm");
+      } else {
+        showToast("⚠ Notice parsing failed.");
+      }
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
