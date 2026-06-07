@@ -1,48 +1,36 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
 from config.settings import settings
 from middleware.observability import ObservabilityMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
-from middleware.errors import global_exception_handler, http_exception_handler, validation_exception_handler
+from middleware.errors import http_exception_handler, validation_exception_handler
 from services.jobs.scheduler import cron_scheduler
+from config.supabase import is_supabase_active
 
 from config.env_validator import validate_environment
 validate_environment()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ── Startup summary ──────────────────────────────────────────────────────
-    print(f"[INFO] Environment  : {settings.ENV}")
-    print(f"[INFO] Debug mode   : {settings.DEBUG}")
-    print(f"[INFO] Demo mode    : {settings.ENABLE_DEMO_MODE}")
-    print(f"[INFO] CORS origins : {len(settings.CORS_ORIGINS)} configured -> {settings.CORS_ORIGINS}")
-
-    # ── Database readiness check ──────────────────────────────────────────────
-    _scheduler_started = False
-    try:
-        from config.supabase import supabase_client, is_supabase_active
-        if not is_supabase_active() or supabase_client is None:
-            raise RuntimeError("Supabase client is not initialised or inactive")
-        supabase_client.table("jobs").select("job_id").limit(1).execute()
-        # DB is reachable — safe to start scheduler
-        cron_scheduler.start()
-        _scheduler_started = True
-        print("[SUCCESS] DB readiness check passed. Scheduler started.")
-    except Exception as e:
-        print(
-            f"[CRITICAL] DB startup check failed — scheduler will NOT start. "
-            f"Reason: {e}"
-        )
-
+    # Startup checks
+    if settings.ENV == "production":
+        if not is_supabase_active():
+            raise RuntimeError("FATAL: Supabase unreachable at startup in production.")
+        if settings.SUPABASE_URL == "mock_url":
+            raise RuntimeError("FATAL: SUPABASE_URL is mock value in production.")
+        if settings.SECRET_KEY == "":
+            raise RuntimeError("FATAL: SECRET_KEY not set in production.")
+    
+    # Start scheduler (ensuring background workers are active)
+    cron_scheduler.start()
+    
     yield
-
-    # ── Shutdown ──────────────────────────────────────────────────────────────
-    if _scheduler_started:
-        cron_scheduler.stop()
-        print("[INFO] Scheduler stopped.")
+    # Shutdown: stop scheduler
+    cron_scheduler.stop()
 
 app = FastAPI(
     title="Reckon AI API",
@@ -73,8 +61,16 @@ app.add_middleware(
 app.add_middleware(ObservabilityMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Register structured global error boundaries
-app.add_exception_handler(Exception, global_exception_handler)
+# Error handler — no stack traces in production:
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    if settings.DEBUG:
+        raise exc  # Let FastAPI show full traceback in dev
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error. Please try again."}
+    )
+
 app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore
 app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore
 
