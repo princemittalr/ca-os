@@ -66,9 +66,10 @@ class ClientUpdate(BaseModel):
 
 class ClientResponse(ClientBase):
     id: str
-    user_id: Optional[str] = None
+    firm_id: Optional[str] = None   # matches clients.firm_id (RLS scope)
+    user_id: Optional[str] = None   # kept for legacy compatibility
     created_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -239,7 +240,7 @@ class ComplianceResponse(BaseModel):
     escalation_level: int
     risk_level: str
     risk_score: float
-    filed_date: Optional[str] = None
+    filed_date: Optional[date] = None  # matches compliance_tasks.filed_date (not all tasks are filed)
 
 class ComplianceSummaryResponse(BaseModel):
     upcoming_filings: int
@@ -325,6 +326,7 @@ class AuditLogCreate(BaseModel):
 # --- Background Jobs & Notifications Schemas ---
 class JobResponse(BaseModel):
     job_id: str
+    firm_id: Optional[str] = None   # matches background_jobs.firm_id
     job_type: str
     status: str  # PENDING | RUNNING | COMPLETED | FAILED
     progress: float
@@ -369,6 +371,7 @@ class NoticeCreate(NoticeBase):
 
 class NoticeResponse(NoticeBase):
     id: str
+    firm_id: Optional[str] = None   # matches gst_notices.firm_id (RLS scope)
     created_at: datetime
     updated_at: datetime
 
