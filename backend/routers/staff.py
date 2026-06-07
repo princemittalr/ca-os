@@ -1,10 +1,11 @@
-from fastapi import APIRouter
-from typing import List
+from fastapi import APIRouter, Depends
+from typing import List, Dict, Any, cast
+from middleware.auth import verify_token
 
 router = APIRouter()
 
 @router.get("", response_model=List[str])
-async def list_staff_members():
+async def list_staff_members(current_user: dict = Depends(verify_token)):
     """
     Get all staff members from database.
     """
@@ -12,9 +13,13 @@ async def list_staff_members():
     if not is_supabase_active() or supabase_client is None:
         return []
     try:
-        res = supabase_client.table("users").select("full_name").execute()
-        staff = [u["full_name"] for u in res.data if u.get("full_name")]
-        return staff
+        res = supabase_client.table("users")\
+            .select("full_name")\
+            .eq("firm_id", current_user["firm_id"])\
+            .execute()
+        data_list = cast(List[Dict[str, Any]], res.data or [])
+        return [u["full_name"] for u in data_list if u.get("full_name")]
     except Exception as e:
-        print(f"Error fetching staff from db: {str(e)}")
+        print(f"Error fetching staff: {str(e)}")
         return []
+
