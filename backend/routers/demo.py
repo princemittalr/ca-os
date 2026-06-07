@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status, HTTPException, Depends
+from datetime import datetime
 from typing import Dict, Any, List
 from pydantic import BaseModel
 
@@ -12,15 +13,16 @@ from config.settings import settings
 from middleware.auth import verify_token
 
 def check_demo_access(current_user: dict = Depends(verify_token)):
+    """Gate: SUPER_ADMIN only. Router is not mounted in production at all."""
     if not settings.ENABLE_DEMO_MODE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Demo mode is disabled."
         )
-    if current_user["role"] not in ["SUPER_ADMIN", "PARTNER"]:
+    if current_user["role"] != "SUPER_ADMIN":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Demo features require admin privileges."
+            detail="Access denied. Demo endpoints require SUPER_ADMIN role."
         )
     return current_user
 
@@ -122,5 +124,3 @@ def get_pilot_analytics() -> List[Dict[str, Any]]:
     """
     return DEMO_ANALYTICS_LOGS
 
-# Dynamic timestamp helper imports
-from datetime import datetime

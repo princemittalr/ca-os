@@ -2,6 +2,8 @@ import logging
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional
 
+from config.settings import settings
+
 # Setup logger
 logger = logging.getLogger("demo_engine")
 
@@ -383,7 +385,17 @@ def reset_demo_workspace():
     """
     Clears active CA-OS database arrays and seeds them with standardized demo datasets.
     Operates recursively on both in-memory arrays and Supabase tables (if active).
+
+    SAFETY GUARDS:
+    - Raises RuntimeError if ENV=production.
+    - Raises RuntimeError if ENABLE_DEMO_MODE is False.
+    - Supabase deletions are scoped to DEMO_FIRM_ID only — never touches real firm data.
     """
+    if settings.ENV == "production":
+        raise RuntimeError("Demo reset is disabled in production.")
+    if not settings.ENABLE_DEMO_MODE:
+        raise RuntimeError("Demo mode is not enabled.")
+
     record_demo_analytic("sandbox_reset_triggered")
     
     # 1. Reset In-Memory Lists in services.client_workspace
@@ -447,22 +459,19 @@ def reset_demo_workspace():
     ])
 
     # 6. Database reset (if Supabase persistent connection is active)
+    # DEMO_FIRM_ID is the designated isolation boundary for all demo data.
+    # Deletions are scoped ONLY to this firm — real production firm data is never touched.
+    DEMO_FIRM_ID = "demo-firm-uuid-12345"
     from config.supabase import is_supabase_active, supabase_client
     if is_supabase_active() and supabase_client is not None:
         db = supabase_client
         try:
             logger.info("Supabase active. Seeding persistent database tables...")
-            # Truncate tables for default demo scopes (or soft wipe scoped entries)
-            # Since standard pilots require clean tables, we can soft-reset via is_deleted flags or deletion queries.
-            # We delete existing demo clients and re-insert
-            client_ids = ["client-1", "client-2", "client-3", "client-4"]
-            for cid in client_ids:
-                db.table("clients").delete().eq("id", cid).execute()
-                db.table("reconciliation_runs").delete().eq("client_id", cid).execute()
-                db.table("compliance_tasks").delete().eq("client_id", cid).execute()
-                db.table("communications").delete().eq("client_id", cid).execute()
-                db.table("action_items").delete().eq("client_id", cid).execute()
-                db.table("gst_notices").delete().eq("client_id", cid).execute()
+            # Soft-wipe all demo data scoped to the designated demo firm only.
+            # This ensures zero risk of touching real production firm records.
+            for table in ["clients", "reconciliation_runs", "compliance_tasks",
+                          "communications", "action_items", "gst_notices"]:
+                db.table(table).delete().eq("firm_id", DEMO_FIRM_ID).execute()
                 
             # Seed them in Supabase
             # Insert clients

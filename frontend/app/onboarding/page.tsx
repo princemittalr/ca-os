@@ -86,10 +86,11 @@ export default function PilotOnboardingWelcome() {
     setIsSubmitting(true);
     
     try {
-      // 1. Trigger API Demo Bootstrap/Reset
+      // 1. Trigger API Demo Bootstrap/Reset (best-effort — gracefully skipped if demo
+      //    mode is disabled or the endpoint is absent in production builds).
       const res = await fetch(`${API_BASE}/api/demo/bootstrap`);
       if (res.ok) {
-        // Log pilot onboarding action in analytics
+        // Log pilot onboarding action in analytics only when demo mode is active.
         await fetch(`${API_BASE}/api/demo/analytics`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -100,10 +101,15 @@ export default function PilotOnboardingWelcome() {
               chosen_client_profile: selectedProfile
             }
           })
+        }).catch(() => {
+          // Analytics failure is non-fatal — tour still launches.
         });
       }
+      // res.status 404 (demo disabled) or 403 (not SUPER_ADMIN) are handled
+      // gracefully: the tour still launches without sandbox pre-seeding.
     } catch (err) {
-      console.error("Failed to seed sandbox:", err);
+      // Network error or endpoint absent — non-fatal, tour still launches.
+      console.warn("[Demo] Bootstrap skipped (demo mode may be disabled):", err);
     }
     
     setIsSubmitting(false);

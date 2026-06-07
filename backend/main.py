@@ -59,7 +59,7 @@ def read_root():
     return {"status": "ok", "message": "Welcome to Reckon AI API"}
 
 # Import routers here and include them
-from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, demo, audit, notifications, staff, automation, messages
+from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, audit, notifications, staff, automation, messages
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
 app.include_router(reconcile.router, prefix="/api/reconcile", tags=["reconcile"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
@@ -71,7 +71,14 @@ app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(notices.router, prefix="/api/notices", tags=["notices"])
 app.include_router(health.router, prefix="/api", tags=["health"])
-app.include_router(demo.router, prefix="/api/demo", tags=["demo"])
+
+# Demo router: only mounted in non-production environments with demo mode explicitly enabled.
+# In production (ENV=production) or when ENABLE_DEMO_MODE=False, the /api/demo/* routes
+# will not exist at all (404), preventing any accidental data contamination.
+if settings.ENABLE_DEMO_MODE and settings.ENV != "production":
+    from routers import demo
+    app.include_router(demo.router, prefix="/api/demo", tags=["demo"])
+    print("[WARN] Demo mode enabled. Not for production use.")
 app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
 app.include_router(staff.router, prefix="/api/staff", tags=["staff"])
