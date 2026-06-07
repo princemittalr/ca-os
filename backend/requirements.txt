@@ -1,19 +1,54 @@
-fastapi
-uvicorn[standard]
-pandas
-openpyxl
-pymupdf
-python-jose[cryptography]
-passlib[bcrypt]
-rapidfuzz
-google-generativeai
-groq
-supabase
-pydantic
-pydantic-settings
-python-multipart
-reportlab
-slowapi
-python-magic
-bleach
-python-dotenv
+# ==============================================================================
+# CA-OS Backend — requirements.txt
+# All versions are pinned for reproducible builds.
+# Docker note: pip install --no-cache-dir -r requirements.txt
+# ==============================================================================
+
+# --- Core API framework ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2        # Required: Settings(BaseSettings) — was missing
+python-dotenv==1.0.1
+python-multipart==0.0.12        # File upload form parsing
+httpx==0.27.2                   # Async HTTP client + FastAPI test client
+slowapi==0.1.9                  # Rate limiting middleware
+
+# --- Database / Auth ---
+supabase==2.7.4
+python-jose[cryptography]==3.3.0  # JWT signing/verification
+passlib[bcrypt]==1.7.4            # Password hashing
+
+# --- AI integrations ---
+groq==0.11.0                    # Groq LLM API client — was missing
+google-generativeai==0.8.3      # Gemini API client
+
+# --- File handling ---
+python-magic==0.4.27            # MIME type detection — was missing
+                                # Docker: requires libmagic1 system package
+Pillow==10.4.0                  # Image processing
+pypdf2==3.0.1                   # PDF reading
+pymupdf==1.24.10                # Advanced PDF parsing (fitz)
+reportlab==4.2.2                # PDF generation
+
+# --- Security ---
+bleach==6.1.0                   # HTML sanitisation — was missing
+
+# --- Data processing / Export ---
+pandas==2.2.3
+openpyxl==3.1.5                 # Excel read/write
+rapidfuzz==3.9.7                # Fuzzy string matching for reconciliation
+
+# --- Validation ---
+email-validator==2.2.0          # Validates EmailStr fields in Pydantic
+
+# --- Background jobs ---
+apscheduler==3.10.4             # In-process scheduler
+
+# ==============================================================================
+# Dev / test only — exclude from production Docker image
+# To install only prod deps: pip install --no-cache-dir -r requirements.txt
+# and maintain a separate requirements-dev.txt for the lines below.
+# ==============================================================================
+pytest==8.3.3
+pytest-asyncio==0.24.0
