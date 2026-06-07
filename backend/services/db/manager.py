@@ -57,46 +57,17 @@ def get_client_by_id(client_id: str, firm_id: Optional[str] = None) -> Optional[
     return None
 
 def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) -> Dict[str, Any]:
-    if is_supabase_active():
-        try:
-            # Scope client to the authenticated user's firm.
-            # firm_id MUST come from the current user's token — never generate here.
-            if not firm_id:
-                raise ValueError("firm_id is required to create a client; cannot be empty.")
-            payload = {
-                "id": str(uuid.uuid4()),
-                "firm_id": firm_id,
-                "business_name": client_data["business_name"],
-                "legal_name": client_data.get("legal_name") or client_data["business_name"],
-                "trade_name": client_data.get("trade_name") or client_data["business_name"],
-                "gstin": client_data["gstin"].upper(),
-                "contact_person": client_data.get("contact_person") or "Assigned Auditor",
-                "email": client_data.get("email") or "accounts@domain.com",
-                "phone": client_data.get("phone") or "+91 99999 99999",
-                "state": client_data.get("state") or "Maharashtra",
-                "state_code": client_data.get("state_code") or "27",
-                "filing_type": client_data.get("filing_type") or "full",
-                "filing_frequency": client_data.get("filing_frequency") or "monthly",
-                "assigned_manager": client_data.get("assigned_manager") or "Audit Associate",
-                "is_deleted": False
-            }
-            res = supabase_client.table("clients").insert(payload).execute()
-            if res.data:
-                return cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback to local in-memory store
-    from services.client_workspace import MOCK_CLIENTS
-    new_id = f"client-{len(MOCK_CLIENTS) + 1}"
-    new_client = {
-        "id": new_id,
-        "firm_id": firm_id or "mock-firm-uuid",
-        "user_id": "mock-user-uuid-12345",
-        "business_name": client_data.get("business_name"),
-        "legal_name": client_data.get("legal_name") or client_data.get("business_name"),
-        "trade_name": client_data.get("trade_name") or client_data.get("business_name"),
-        "gstin": client_data.get("gstin", "").upper(),
+    if not firm_id:
+        raise ValueError("firm_id is required to create a client; cannot be empty.")
+    if not is_supabase_active():
+        raise RuntimeError("Database unavailable. Cannot create client.")
+    payload = {
+        "id": str(uuid.uuid4()),
+        "firm_id": firm_id,
+        "business_name": client_data["business_name"],
+        "legal_name": client_data.get("legal_name") or client_data["business_name"],
+        "trade_name": client_data.get("trade_name") or client_data["business_name"],
+        "gstin": client_data["gstin"].upper(),
         "contact_person": client_data.get("contact_person") or "Assigned Auditor",
         "email": client_data.get("email") or "accounts@domain.com",
         "phone": client_data.get("phone") or "+91 99999 99999",
@@ -105,10 +76,17 @@ def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) ->
         "filing_type": client_data.get("filing_type") or "full",
         "filing_frequency": client_data.get("filing_frequency") or "monthly",
         "assigned_manager": client_data.get("assigned_manager") or "Audit Associate",
-        "created_at": datetime.now()
+        "is_deleted": False
     }
-    MOCK_CLIENTS.append(new_client)
-    return new_client
+    try:
+        res = supabase_client.table("clients").insert(payload).execute()
+        if res.data:
+            return cast(Dict[str, Any], res.data[0])
+        raise RuntimeError("Client insert returned no data.")
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to create client: {str(e)}") from e
 
 def update_client(client_id: str, client_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
@@ -158,16 +136,15 @@ def soft_delete_client(client_id: str, firm_id: str) -> bool:
 # RECONCILIATIONS CRUD ABSTRACTION
 # -------------------------------------------------------------------------
 def get_reconciliations(client_id: str) -> List[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("reconciliation_runs").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
-            return cast(List[Dict[str, Any]], res.data)
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback to local in-memory store
-    from services.client_workspace import MOCK_RECON_HISTORY
-    return [r for r in MOCK_RECON_HISTORY if r["client_id"] == client_id]
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — returning empty reconciliation list.")
+        return []
+    try:
+        res = supabase_client.table("reconciliation_runs").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
+        return cast(List[Dict[str, Any]], res.data)
+    except Exception as e:
+        print(f"[ERROR] Supabase get_reconciliations error: {str(e)}")
+        return []
 
 def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, Any]:
     # Calculate risk score based on mismatch values
@@ -179,38 +156,11 @@ def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, An
     elif mismatches > 0 or risk_val > 0.0:
         risk_score = "MEDIUM"
 
-    ret = None
-    if is_supabase_active():
-        try:
-            payload = {
-                "reconciliation_id": str(uuid.uuid4()),
-                "client_id": client_id,
-                "filing_period": run_data.get("filing_period") or "2024-03",
-                "reconciliation_status": "Fully Reconciled" if mismatches == 0 else "Completed with Mismatches",
-                "total_invoices": run_data.get("total_invoices", 0),
-                "matched_count": run_data.get("matched_count", 0),
-                "mismatch_count": mismatches,
-                "missing_in_2b_count": run_data.get("missing_in_2b_count", 0),
-                "missing_in_books_count": run_data.get("missing_in_books_count", 0),
-                "itc_at_risk": risk_val,
-                "itc_protected": run_data.get("itc_protected", 0.0),
-                "risk_score": risk_score,
-                "is_deleted": False
-            }
-            # Soft-overwrite existing records for the same period
-            supabase_client.table("reconciliation_runs").update({"is_deleted": True}).eq("client_id", client_id).eq("filing_period", payload["filing_period"]).execute()
-            res = supabase_client.table("reconciliation_runs").insert(payload).execute()
-            if res.data:
-                ret = cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-
-    if not ret:
-        # Fallback to local in-memory store
-        from services.client_workspace import MOCK_RECON_HISTORY
-        new_recon_id = f"recon-{client_id}-{len(MOCK_RECON_HISTORY) + 1}"
-        new_run = {
-            "reconciliation_id": new_recon_id,
+    if not is_supabase_active():
+        raise RuntimeError("Database unavailable. Cannot persist reconciliation run.")
+    try:
+        payload = {
+            "reconciliation_id": str(uuid.uuid4()),
             "client_id": client_id,
             "filing_period": run_data.get("filing_period") or "2024-03",
             "reconciliation_status": "Fully Reconciled" if mismatches == 0 else "Completed with Mismatches",
@@ -222,19 +172,21 @@ def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, An
             "itc_at_risk": risk_val,
             "itc_protected": run_data.get("itc_protected", 0.0),
             "risk_score": risk_score,
-            "upload_timestamp": datetime.now()
+            "is_deleted": False
         }
-        
-        # Remove existing record of the same filing period if present to overwrite
-        MOCK_RECON_HISTORY = [r for r in MOCK_RECON_HISTORY if not (r["client_id"] == client_id and r["filing_period"] == new_run["filing_period"])]
-        MOCK_RECON_HISTORY.append(new_run)
-        
-        # Save back to client_workspace global list
-        import services.client_workspace as cw
-        cw.MOCK_RECON_HISTORY = MOCK_RECON_HISTORY
-        ret = new_run
+        # Soft-overwrite existing records for the same period
+        supabase_client.table("reconciliation_runs").update({"is_deleted": True}).eq("client_id", client_id).eq("filing_period", payload["filing_period"]).execute()
+        res = supabase_client.table("reconciliation_runs").insert(payload).execute()
+        if res.data:
+            ret = cast(Dict[str, Any], res.data[0])
+        else:
+            raise RuntimeError("Reconciliation insert returned no data.")
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to persist reconciliation run: {str(e)}") from e
 
-    sync_reconciliation_to_action_engine(client_id, cast(Dict[str, Any], ret))
+    sync_reconciliation_to_action_engine(client_id, ret)
     
     # Wire reconciliation completion to notify assigned manager
     try:
@@ -545,12 +497,6 @@ def update_action_assignment(action_id: str, staff: str, firm_id: str) -> Option
         return cast(Optional[Dict[str, Any]], res.data[0])
     return None
 
-# -------------------------------------------------------------------------
-# MOCK STORES FOR JOBS & NOTIFICATIONS
-# -------------------------------------------------------------------------
-MOCK_JOBS: list = []
-
-MOCK_NOTIFICATIONS: list = []
 
 # -------------------------------------------------------------------------
 # OPERATIONS JOBS CRUD ABSTRACTION
@@ -628,10 +574,10 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
 def get_user_id_by_name(full_name: str) -> Optional[str]:
     """
     Looks up user_id for a staff user by their full name.
-    Falls back to a default mock user UUID if database is not active.
+    Returns None if database is not active or user is not found.
     """
     if not is_supabase_active():
-        return "mock-user-uuid-12345"
+        return None
     try:
         res = supabase_client.table("users").select("id").eq("full_name", full_name).execute()
         if res.data:
@@ -683,8 +629,7 @@ def create_user_notification(
             print(f"[WARN] Failed to insert notification to DB: {e}")
 
     if not db_success:
-        # Fallback to local in-memory store
-        MOCK_NOTIFICATIONS.insert(0, payload)
+        raise RuntimeError("Failed to persist notification.")
 
     return payload
 
@@ -731,17 +676,14 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
         try:
             supabase_client.table("notifications_log").insert(new_notif).execute()
         except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-            
-    MOCK_NOTIFICATIONS.insert(0, new_notif)
+            print(f"[ERROR] Supabase write error for notifications_log: {str(e)}")
     return new_notif
 
 
 
 # -------------------------------------------------------------------------
-# GST NOTICES PERSISTENCE & MOCK REGISTRY
+# GST NOTICES PERSISTENCE
 # -------------------------------------------------------------------------
-MOCK_NOTICES: list = []
 
 def get_notices(
     client_id: Optional[str] = None,
@@ -751,38 +693,31 @@ def get_notices(
     Fetches GST notices from Supabase, scoped to firm_id to enforce tenant isolation.
     Optionally filtered further by client_id.
     """
-    if is_supabase_active():
-        try:
-            q = supabase_client.table("gst_notices").select("*").eq("is_deleted", False)
-            if firm_id:
-                q = q.eq("firm_id", firm_id)
-            if client_id:
-                q = q.eq("client_id", client_id)
-            res = q.order("risk_level", desc=True).execute()
-            return cast(List[Dict[str, Any]], res.data)
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback: apply firm_id and client_id filters to mock store
-    results = MOCK_NOTICES
-    if firm_id:
-        results = [n for n in results if n.get("firm_id") == firm_id]
-    if client_id:
-        results = [n for n in results if n["client_id"] == client_id]
-    return results
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — returning empty notices list.")
+        return []
+    try:
+        q = supabase_client.table("gst_notices").select("*").eq("is_deleted", False)
+        if firm_id:
+            q = q.eq("firm_id", firm_id)
+        if client_id:
+            q = q.eq("client_id", client_id)
+        res = q.order("risk_level", desc=True).execute()
+        return cast(List[Dict[str, Any]], res.data)
+    except Exception as e:
+        print(f"[ERROR] Supabase get_notices error: {str(e)}")
+        return []
 
 def get_notice_by_id(notice_id: str) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("gst_notices").select("*").eq("id", notice_id).eq("is_deleted", False).execute()
-            if res.data:
-                return cast(Optional[Dict[str, Any]], res.data[0])
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-            
-    for n in MOCK_NOTICES:
-        if n["id"] == notice_id:
-            return n
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — notice lookup unavailable.")
+        return None
+    try:
+        res = supabase_client.table("gst_notices").select("*").eq("id", notice_id).eq("is_deleted", False).execute()
+        if res.data:
+            return cast(Optional[Dict[str, Any]], res.data[0])
+    except Exception as e:
+        print(f"[ERROR] Supabase get_notice_by_id error: {str(e)}")
     return None
 
 def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -840,30 +775,30 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
         ]
     }
     
-    ret = None
-    if is_supabase_active():
-        try:
-            payload = {**new_notice}
-            if isinstance(payload["due_date"], (date, datetime)):
-                payload["due_date"] = payload["due_date"].isoformat()
-            if isinstance(payload["hearing_date"], (date, datetime)):
-                payload["hearing_date"] = payload["hearing_date"].isoformat()
-            if isinstance(payload["created_at"], (date, datetime)):
-                payload["created_at"] = payload["created_at"].isoformat()
-            if isinstance(payload["updated_at"], (date, datetime)):
-                payload["updated_at"] = payload["updated_at"].isoformat()
-            
-            res = supabase_client.table("gst_notices").insert(cast(Any, payload)).execute()
-            if res.data:
-                ret = cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-            
-    if not ret:
-        MOCK_NOTICES.insert(0, new_notice)
-        ret = new_notice
+    if not is_supabase_active():
+        raise RuntimeError("Database unavailable. Cannot create notice.")
+    try:
+        payload = {**new_notice}
+        if isinstance(payload["due_date"], (date, datetime)):
+            payload["due_date"] = payload["due_date"].isoformat()
+        if isinstance(payload["hearing_date"], (date, datetime)):
+            payload["hearing_date"] = payload["hearing_date"].isoformat()
+        if isinstance(payload["created_at"], (date, datetime)):
+            payload["created_at"] = payload["created_at"].isoformat()
+        if isinstance(payload["updated_at"], (date, datetime)):
+            payload["updated_at"] = payload["updated_at"].isoformat()
 
-    sync_notice_to_action_engine(cast(Dict[str, Any], ret))
+        res = supabase_client.table("gst_notices").insert(cast(Any, payload)).execute()
+        if res.data:
+            ret = cast(Dict[str, Any], res.data[0])
+        else:
+            raise RuntimeError("Notice insert returned no data.")
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to create notice: {str(e)}") from e
+
+    sync_notice_to_action_engine(ret)
     
     # Wire notice upload to notify relevant staff
     try:
@@ -886,26 +821,18 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
     return cast(Dict[str, Any], ret)
 
 def update_notice_status(notice_id: str, new_status: str) -> Optional[Dict[str, Any]]:
-    ret = None
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("gst_notices").update({"status": new_status, "updated_at": datetime.now().isoformat()}).eq("id", notice_id).execute()
-            if res.data:
-                ret = res.data[0]
-        except Exception as e:
-            print(f"Supabase update error: {str(e)}. Falling back to in-memory store.")
-            
-    if not ret:
-        for n in MOCK_NOTICES:
-            if n["id"] == notice_id:
-                n["status"] = new_status
-                n["updated_at"] = datetime.now()
-                ret = n
-                break
-                
-    if ret:
-        sync_notice_to_action_engine(cast(Dict[str, Any], ret))
-    return cast(Optional[Dict[str, Any]], ret)
+    if not is_supabase_active():
+        print("[WARN] Supabase not active — notice status update unavailable.")
+        return None
+    try:
+        res = supabase_client.table("gst_notices").update({"status": new_status, "updated_at": datetime.now().isoformat()}).eq("id", notice_id).execute()
+        if res.data:
+            ret = cast(Dict[str, Any], res.data[0])
+            sync_notice_to_action_engine(ret)
+            return ret
+    except Exception as e:
+        print(f"[ERROR] Supabase update_notice_status error: {str(e)}")
+    return None
 
 
 # -------------------------------------------------------------------------
