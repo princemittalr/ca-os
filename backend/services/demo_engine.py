@@ -399,12 +399,7 @@ def reset_demo_workspace():
     record_demo_analytic("sandbox_reset_triggered")
     
     # 1. Reset In-Memory Lists in services.client_workspace
-    import services.client_workspace as cw
-    cw.MOCK_CLIENTS.clear()
-    cw.MOCK_CLIENTS.extend(get_seeded_clients())
-    
-    cw.MOCK_RECON_HISTORY.clear()
-    cw.MOCK_RECON_HISTORY.extend(get_seeded_reconciliations())
+    # In-memory seeding removed. All data persisted via Supabase only.
     
     # 2. Compliance tasks are persisted via Supabase only (no in-memory mock).
     #    The Supabase seeding block below handles demo compliance tasks.
@@ -417,46 +412,7 @@ def reset_demo_workspace():
     #    The Supabase seeding block below handles demo action items.
     
     # 5. Reset In-Memory Lists in services.db.manager
-    import services.db.manager as dbm
-    dbm.MOCK_NOTICES.clear()
-    dbm.MOCK_NOTICES.extend(get_seeded_notices())
-    
-    dbm.MOCK_JOBS.clear()
-    dbm.MOCK_JOBS.extend([
-        {
-            "job_id": "job-demo-1",
-            "job_type": "action_center_refresh",
-            "status": "COMPLETED",
-            "progress": 100.0,
-            "retry_count": 0,
-            "created_at": datetime.now() - timedelta(minutes=5),
-            "completed_at": datetime.now() - timedelta(minutes=5) + timedelta(seconds=2),
-            "error_logs": None
-        },
-        {
-            "job_id": "job-demo-2",
-            "job_type": "compliance_reminders",
-            "status": "COMPLETED",
-            "progress": 100.0,
-            "retry_count": 0,
-            "created_at": datetime.now() - timedelta(minutes=10),
-            "completed_at": datetime.now() - timedelta(minutes=10) + timedelta(seconds=8),
-            "error_logs": None
-        }
-    ])
-    
-    dbm.MOCK_NOTIFICATIONS.clear()
-    dbm.MOCK_NOTIFICATIONS.extend([
-        {
-            "id": "notif-demo-1",
-            "channel": "EMAIL",
-            "recipient": "v.shinde@apexcomponents.com",
-            "subject": "Overdue GSTR-3B Reminder Notification",
-            "body": "Statutory Warning: GSTR-3B filing is overdue by 5 days. Avoid further interest accrual.",
-            "status": "SENT",
-            "sent_at": datetime.now() - timedelta(minutes=4)
-        }
-    ])
+    # In-memory seeding removed. All data persisted via Supabase only.
 
     # 6. Database reset (if Supabase persistent connection is active)
     # DEMO_FIRM_ID is the designated isolation boundary for all demo data.

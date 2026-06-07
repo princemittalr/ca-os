@@ -4,12 +4,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Pre-populated Clients portfolio with detailed CA-OS fields
-MOCK_CLIENTS: list = []
-
-# Pre-populated Reconciliation history items scoped by client
-MOCK_RECON_HISTORY: list = []
-
 from services.db import manager as db_manager
 
 def get_clients(firm_id: str) -> List[Dict[str, Any]]:
