@@ -11,25 +11,25 @@ from services.jobs import tasks
 router = APIRouter()
 
 @router.get("", response_model=List[schemas.JobResponse])
-async def list_background_jobs():
+async def list_background_jobs(current_user: dict = Depends(verify_token)):
     """
     Retrieves history logs of all background processes and scheduled automated tasks.
     """
-    return db_manager.get_jobs()
+    return db_manager.get_jobs(firm_id=current_user["firm_id"])
 
 @router.get("/notifications", response_model=List[schemas.NotificationLogResponse])
-async def list_notifications_logs():
+async def list_notifications_logs(current_user: dict = Depends(verify_token)):
     """
     Retrieves audit logs of statutory compliance outreach warnings and reminders sent.
     """
-    return db_manager.get_notifications_log()
+    return db_manager.get_notifications_log(firm_id=current_user["firm_id"])
 
 @router.get("/{job_id}", response_model=schemas.JobResponse)
-async def get_job_details(job_id: str):
+async def get_job_details(job_id: str, current_user: dict = Depends(verify_token)):
     """
     Fetch exact state tracking logs of any background task worker by ID.
     """
-    job = db_manager.get_job_by_id(job_id)
+    job = db_manager.get_job_by_id(job_id, firm_id=current_user["firm_id"])
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -38,11 +38,14 @@ async def get_job_details(job_id: str):
     return job
 
 @router.post("/{job_id}/retry", response_model=schemas.JobResponse)
-async def retry_failed_job(job_id: str):
+async def retry_failed_job(
+    job_id: str,
+    current_user: dict = Depends(RequireRoles(["SUPER_ADMIN", "PARTNER"])),
+):
     """
     Enforces manual retry executions for failed, halted background tasks.
     """
-    job = db_manager.get_job_by_id(job_id)
+    job = db_manager.get_job_by_id(job_id, firm_id=current_user["firm_id"])
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -74,7 +77,7 @@ async def retry_failed_job(job_id: str):
         )
         
     # Enqueue a fresh job execution run
-    new_job = job_queue.enqueue(job_type, task_func)
+    new_job = job_queue.enqueue(job_type, task_func, firm_id=current_user["firm_id"])
     
     # Update old job log to link to new execution run
     db_manager.update_job(job_id, {"error_logs": f"Manually retried as new job: {new_job['job_id']}"})
@@ -82,7 +85,10 @@ async def retry_failed_job(job_id: str):
     return new_job
 
 @router.post("/trigger", response_model=schemas.JobResponse)
-async def force_trigger_job(payload: schemas.JobTriggerRequest):
+async def force_trigger_job(
+    payload: schemas.JobTriggerRequest,
+    current_user: dict = Depends(RequireRoles(["SUPER_ADMIN", "PARTNER"])),
+):
     """
     Force launches scheduled cron sweeps immediately from the Operations desk.
     """
@@ -103,5 +109,5 @@ async def force_trigger_job(payload: schemas.JobTriggerRequest):
             detail=f"Invalid periodic automation job type: {job_type}"
         )
         
-    return job_queue.enqueue(job_type, task_func)
+    return job_queue.enqueue(job_type, task_func, firm_id=current_user["firm_id"])
 

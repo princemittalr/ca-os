@@ -14,7 +14,7 @@ class AbstractJobQueue(ABC):
     Enables swapping native FastAPI threads/BackgroundTasks for Celery+Redis seamlessly.
     """
     @abstractmethod
-    def enqueue(self, job_type: str, task_func: Callable[..., Any], *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def enqueue(self, job_type: str, task_func: Callable[..., Any], *args: Any, firm_id: Optional[str] = None, **kwargs: Any) -> Dict[str, Any]:
         pass
 
 class ThreadPoolJobQueue(AbstractJobQueue):
@@ -25,9 +25,9 @@ class ThreadPoolJobQueue(AbstractJobQueue):
     def __init__(self, max_workers: int = 4):
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         
-    def enqueue(self, job_type: str, task_func: Callable[..., Any], *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def enqueue(self, job_type: str, task_func: Callable[..., Any], *args: Any, firm_id: Optional[str] = None, **kwargs: Any) -> Dict[str, Any]:
         # 1. Create task entry in database
-        job_record = create_job(job_type=job_type, status="PENDING")
+        job_record = create_job(job_type=job_type, status="PENDING", firm_id=firm_id)
         job_id = job_record["job_id"]
         
         # 2. Submit execution to concurrent pool

@@ -555,34 +555,39 @@ MOCK_NOTIFICATIONS: list = []
 # -------------------------------------------------------------------------
 # OPERATIONS JOBS CRUD ABSTRACTION
 # -------------------------------------------------------------------------
-def get_jobs() -> List[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("jobs").select("*").order("created_at", desc=True).execute()
-            return cast(List[Dict[str, Any]], res.data)
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-    return MOCK_JOBS
+def get_jobs(firm_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    if not is_supabase_active():
+        raise RuntimeError("Database connection is inactive.")
+    try:
+        q = supabase_client.table("jobs").select("*")
+        if firm_id:
+            q = q.eq("firm_id", firm_id)
+        res = q.order("created_at", desc=True).execute()
+        return cast(List[Dict[str, Any]], res.data)
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch jobs from database: {str(e)}") from e
 
-def get_job_by_id(job_id: str) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("jobs").select("*").eq("job_id", job_id).execute()
-            if res.data:
-                return cast(Optional[Dict[str, Any]], res.data[0])
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-    for j in MOCK_JOBS:
-        if j["job_id"] == job_id:
-            return j
+def get_job_by_id(job_id: str, firm_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    if not is_supabase_active():
+        raise RuntimeError("Database connection is inactive.")
+    try:
+        q = supabase_client.table("jobs").select("*").eq("job_id", job_id)
+        if firm_id:
+            q = q.eq("firm_id", firm_id)
+        res = q.execute()
+        if res.data:
+            return cast(Optional[Dict[str, Any]], res.data[0])
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch job details: {str(e)}") from e
     return None
 
-def create_job(job_type: str, status: str = "PENDING") -> Dict[str, Any]:
+def create_job(job_type: str, status: str = "PENDING", firm_id: Optional[str] = None) -> Dict[str, Any]:
     if not is_supabase_active():
         raise RuntimeError("Cannot create job: database unavailable")
         
     new_job = {
-        "job_id": f"job-{str(uuid.uuid4())[:8]}",
+        "job_id": str(uuid.uuid4()),
+        "firm_id": firm_id,
         "job_type": job_type,
         "status": status,
         "progress": 0.0,
@@ -601,28 +606,20 @@ def create_job(job_type: str, status: str = "PENDING") -> Dict[str, Any]:
         raise RuntimeError(f"Cannot create job: {str(e)}") from e
 
 def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            formatted_updates = {}
-            for k, v in updates.items():
-                if isinstance(v, datetime):
-                    formatted_updates[k] = v.isoformat()
-                else:
-                    formatted_updates[k] = v
-            res = supabase_client.table("jobs").update(formatted_updates).eq("job_id", job_id).execute()
-            if res.data:
-                return cast(Optional[Dict[str, Any]], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-            
-    for j in MOCK_JOBS:
-        if j["job_id"] == job_id:
-            for k, v in updates.items():
-                if isinstance(v, datetime):
-                    j[k] = v.isoformat()
-                else:
-                    j[k] = v
-            return j
+    if not is_supabase_active():
+        raise RuntimeError("Database connection is inactive.")
+    try:
+        formatted_updates = {}
+        for k, v in updates.items():
+            if isinstance(v, datetime):
+                formatted_updates[k] = v.isoformat()
+            else:
+                formatted_updates[k] = v
+        res = supabase_client.table("jobs").update(formatted_updates).eq("job_id", job_id).execute()
+        if res.data:
+            return cast(Optional[Dict[str, Any]], res.data[0])
+    except Exception as e:
+        raise RuntimeError(f"Failed to update job: {str(e)}") from e
     return None
 
 # -------------------------------------------------------------------------
@@ -691,14 +688,17 @@ def create_user_notification(
 
     return payload
 
-def get_notifications_log() -> List[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("notifications_log").select("*").order("sent_at", desc=True).execute()
-            return cast(List[Dict[str, Any]], res.data)
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-    return MOCK_NOTIFICATIONS
+def get_notifications_log(firm_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    if not is_supabase_active():
+        raise RuntimeError("Database connection is inactive.")
+    try:
+        q = supabase_client.table("notifications_log").select("*")
+        if firm_id:
+            q = q.eq("firm_id", firm_id)
+        res = q.order("sent_at", desc=True).execute()
+        return cast(List[Dict[str, Any]], res.data)
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch notifications logs: {str(e)}") from e
 
 def create_notification_log(channel: str, recipient: str, body: str, status: str, subject: Optional[str] = None) -> Dict[str, Any]:
     firm_id = None

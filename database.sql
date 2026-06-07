@@ -265,16 +265,16 @@ CREATE TABLE IF NOT EXISTS gst_notices (
 -- Async background job tracking (reconciliation uploads, exports, etc.).
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS jobs (
-    job_id       TEXT PRIMARY KEY,
-    firm_id      UUID REFERENCES firms(id) ON DELETE CASCADE,
-    job_type     TEXT NOT NULL,
-    status       TEXT NOT NULL DEFAULT 'PENDING',  -- 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
-    progress     NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
-    retry_count  INT NOT NULL DEFAULT 0,
-    error_logs   TEXT,
+    job_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    firm_id UUID REFERENCES firms(id) ON DELETE CASCADE,
+    job_type VARCHAR(100) NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    progress NUMERIC(5,2) DEFAULT 0.0,
+    retry_count INT DEFAULT 0,
+    error_logs TEXT,
     completed_at TIMESTAMPTZ,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 
@@ -283,9 +283,9 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- Distributed lock table to prevent multi-worker background scheduler execution.
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS scheduler_locks (
-    lock_key   TEXT PRIMARY KEY,
-    worker_id  TEXT NOT NULL,
-    locked_at  TIMESTAMPTZ NOT NULL,
+    lock_key VARCHAR(100) PRIMARY KEY,
+    worker_id VARCHAR(100) NOT NULL,
+    locked_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL
 );
 
