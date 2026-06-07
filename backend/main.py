@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     print(f"[INFO] Environment  : {settings.ENV}")
     print(f"[INFO] Debug mode   : {settings.DEBUG}")
     print(f"[INFO] Demo mode    : {settings.ENABLE_DEMO_MODE}")
-    print(f"[INFO] CORS origins : {len(settings.CORS_ORIGINS)} configured → {settings.CORS_ORIGINS}")
+    print(f"[INFO] CORS origins : {len(settings.CORS_ORIGINS)} configured -> {settings.CORS_ORIGINS}")
 
     # ── Database readiness check ──────────────────────────────────────────────
     _scheduler_started = False
@@ -86,6 +86,7 @@ def read_root():
 from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, audit, notifications, staff, automation, messages
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
 app.include_router(reconcile.router, prefix="/api/reconcile", tags=["reconcile"])
+app.include_router(reconcile.router, prefix="/api/gst-recon", tags=["reconcile"])
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
 app.include_router(communication.router, prefix="/api/communications", tags=["communications"])
 app.include_router(compliance.router, prefix="/api/compliance", tags=["compliance"])

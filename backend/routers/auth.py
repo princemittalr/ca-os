@@ -95,6 +95,7 @@ async def signup_firm_user(payload: schemas.UserRegister):
 
             return {
                 "access_token": res.session.access_token,
+                "refresh_token": res.session.refresh_token,
                 "token_type": "bearer",
                 "user_id": user.id,
                 "firm_id": firm_id,
@@ -160,6 +161,7 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
             )
             return {
                 "access_token": res.session.access_token,
+                "refresh_token": res.session.refresh_token,
                 "token_type": "bearer",
                 "user_id": user.id,
                 "firm_id": firm_id,
@@ -361,6 +363,7 @@ async def refresh_token(payload: schemas.TokenRefreshRequest):
             )
         return {
             "access_token": res.session.access_token,
+            "refresh_token": res.session.refresh_token,
             "token_type": "bearer",
             "user_id": user.id,
             "firm_id": firm_id,

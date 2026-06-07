@@ -356,6 +356,20 @@ async def export_excel_by_id(
 
 
 # -------------------------------------------------------------------------
+# GET /export/{reconciliation_id} — Alternative export layout path
+# -------------------------------------------------------------------------
+@router.get("/export/{reconciliation_id}")
+async def export_convenience_route(
+    reconciliation_id: str,
+    current_user: dict = Depends(verify_token)
+):
+    return await export_reconciliation_excel(
+        reconciliation_id=reconciliation_id,
+        current_user=current_user
+    )
+
+
+# -------------------------------------------------------------------------
 # POST /import-boe — BOE customs reconciliation
 # -------------------------------------------------------------------------
 @router.post("/import-boe")
