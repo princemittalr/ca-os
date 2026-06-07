@@ -87,6 +87,21 @@ export const api = {
   },
 
   /**
+   * PATCH request with a JSON body — returns parsed JSON.
+   */
+  async patch<T = unknown>(path: string, body?: unknown): Promise<T> {
+    const headers = await getHeaders();
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'PATCH',
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+    const handled = await handleResponse(res);
+    return handled.json() as Promise<T>;
+  },
+
+
+  /**
    * DELETE request — returns parsed JSON.
    */
   async delete<T = unknown>(path: string): Promise<T> {

@@ -16,37 +16,49 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
   const isAuthPage = authPages.includes(pathname);
 
   useEffect(() => {
-    // Initial check — avoids flicker on first render
-    supabase.auth.getSession().then(({ data }) => {
-      const session = data.session;
-      setIsAuthenticated(!!session);
-      setIsMobileSidebarOpen(false);
-
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       if (!session && !isAuthPage) {
         router.replace("/login");
+        return;
       }
-      if (session && isAuthPage) {
-        router.replace("/action-center");
+      
+      if (session) {
+        try {
+          const { data: user } = await supabase
+            .from("users")
+            .select("onboarding_complete")
+            .eq("id", session.user.id)
+            .single();
+          
+          const onboardingComplete = user?.onboarding_complete ?? false;
+          
+          if (!onboardingComplete && pathname !== "/onboarding") {
+            router.replace("/onboarding");
+            return;
+          }
+          
+          if (onboardingComplete && isAuthPage) {
+            router.replace("/action-center");
+            return;
+          }
+        } catch (err) {
+          console.error("Error checking onboarding status:", err);
+        }
       }
-    });
-
-    // Live subscription — handles TOKEN_REFRESHED, SIGNED_OUT, tab switches
-    const unsubscribe = supabase.auth.onAuthStateChange((_event, session) => {
+      
       setIsAuthenticated(!!session);
-      setIsMobileSidebarOpen(false);
-
-      if (!session && !isAuthPage) {
-        router.replace("/login");
-      }
-      if (session && isAuthPage) {
-        router.replace("/action-center");
-      }
-    });
-
-    return () => {
-      // onAuthStateChange returns the subscription object directly
-      unsubscribe.data.subscription.unsubscribe();
     };
+    
+    checkAuth();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsAuthenticated(!!session);
+      if (!session && !isAuthPage) router.replace("/login");
+    });
+    
+    return () => subscription.unsubscribe();
   }, [pathname]); // re-run when the route changes
 
   // Auth pages — no sidebar

@@ -83,7 +83,7 @@ export default function SignupPage() {
       
       showToast("✓ Onboarding successful! Provisining CA firm workspace...");
       setTimeout(() => {
-        window.location.href = "/action-center";
+        window.location.href = "/onboarding";
       }, 1500);
       
     } catch (err: any) {

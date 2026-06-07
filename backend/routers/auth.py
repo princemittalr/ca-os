@@ -185,6 +185,33 @@ async def get_current_user_profile(current_user: dict = Depends(verify_token)):
     """
     return current_user
 
+@router.patch("/me/onboarding")
+async def complete_onboarding(current_user: dict = Depends(verify_token)):
+    """
+    Sets onboarding_complete = True for the current logged-in user in the database.
+    """
+    user_id = current_user.get("user_id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user context."
+        )
+    if supabase_client is not None:
+        try:
+            supabase_client.table("users").update({"onboarding_complete": True}).eq("id", user_id).execute()
+            return {"message": "Onboarding completed successfully.", "onboarding_complete": True}
+        except Exception as e:
+            logger.error(f"Failed to update onboarding status: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update onboarding status in the database."
+            )
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Authentication service unavailable. Supabase is not configured."
+    )
+
+
 @router.post("/verify-password")
 async def verify_password(payload: schemas.VerifyPasswordRequest, current_user: dict = Depends(verify_token)):
     """

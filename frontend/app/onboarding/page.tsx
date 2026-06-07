@@ -13,6 +13,7 @@ import {
   BookOpen,
   ArrowRightLeft
 } from 'lucide-react';
+import { api } from '../../lib/api';
 
 interface PredefinedProfile {
   id: string;
@@ -88,33 +89,34 @@ export default function PilotOnboardingWelcome() {
     try {
       // 1. Trigger API Demo Bootstrap/Reset (best-effort — gracefully skipped if demo
       //    mode is disabled or the endpoint is absent in production builds).
-      const res = await fetch(`${API_BASE}/api/demo/bootstrap`);
-      if (res.ok) {
+      try {
+        await api.get('/api/demo/bootstrap');
         // Log pilot onboarding action in analytics only when demo mode is active.
-        await fetch(`${API_BASE}/api/demo/analytics`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event_name: "onboarding_completed",
-            metadata: {
-              chosen_focus: selectedPain,
-              chosen_client_profile: selectedProfile
-            }
-          })
+        await api.post('/api/demo/analytics', {
+          event_name: "onboarding_completed",
+          metadata: {
+            chosen_focus: selectedPain,
+            chosen_client_profile: selectedProfile
+          }
         }).catch(() => {
           // Analytics failure is non-fatal — tour still launches.
         });
+      } catch (err) {
+        // Network error, 404 (demo disabled), or 403 (not SUPER_ADMIN) are handled
+        // gracefully: the tour still launches without sandbox pre-seeding.
+        console.warn("[Demo] Bootstrap skipped (demo mode may be disabled):", err);
       }
-      // res.status 404 (demo disabled) or 403 (not SUPER_ADMIN) are handled
-      // gracefully: the tour still launches without sandbox pre-seeding.
+
+      // 2. Call PATCH /api/auth/me/onboarding endpoint to complete onboarding
+      await api.patch('/api/auth/me/onboarding');
+      
     } catch (err) {
-      // Network error or endpoint absent — non-fatal, tour still launches.
-      console.warn("[Demo] Bootstrap skipped (demo mode may be disabled):", err);
+      console.error("Failed to complete onboarding:", err);
+    } finally {
+      setIsSubmitting(false);
     }
     
-    setIsSubmitting(false);
-    
-    // 2. Dispatch custom event to trigger OnboardingTour overlay globally
+    // 3. Dispatch custom event to trigger OnboardingTour overlay globally
     const startTourEvent = new CustomEvent("start_product_tour");
     window.dispatchEvent(startTourEvent);
   };
