@@ -8,11 +8,46 @@ from config.settings import settings
 logger = logging.getLogger("demo_engine")
 
 # --- GLOBAL FEATURE FLAGS ---
-FEATURE_FLAGS = {
+class DemoFeatureFlags(dict):
+    def _check_mutation(self):
+        if settings.ENV == "production":
+            raise RuntimeError("Cannot modify feature flags in production environment.")
+        if not settings.ENABLE_DEMO_MODE:
+            raise RuntimeError("Cannot modify feature flags when demo mode is disabled.")
+
+    def __setitem__(self, key, value):
+        self._check_mutation()
+        super().__setitem__(key, value)
+
+    def __delitem__(self, key):
+        self._check_mutation()
+        super().__delitem__(key)
+
+    def update(self, *args, **kwargs):
+        self._check_mutation()
+        super().update(*args, **kwargs)
+
+    def pop(self, *args, **kwargs):
+        self._check_mutation()
+        return super().pop(*args, **kwargs)
+
+    def popitem(self, *args, **kwargs):
+        self._check_mutation()
+        return super().popitem(*args, **kwargs)
+
+    def clear(self):
+        self._check_mutation()
+        super().clear()
+
+    def setdefault(self, key, default=None):
+        self._check_mutation()
+        return super().setdefault(key, default)
+
+FEATURE_FLAGS: dict = DemoFeatureFlags({
     "AI_ENABLED": True,
     "NOTICES_ENABLED": True,
-    "MOCK_MODE_ENABLED": True
-}
+    "MOCK_MODE_ENABLED": False
+})
 
 # --- DEMO TELEMETRY ENGAGEMENT ANALYTICS ---
 DEMO_ANALYTICS_LOGS: List[Dict[str, Any]] = []
@@ -21,7 +56,13 @@ def record_demo_analytic(event_name: str, metadata: Optional[Dict[str, Any]] = N
     """
     Log user engagement events inside the interactive pilot sandbox workspace.
     """
+    if settings.ENV == "production":
+        return  # silently no-op in prod
+
     global DEMO_ANALYTICS_LOGS
+    if len(DEMO_ANALYTICS_LOGS) >= 500:
+        DEMO_ANALYTICS_LOGS.pop(0)  # cap at 500 entries
+
     event = {
         "timestamp": datetime.now().isoformat(),
         "event_name": event_name,
@@ -394,27 +435,21 @@ def reset_demo_workspace():
     if settings.ENV == "production":
         raise RuntimeError("Demo reset is disabled in production.")
     if not settings.ENABLE_DEMO_MODE:
-        raise RuntimeError("Demo mode is not enabled.")
+        raise RuntimeError("ENABLE_DEMO_MODE is not set.")
 
     record_demo_analytic("sandbox_reset_triggered")
     
-    # 1. Reset In-Memory Lists in services.client_workspace
-    # In-memory seeding removed. All data persisted via Supabase only.
-    
-    # 2. Compliance tasks are persisted via Supabase only (no in-memory mock).
+    # 1. Compliance tasks are persisted via Supabase only (no in-memory mock).
     #    The Supabase seeding block below handles demo compliance tasks.
     
-    # 3. Reset In-Memory Lists in services.communication
+    # 2. Reset In-Memory Lists in services.communication
     import services.communication as comm
     comm.MOCK_COMMUNICATIONS = get_seeded_communications()
     
-    # 4. Action items are persisted via Supabase only (no in-memory mock).
+    # 3. Action items are persisted via Supabase only (no in-memory mock).
     #    The Supabase seeding block below handles demo action items.
-    
-    # 5. Reset In-Memory Lists in services.db.manager
-    # In-memory seeding removed. All data persisted via Supabase only.
 
-    # 6. Database reset (if Supabase persistent connection is active)
+    # 4. Database reset (if Supabase persistent connection is active)
     # DEMO_FIRM_ID is the designated isolation boundary for all demo data.
     # Deletions are scoped ONLY to this firm — real production firm data is never touched.
     DEMO_FIRM_ID = "demo-firm-uuid-12345"
