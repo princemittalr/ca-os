@@ -12,6 +12,7 @@ import {
   FolderOpen,
   CheckCircle
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface NoticeDossier {
   id: string;
@@ -45,6 +46,11 @@ interface NoticeDossier {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const getToken = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token;
+};
+
 export default function NoticeIntelligenceCenter() {
   const [notices, setNotices] = useState<NoticeDossier[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<NoticeDossier | null>(null);
@@ -56,6 +62,7 @@ export default function NoticeIntelligenceCenter() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [uploadClients, setUploadClients] = useState<{id: string; business_name: string; gstin: string}[]>([]);
+  const [uploadError, setUploadError] = useState("");
 
   // Response drafting states
   const [isDrafting, setIsDrafting] = useState(false);
@@ -79,10 +86,33 @@ export default function NoticeIntelligenceCenter() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/clients/`)
-      .then(r => r.json())
-      .then(data => setUploadClients(data))
-      .catch(() => setUploadClients([]));
+    const fetchClients = async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_BASE}/api/clients/`, {
+          headers: {
+            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+            "Content-Type": "application/json"
+          }
+        });
+        if (res.status === 401) {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+          return;
+        }
+        if (res.ok) {
+          const data = await res.json();
+          setUploadClients(data);
+        } else {
+          setUploadClients([]);
+        }
+      } catch (err) {
+        console.error("Client lookup failed:", err);
+        setUploadClients([]);
+      }
+    };
+    fetchClients();
   }, []);
 
   // Initialize checklists when selectedNotice changes
@@ -116,7 +146,19 @@ export default function NoticeIntelligenceCenter() {
   const fetchNotices = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${API_BASE}/api/notices`);
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/notices`, {
+        headers: {
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+          "Content-Type": "application/json"
+        }
+      });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        return;
+      }
       if (!res.ok) throw new Error("Failed to load notice dossiers.");
       const data = await res.json();
       setNotices(data);
@@ -144,9 +186,20 @@ export default function NoticeIntelligenceCenter() {
     setResponseDraft("");
     setTypedReply("");
     try {
+      const token = await getToken();
       const res = await fetch(`${API_BASE}/api/notices/${noticeId}/draft-response`, {
-        method: "POST"
+        method: "POST",
+        headers: {
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+          "Content-Type": "application/json"
+        }
       });
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        return;
+      }
       if (!res.ok) throw new Error("Statutory reply compiler failed.");
       const data = await res.json();
       setResponseDraft(data.reply);
@@ -208,6 +261,7 @@ For ${selectedNotice?.client_name}`;
     if (!uploadFile || !uploadClientId) return;
 
     setIsUploading(true);
+    setUploadError("");
     setUploadProgress(10);
 
     const progTimer = setInterval(() => {
@@ -219,13 +273,30 @@ For ${selectedNotice?.client_name}`;
     formData.append("file", uploadFile);
 
     try {
+      const token = await getToken();
       const res = await fetch(`${API_BASE}/api/notices/upload`, {
         method: "POST",
+        headers: token ? { "Authorization": `Bearer ${token}` } : {},
         body: formData
       });
 
       clearInterval(progTimer);
       setUploadProgress(100);
+
+      if (res.status === 401) {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        return;
+      }
+
+      if (res.status === 403) {
+        setUploadError("Client not in your firm");
+        showToast("⚠ Client not in your firm");
+        setIsUploading(false);
+        setUploadProgress(0);
+        return;
+      }
 
       if (!res.ok) throw new Error("OCR notice parser failed.");
 
@@ -236,6 +307,7 @@ For ${selectedNotice?.client_name}`;
       setShowUploadModal(false);
       setFile(null);
       setUploadClientId("");
+      setUploadError("");
       setSelectedNotice(newNotice);
     } catch (err) {
       console.error("Notice upload failed:", err);
@@ -343,7 +415,10 @@ For ${selectedNotice?.client_name}`;
         </div>
         <div>
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => {
+              setShowUploadModal(true);
+              setUploadError("");
+            }}
             className="px-3 py-1 bg-[#111827] hover:bg-slate-800 text-white text-[11px] font-medium rounded flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus size={12} />
@@ -866,6 +941,7 @@ For ${selectedNotice?.client_name}`;
                   setShowUploadModal(false);
                   setFile(null);
                   setUploadClientId("");
+                  setUploadError("");
                 }}
                 className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors"
               >
@@ -874,6 +950,11 @@ For ${selectedNotice?.client_name}`;
             </div>
 
             <form onSubmit={handleFileUploadSubmit} className="space-y-4">
+              {uploadError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-semibold animate-in fade-in duration-200">
+                  {uploadError}
+                </div>
+              )}
               <div className="space-y-1">
                 <label className="text-[9px] font-semibold uppercase text-slate-500 tracking-wider block font-mono">Client Profile</label>
                 <select
@@ -957,6 +1038,7 @@ For ${selectedNotice?.client_name}`;
                     setShowUploadModal(false);
                     setFile(null);
                     setUploadClientId("");
+                    setUploadError("");
                   }}
                   className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold rounded hover:bg-slate-50"
                 >
