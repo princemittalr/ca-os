@@ -15,7 +15,7 @@ import {
   Menu
 } from 'lucide-react';
 
-import { getAuthToken } from "../../lib/auth";
+import { getAuthHeaders } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -99,20 +99,23 @@ export default function TopBar({
 
   useEffect(() => {
     (async () => {
-      const token = await getAuthToken();
-      fetch(`${API_BASE}/api/notifications/`, {
-        headers: token ? { "Authorization": `Bearer ${token}` } : {}
-      })
-        .then(r => r.ok ? r.json() : [])
-        .then(data => setNotifications(data))
-        .catch(() => setNotifications([]));
+      const headers = await getAuthHeaders();
 
-      fetch(`${API_BASE}/api/messages/`, {
-        headers: token ? { "Authorization": `Bearer ${token}` } : {}
-      })
-        .then(r => r.ok ? r.json() : [])
-        .then(data => setMessages(data))
-        .catch(() => setMessages([]));
+      const notifRes = await fetch(`${API_BASE}/api/notifications/`, { headers });
+      if (notifRes.status === 401) {
+        console.warn("[TopBar] Session expired — notifications fetch unauthorized.");
+        return;
+      }
+      if (notifRes.ok) {
+        const data = await notifRes.json();
+        setNotifications(data);
+      }
+
+      const msgRes = await fetch(`${API_BASE}/api/messages/`, { headers });
+      if (msgRes.ok) {
+        const data = await msgRes.json();
+        setMessages(data);
+      }
     })();
   }, []);
 
@@ -163,19 +166,19 @@ export default function TopBar({
   // Handlers for Notifications
   const handleMarkNotificationRead = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    const token = await getAuthToken();
+    const headers = await getAuthHeaders();
     fetch(`${API_BASE}/api/notifications/${id}/read`, {
       method: "POST",
-      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      headers,
     }).catch(() => {});
   };
 
   const handleMarkAllNotificationsRead = async () => {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    const token = await getAuthToken();
+    const headers = await getAuthHeaders();
     fetch(`${API_BASE}/api/notifications/read-all`, {
       method: "POST",
-      headers: token ? { "Authorization": `Bearer ${token}` } : {}
+      headers,
     }).catch(() => {});
   };
 
