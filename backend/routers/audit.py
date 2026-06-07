@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
-from typing import List, Optional, cast
+from typing import List, Optional, cast, Dict, Any
 from supabase import Client
 from models import schemas
 from config.supabase import supabase_client as _raw_supabase, is_supabase_active
@@ -48,13 +48,15 @@ async def get_audit_logs(
 
         res = q.execute()
 
+        data_list = cast(List[Dict[str, Any]], res.data)
+
         # CLIENT_VIEWER must not see IP addresses (PII / operational intel)
         is_viewer = current_user.get("role") == "CLIENT_VIEWER"
         if is_viewer:
-            for row in res.data:
+            for row in data_list:
                 row.pop("ip_address", None)
 
-        return res.data
+        return data_list
 
     except HTTPException:
         raise

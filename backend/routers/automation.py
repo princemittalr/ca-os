@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
-from typing import List, cast
+from typing import List, cast, Dict, Any
 from supabase import Client
 
 from middleware.auth import verify_token, RequireRoles
@@ -164,7 +164,8 @@ async def toggle_agent(
             detail=f"Agent '{agent_key}' not found for this firm.",
         )
 
-    agent_id = existing.data[0]["id"]
+    data_list = cast(List[Dict[str, Any]], existing.data)
+    agent_id = data_list[0]["id"]
 
     update_res = (
         _db.table("automation_agents")
