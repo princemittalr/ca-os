@@ -3,9 +3,14 @@
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { useSearchParams } from 'next/navigation';
-import { getAuthToken } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const getToken = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token;
+};
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { 
   User, 
@@ -75,6 +80,18 @@ function SettingsContent() {
     bio: 'Senior Chartered Accountant specializing in corporate tax filings, international audits, and GSTR compliance advisory.',
     preferences: 'Light Mode Override Disabled'
   });
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata) {
+        setProfileData(prev => ({
+          ...prev,
+          fullName: user.user_metadata.full_name || prev.fullName,
+          email: user.email || prev.email,
+        }));
+      }
+    });
+  }, []);
 
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -272,6 +289,8 @@ function SettingsContent() {
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    // Note: backend profile update (PATCH /api/auth/me/profile) is currently out of scope.
+    // Keeping changes local for now.
     triggerToast("✓ Personal Profile changes saved.");
   };
 
@@ -284,10 +303,11 @@ function SettingsContent() {
 
   const handleRevokeSession = async (id: string, name: string) => {
     try {
+      const token = await getToken();
       const res = await fetch(`${API_BASE}/api/auth/sessions/${id}`, {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${getAuthToken()}`
+          "Authorization": `Bearer ${token}`
         }
       });
       if (res.ok) {
@@ -811,11 +831,12 @@ function SettingsContent() {
                               onClick={async () => {
                                 setModalLoading(true);
                                 try {
+                                  const token = await getToken();
                                   const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
                                     method: "POST",
                                     headers: {
                                       "Content-Type": "application/json",
-                                      "Authorization": `Bearer ${getAuthToken()}`
+                                      "Authorization": `Bearer ${token}`
                                     },
                                     body: JSON.stringify({ password: verifyPasswordInput })
                                   });
@@ -1035,11 +1056,12 @@ function SettingsContent() {
                                 onClick={async () => {
                                   setModalLoading(true);
                                   try {
+                                    const token = await getToken();
                                     const res = await fetch(`${API_BASE}/api/auth/password`, {
                                       method: "PUT",
                                       headers: {
                                         "Content-Type": "application/json",
-                                        "Authorization": `Bearer ${getAuthToken()}`
+                                        "Authorization": `Bearer ${token}`
                                       },
                                       body: JSON.stringify({ new_password: newPassVal })
                                     });
@@ -1307,11 +1329,12 @@ function SettingsContent() {
                               onClick={async () => {
                                 setModalLoading(true);
                                 try {
+                                  const token = await getToken();
                                   const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
                                     method: "POST",
                                     headers: {
                                       "Content-Type": "application/json",
-                                      "Authorization": `Bearer ${getAuthToken()}`
+                                      "Authorization": `Bearer ${token}`
                                     },
                                     body: JSON.stringify({ password: twoFactorPasswordInput })
                                   });
@@ -1750,11 +1773,12 @@ function SettingsContent() {
                           onClick={async () => {
                             setDisableLoading(true);
                             try {
+                              const token = await getToken();
                               const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
                                 method: "POST",
                                 headers: {
                                   "Content-Type": "application/json",
-                                  "Authorization": `Bearer ${getAuthToken()}`
+                                  "Authorization": `Bearer ${token}`
                                 },
                                 body: JSON.stringify({ password: disablePasswordInput })
                               });
@@ -1798,10 +1822,11 @@ function SettingsContent() {
                     <button
                       onClick={async () => {
                         try {
+                          const token = await getToken();
                           const res = await fetch(`${API_BASE}/api/auth/sessions`, {
                             method: "DELETE",
                             headers: {
-                              "Authorization": `Bearer ${getAuthToken()}`
+                              "Authorization": `Bearer ${token}`
                             }
                           });
                           if (res.ok) {
