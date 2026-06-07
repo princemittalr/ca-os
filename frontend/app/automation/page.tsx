@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
-import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
 import { 
   Play, 
   CheckCircle2, 
@@ -16,12 +15,7 @@ import {
   Database
 } from 'lucide-react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-const getToken = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token;
-};
 
 const formatJobType = (type: string) => {
   const displayNames: Record<string, string> = {
@@ -71,7 +65,6 @@ const AGENT_DISPLAY_CONFIG: Record<string, {
 };
 
 export default function AutomationCenterPage() {
-  const router = useRouter();
   const [agents, setAgents] = useState<any[]>([]);
   const [jobsHistory, setJobsHistory] = useState<any[]>([]);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
@@ -79,61 +72,39 @@ export default function AutomationCenterPage() {
 
   const fetchAgents = async () => {
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/automation/agents`, {
-        headers: { 
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        }
+      const data = await api.get<any[]>('/api/automation/agents');
+      const mapped = data.map((agent: any) => {
+        const config = AGENT_DISPLAY_CONFIG[agent.agent_key] || {
+          name: agent.name,
+          description: 'No description available.',
+          icon: Database,
+          icon_color: '#6B7280',
+          category: 'SYSTEM'
+        };
+        return {
+          ...agent,
+          name: config.name,
+          description: config.description,
+          icon: config.icon,
+          icon_color: agent.is_active ? config.icon_color : '#6B7280',
+          category: config.category
+        };
       });
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-      if (res.ok) {
-        const data = await res.json();
-        const mapped = data.map((agent: any) => {
-          const config = AGENT_DISPLAY_CONFIG[agent.agent_key] || {
-            name: agent.name,
-            description: 'No description available.',
-            icon: Database,
-            icon_color: '#6B7280',
-            category: 'SYSTEM'
-          };
-          return {
-            ...agent,
-            name: config.name,
-            description: config.description,
-            icon: config.icon,
-            icon_color: agent.is_active ? config.icon_color : '#6B7280',
-            category: config.category
-          };
-        });
-        setAgents(mapped);
-      }
+      setAgents(mapped);
     } catch (err) {
       console.error("Agents fetch failed:", err);
+      setAgents([]);
     }
   };
 
   const fetchJobs = async () => {
     try {
       setIsJobsLoading(true);
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/jobs`, {
-        headers: {
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        }
-      });
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-      if (res.ok) {
-        const data = await res.json();
-        setJobsHistory(data);
-      }
+      const data = await api.get<any[]>('/api/jobs');
+      setJobsHistory(data);
     } catch (err) {
       console.error("Jobs fetch failed:", err);
+      setJobsHistory([]);
     } finally {
       setIsJobsLoading(false);
     }
@@ -170,13 +141,12 @@ export default function AutomationCenterPage() {
     setIsModalOpen(true);
   };
 
-  // TODO:
-  // Replace local-only configuration updates with backend persistence
-  // after a real automation configuration API is implemented.
+  // TODO: wire to backend when /api/automation/agents/{key}/config endpoint exists.
+  // handleSaveConfig is intentionally local-only until that endpoint is implemented.
   const handleSaveConfig = () => {
     if (!selectedAgent) return;
     setIsSaving(true);
-    console.log("[Configure Agent] Configuration updated locally.");
+    console.log("[Configure Agent] Configuration updated locally (not persisted to backend).");
 
     try {
       setAgents(agents.map(a => {
@@ -213,26 +183,11 @@ export default function AutomationCenterPage() {
 
   const handleToggleAgent = async (agentKey: string, currentState: boolean) => {
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/automation/agents/${agentKey}/toggle`, {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ is_active: !currentState })
-      });
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-      if (res.ok) {
-        await fetchAgents(); // refresh from DB
-        triggerToast(`✓ Agent updated.`);
-      } else {
-        triggerToast("⚠ Failed to update agent. Check permissions.");
-      }
+      await api.put(`/api/automation/agents/${agentKey}/toggle`, { is_active: !currentState });
+      await fetchAgents(); // refresh from DB
+      triggerToast(`✓ Agent updated.`);
     } catch (err) {
+      console.error("Toggle agent failed:", err);
       triggerToast("⚠ Failed to update agent. Check connection.");
     }
   };
@@ -245,27 +200,12 @@ export default function AutomationCenterPage() {
     };
     const job_type = typeMap[workflowName] || workflowName || 'action_center_refresh';
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/jobs/trigger`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ job_type })
-      });
-      if (res.status === 401) {
-        router.push('/login');
-        return;
-      }
-      if (res.ok) {
-        triggerToast(`✓ Job "${job_type}" triggered. Check jobs history.`);
-        await fetchJobs();
-      } else {
-        triggerToast(`⚠ Trigger failed: ${(await res.json()).detail}`);
-      }
+      await api.post<any>('/api/jobs/trigger', { job_type });
+      triggerToast(`✓ Job "${job_type}" triggered.`);
+      await fetchJobs();
     } catch (err) {
-      triggerToast(`⚡ Workflow "${workflowName}" trigger queued locally.`);
+      console.error("Workflow trigger failed:", err);
+      triggerToast(`⚠ Failed to trigger "${workflowName}". Check connection.`);
     }
   };
 
