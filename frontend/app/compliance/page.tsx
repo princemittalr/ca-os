@@ -20,8 +20,54 @@ import {
   Building
 } from 'lucide-react';
 import Link from 'next/link';
+import { supabase } from '../../lib/supabase';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+const getHeaders = async (customHeaders?: HeadersInit): Promise<Record<string, string>> => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  
+  const headersObj: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  
+  if (token) {
+    headersObj["Authorization"] = `Bearer ${token}`;
+  }
+  
+  if (customHeaders) {
+    if (customHeaders instanceof Headers) {
+      customHeaders.forEach((value, key) => {
+        headersObj[key] = value;
+      });
+    } else if (Array.isArray(customHeaders)) {
+      customHeaders.forEach(([key, value]) => {
+        headersObj[key] = value;
+      });
+    } else {
+      Object.assign(headersObj, customHeaders);
+    }
+  }
+  
+  return headersObj;
+};
+
+const authedFetch = async (url: string, options: RequestInit = {}) => {
+  const headers = await getHeaders(options.headers);
+  const res = await fetch(url, {
+    ...options,
+    headers,
+  });
+  if (res.status === 401) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+    throw new Error("Unauthorized");
+  }
+  return res;
+};
+
 
 interface ComplianceRecord {
   compliance_id: string;
@@ -73,7 +119,7 @@ export default function ComplianceOperationsCenter() {
   };
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/clients/`)
+    authedFetch(`${API_BASE}/api/clients/`)
       .then(r => r.json())
       .then(data => {
         const map: Record<string, string> = {};
@@ -91,7 +137,7 @@ export default function ComplianceOperationsCenter() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/staff`)
+    authedFetch(`${API_BASE}/api/staff`)
       .then(r => r.ok ? r.json() : [])
       .then(data => {
         setStaffList(data);
@@ -108,7 +154,7 @@ export default function ComplianceOperationsCenter() {
   const loadCompliance = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch(`${API_BASE}/api/compliance`);
+      const res = await authedFetch(`${API_BASE}/api/compliance`);
       if (!res.ok) throw new Error("Failed to load compliance tasks");
       const data = await res.json();
       setTasks(data);
@@ -127,7 +173,7 @@ export default function ComplianceOperationsCenter() {
   const handleMarkAsFiled = async (compId: string) => {
     const todayStr = new Date().toISOString().split('T')[0];
     try {
-      const res = await fetch(`${API_BASE}/api/compliance/${compId}/status?new_status=Filed&filed_date=${todayStr}`, {
+      const res = await authedFetch(`${API_BASE}/api/compliance/${compId}/status?new_status=Filed&filed_date=${todayStr}`, {
         method: "PUT"
       });
       if (!res.ok) throw new Error("Failed to update status");
@@ -149,7 +195,7 @@ export default function ComplianceOperationsCenter() {
       setIsLoading(true);
       await Promise.all(
         selectedRowIds.map(id =>
-          fetch(`${API_BASE}/api/compliance/${id}/status?new_status=Filed&filed_date=${todayStr}`, { method: "PUT" })
+          authedFetch(`${API_BASE}/api/compliance/${id}/status?new_status=Filed&filed_date=${todayStr}`, { method: "PUT" })
         )
       );
       showToast(`✓ Marked ${selectedRowIds.length} returns as FILED!`);
@@ -169,7 +215,7 @@ export default function ComplianceOperationsCenter() {
   const handleCreateDeadline = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API_BASE}/api/compliance/create`, {
+      const res = await authedFetch(`${API_BASE}/api/compliance/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
