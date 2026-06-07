@@ -102,27 +102,29 @@ export default function DashboardPage() {
   const [isSandbox, setIsSandbox] = React.useState(false);
 
   React.useEffect(() => {
-    // Setup sandbox mode checks
-    const role = localStorage.getItem("role");
-    const isSandboxMode = process.env.NEXT_PUBLIC_SANDBOX_MODE === "true";
-    setIsSandbox(isSandboxMode && (role === "ADMIN" || role === "admin" || role === "SUPER_ADMIN"));
-
-    // Setup local date greeting
     const hr = new Date().getHours();
     if (hr < 12) setGreeting('Good morning');
     else if (hr < 17) setGreeting('Good afternoon');
     else setGreeting('Good evening');
 
-    const options: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    };
     setCurrentTimeStr(new Date().toLocaleDateString('en-US', options));
 
-    // Dynamic user details
-    const fullName = localStorage.getItem("full_name");
-    if (fullName) {
-      setUserName(fullName);
-    }
-    const storedFirmName = localStorage.getItem("firm_name");
-    if (storedFirmName) setFirmName(storedFirmName);
+    // Load user identity from Supabase — never localStorage
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      const meta = user.user_metadata || {};
+      const fullName: string = meta.full_name || '';
+      const role: string = meta.role || '';
+      const firmNameVal: string = meta.firm_name || '';
+      if (fullName) setUserName(fullName);
+      if (firmNameVal) setFirmName(firmNameVal);
+      // Sandbox check: use role from metadata, not localStorage
+      const isSandboxMode = process.env.NEXT_PUBLIC_SANDBOX_MODE === 'true';
+      setIsSandbox(isSandboxMode && (role === 'SUPER_ADMIN'));
+    });
   }, []);
 
   React.useEffect(() => {
@@ -369,9 +371,10 @@ export default function DashboardPage() {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      const response = await fetch(`${API_BASE}/api/export/reconciliation/${type}?reconciliation_id=${lastReconId}`, {
-        headers
-      });
+      const response = await fetch(
+        `${API_BASE}/api/reconcile/export/reconciliation/${type}?reconciliation_id=${lastReconId}`,
+        { headers }
+      );
       if (response.status === 401) {
         router.push('/login');
         return;
