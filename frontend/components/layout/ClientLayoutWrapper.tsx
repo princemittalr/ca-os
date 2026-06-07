@@ -11,19 +11,24 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const authPages = ["/login", "/signup", "/forgot-password", "/onboarding", "/reset-password"];
   const isAuthPage = authPages.includes(pathname);
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Guard: bail out if a redirect is already in flight
+      if (isRedirecting) return;
+
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session && !isAuthPage) {
+        setIsRedirecting(true);
         router.replace("/login");
         return;
       }
-      
+
       if (session) {
         try {
           const { data: user } = await supabase
@@ -31,35 +36,42 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
             .select("onboarding_complete")
             .eq("id", session.user.id)
             .single();
-          
+
           const onboardingComplete = user?.onboarding_complete ?? false;
-          
+
           if (!onboardingComplete && pathname !== "/onboarding") {
+            setIsRedirecting(true);
             router.replace("/onboarding");
             return;
           }
-          
+
           if (onboardingComplete && isAuthPage) {
+            setIsRedirecting(true);
             router.replace("/action-center");
             return;
           }
         } catch (err) {
-          console.error("Error checking onboarding status:", err);
+          console.error("Onboarding check error:", err);
         }
       }
-      
+
+      // Redirect is not needed — clear the flag and commit auth state
+      setIsRedirecting(false);
       setIsAuthenticated(!!session);
     };
-    
+
     checkAuth();
-    
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setIsAuthenticated(!!session);
-      if (!session && !isAuthPage) router.replace("/login");
+      // Guard: do NOT redirect when already on an auth page — prevents /login → /login loop
+      if (!session && !isAuthPage) {
+        router.replace("/login");
+      }
     });
-    
+
     return () => subscription.unsubscribe();
-  }, [pathname]); // re-run when the route changes
+  }, [pathname, isAuthPage]); // isAuthPage added to prevent stale closure
 
   // Auth pages — no sidebar
   if (isAuthPage) {
