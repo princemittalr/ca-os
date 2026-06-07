@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import { getAuthToken } from '@/lib/auth';
 import {
   Search,
   CheckCircle2,
@@ -94,15 +95,25 @@ export default function BoeIntelligenceCenter() {
 
   // Fetch clients from backend api
   useEffect(() => {
-    fetch(`${API_BASE}/api/clients/`)
-      .then(r => r.json())
-      .then(data => {
-        setClients(data);
-        if (data.length > 0) {
+    const loadClients = async () => {
+      try {
+        const token = await getAuthToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/api/clients/`, { headers });
+        if (!response.ok) throw new Error("Unsuccessful status from clients list API");
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setClients(data);
           setSelectedClient(data[0].id);
         }
-      })
-      .catch(() => { });
+      } catch (err) {
+        console.error("Client fetch failed:", err);
+      }
+    };
+    loadClients();
   }, []);
 
   const activeClient = clients.find(c => c.id === selectedClient) || {
@@ -204,11 +215,26 @@ export default function BoeIntelligenceCenter() {
           setActiveStep(5);
           triggerToast('🎉 Import ITC analysis complete! Findings workspace compiled.');
           if (boeFile && gstr2bFile) {
+            if (!selectedClient) {
+              triggerToast("⚠ Please select a client first.");
+              return;
+            }
+            const token = await getAuthToken();
             const formData = new FormData();
             formData.append("file_boe", boeFile);
             formData.append("file_2b", gstr2bFile);
+            formData.append("client_id", selectedClient);
+            formData.append("period", selectedPeriod);
+            const headers: Record<string, string> = {};
+            if (token) {
+              headers["Authorization"] = `Bearer ${token}`;
+            }
             try {
-              const res = await fetch(`${API_BASE}/api/reconcile/import-boe`, { method: "POST", body: formData });
+              const res = await fetch(`${API_BASE}/api/reconcile/import-boe`, {
+                method: "POST",
+                headers,
+                body: formData
+              });
               if (res.ok) {
                 const data = await res.json();
                 // Map real API results to BoeItem format

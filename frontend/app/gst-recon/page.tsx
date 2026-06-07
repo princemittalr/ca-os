@@ -80,6 +80,7 @@ function GSTReconciliationPageContent() {
   const [step, setStep] = useState(1);
   const [selectedClient, setSelectedClient] = useState('');
   const [reconMonth, setReconMonth] = useState('2024-03');
+  const [lastReconId, setLastReconId] = useState<string | null>(null);
 
   // Upload states
   const [file2B, setFile2B] = useState<File | null>(null);
@@ -124,9 +125,16 @@ function GSTReconciliationPageContent() {
 
   // Fetch clients from API (with fallback)
   useEffect(() => {
-    fetch(`${API_BASE}/api/clients/`)
-      .then(r => r.json())
-      .then(data => {
+    const loadClients = async () => {
+      try {
+        const token = await getAuthToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+        const response = await fetch(`${API_BASE}/api/clients/`, { headers });
+        if (!response.ok) throw new Error("Unsuccessful status from clients list API");
+        const data = await response.json();
         if (data && data.length > 0) {
           setClients(data.map((c: any) => ({
             id: c.id,
@@ -136,8 +144,11 @@ function GSTReconciliationPageContent() {
             prev_health: c.prev_health || 88.1
           })));
         }
-      })
-      .catch(err => { console.error("Client fetch failed:", err); });
+      } catch (err) {
+        console.error("Client fetch failed:", err);
+      }
+    };
+    loadClients();
   }, []);
 
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -188,7 +199,7 @@ function GSTReconciliationPageContent() {
       const fetchAIExplanation = async () => {
         setIsAiLoading(true);
         try {
-          const token = getAuthToken();
+          const token = await getAuthToken();
           if (!token) {
             // Skip AI fetch entirely — use static fallback explanation only
             setTimeout(() => {
@@ -290,12 +301,24 @@ function GSTReconciliationPageContent() {
 
   // Reusable report downloader mapping API stream downloads
   const handleExport = async (type: 'excel' | 'pdf') => {
+    if (!lastReconId) {
+      showToast("⚠ Run reconciliation first before exporting.");
+      return;
+    }
+
     const setLoader = type === 'excel' ? setIsExportingExcel : setIsExportingPdf;
     setLoader(true);
     showToast(`Generating ${type.toUpperCase()} report...`);
 
     try {
-      const response = await fetch(`${API_BASE}/api/export/reconciliation/${type}`);
+      const token = await getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE}/api/reconcile/export/reconciliation/${type}?reconciliation_id=${lastReconId}`, {
+        headers
+      });
       if (!response.ok) throw new Error();
 
       const blob = await response.blob();
@@ -321,23 +344,37 @@ function GSTReconciliationPageContent() {
 
   // Triggering the reconciliation pipeline calling active backend python engine
   const handleRunReconciliation = async () => {
+    if (!selectedClient) {
+      showToast("⚠ Please select a client first.");
+      return;
+    }
+
     setIsProcessing(true);
     setCurrentStepIndex(0);
     setProcessingProgress(0);
 
     try {
+      const token = await getAuthToken();
       const formData = new FormData();
       if (filePR) formData.append('file_pr', filePR);
       if (file2B) formData.append('file_2b', file2B);
+      formData.append('client_id', selectedClient);
+      formData.append('period', reconMonth);
 
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       const response = await fetch(`${API_BASE}/api/reconcile/gstr2b`, {
         method: 'POST',
+        headers,
         body: formData
       });
 
       if (!response.ok) throw new Error();
 
       const data = await response.json();
+      setLastReconId(data.reconciliation_id);
       const apiRows: ReconRow[] = [];
       let idx = 1;
 
