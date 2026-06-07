@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { clearAuth } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
 
 /* ─── Data Structures & Grouping ─────────────────────────── */
 interface NavItem {
@@ -276,22 +277,33 @@ export default function Sidebar({
     ? !isMobileOpen
     : (isTablet ? true : !isHovered);
 
-  useEffect(() => {
-    const role = localStorage.getItem("role");
-    const fullName = localStorage.getItem("full_name");
-    if (role) {
-      setUserRole(role);
-    }
+  // Load user identity from Supabase metadata — never from localStorage.
+  const loadUserMeta = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const meta = user.user_metadata || {};
+    const fullName: string = meta.full_name || '';
+    const role: string = meta.role || 'PARTNER';
+    if (role) setUserRole(role);
     if (fullName) {
       setUserName(fullName);
       const initials = fullName
-        .split(" ")
+        .split(' ')
         .map((n: string) => n[0])
-        .join("")
+        .join('')
         .toUpperCase()
         .slice(0, 2);
-      setUserInitials(initials || "U");
+      setUserInitials(initials || 'U');
     }
+  };
+
+  useEffect(() => {
+    loadUserMeta();
+    // Re-hydrate on token refresh or sign-in
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      loadUserMeta();
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleLogout = async () => {

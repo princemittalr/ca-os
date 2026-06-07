@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { getAuthToken } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -71,17 +72,29 @@ export default function TopBar({
       .join(' / ');
   };
 
-  useEffect(() => {
-    const fullName = localStorage.getItem("full_name");
+  // Load user initials from Supabase metadata — never from localStorage.
+  const loadInitials = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const fullName: string = user.user_metadata?.full_name || '';
     if (fullName) {
       const initials = fullName
-        .split(" ")
+        .split(' ')
         .map((n: string) => n[0])
-        .join("")
+        .join('')
         .toUpperCase()
         .slice(0, 2);
-      setUserInitials(initials || "U");
+      setUserInitials(initials || 'U');
     }
+  };
+
+  useEffect(() => {
+    loadInitials();
+    // Re-hydrate on token refresh or sign-in
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      loadInitials();
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {

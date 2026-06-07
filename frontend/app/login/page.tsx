@@ -49,13 +49,8 @@ export default function LoginPage() {
 
       // Supabase SDK auto-persists the session (access + refresh tokens) in its
       // own namespaced localStorage key and refreshes before expiry.
-      // We only write profile metadata so Sidebar / TopBar can read them
-      // synchronously until those components are migrated.
-      const metadata = data.user!.user_metadata ?? {};
-      localStorage.setItem("user_id", data.user!.id);
-      localStorage.setItem("full_name", metadata.full_name || email);
-      localStorage.setItem("role", metadata.role || "PARTNER");
-      localStorage.setItem("firm_id", metadata.firm_id || "");
+      // Sidebar and TopBar now read full_name/role from supabase.auth.getUser()
+      // directly — no manual localStorage writes needed.
 
       showToast("✓ Authentication successful! Redirecting...");
       setTimeout(() => { window.location.href = "/action-center"; }, 1500);

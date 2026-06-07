@@ -1,13 +1,11 @@
 /**
  * auth.ts — Session helpers that delegate to the Supabase SDK.
  *
- * The SDK persists the session in localStorage under its own namespaced key
- * and auto-refreshes the JWT before expiry. We never touch access_token directly.
+ * The SDK persists the session in its own namespaced localStorage key and
+ * auto-refreshes the JWT before expiry. We never read/write access_token
+ * or profile keys (full_name, role, firm_id) to localStorage directly.
  *
- * Note: full_name / role / firm_id are still written to localStorage by the
- * auth pages (login / signup) so that Sidebar and TopBar can read them
- * synchronously. Those will be migrated to read from user_metadata in a
- * follow-up prompt once all consumers are updated.
+ * Single source of truth for user identity: getCurrentUserMeta()
  */
 import { supabase } from './supabase'
 
@@ -22,22 +20,44 @@ export async function getAuthToken(): Promise<string | null> {
 }
 
 /**
- * Signs the user out via Supabase (clears SDK storage) and removes
- * profile metadata that was manually written to localStorage.
+ * Signs the user out via Supabase (clears SDK storage server-side).
+ * No manual localStorage cleanup required — the SDK manages its own keys.
  */
 export async function clearAuth(): Promise<void> {
   await supabase.auth.signOut()
-  // Remove profile metadata kept for sidebar/topbar compatibility
-  localStorage.removeItem('full_name')
-  localStorage.removeItem('role')
-  localStorage.removeItem('firm_id')
-  localStorage.removeItem('user_id')
 }
 
 /**
  * Returns the currently authenticated Supabase user, or null.
+ * Prefer getCurrentUserMeta() for structured profile data.
  */
 export async function getCurrentUser() {
   const { data } = await supabase.auth.getUser()
   return data.user ?? null
+}
+
+/**
+ * Returns structured profile metadata from the authenticated Supabase user.
+ * This is the single source of truth for user identity — replaces all
+ * localStorage.getItem("role"), getItem("full_name"), etc. calls.
+ *
+ * Returns null if the user is not authenticated.
+ */
+export async function getCurrentUserMeta(): Promise<{
+  user_id: string
+  firm_id: string
+  role: string
+  full_name: string
+  email: string
+} | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  const meta = user.user_metadata || {}
+  return {
+    user_id: user.id,
+    firm_id: meta.firm_id || '',
+    role: meta.role || 'ARTICLE',
+    full_name: meta.full_name || '',
+    email: user.email || '',
+  }
 }

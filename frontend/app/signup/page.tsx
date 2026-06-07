@@ -74,13 +74,10 @@ export default function SignupPage() {
 
       if (signInError) throw signInError;
 
-      // Step 3: Write profile metadata to localStorage for Sidebar / TopBar
-      // compatibility (will be migrated to read from user_metadata in a follow-up).
-      localStorage.setItem("user_id", authData.user!.id);
-      localStorage.setItem("firm_id", data.firm_id);
-      localStorage.setItem("role", data.role);
-      localStorage.setItem("full_name", data.full_name);
-      
+      // Step 3: Session is now owned by the Supabase SDK.
+      // Sidebar and TopBar read full_name/role from supabase.auth.getUser()
+      // directly — no manual localStorage writes needed.
+
       showToast("✓ Onboarding successful! Provisining CA firm workspace...");
       setTimeout(() => {
         window.location.href = "/onboarding";
