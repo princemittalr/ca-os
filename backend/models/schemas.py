@@ -192,7 +192,7 @@ class AuditLogResponse(BaseModel):
     action: str
     entity_type: str
     entity_id: Optional[str] = None
-    details: Dict[str, Any]
+    details: Dict[str, Any] = {}
     ip_address: Optional[str] = None  # Stripped for CLIENT_VIEWER role at router level
     created_at: datetime
 
@@ -380,5 +380,15 @@ class NoticeTimelineMilestone(BaseModel):
     date: str
     description: str
     completed: bool
+
+
+# --- Automation Agent Schemas ---
+class AutomationAgentResponse(BaseModel):
+    id: str
+    firm_id: str
+    agent_key: str
+    name: Optional[str] = None
+    is_active: bool
+    created_at: Optional[datetime] = None
 
 
