@@ -19,10 +19,28 @@ class BackgroundScheduler:
         self.thread = None
         self.worker_id = f"worker-{str(uuid.uuid4())}"
 
+    @property
+    def is_running(self) -> bool:
+        return self.thread is not None and self.thread.is_alive()
+
     def start(self):
         if self.thread is not None:
             return
-        
+
+        # Startup DB connectivity check
+        try:
+            from config.supabase import supabase_client, is_supabase_active
+            if not is_supabase_active() or supabase_client is None:
+                print("[SCHEDULER] Supabase not active — scheduler disabled.")
+                return
+            client = supabase_client
+            # Verify scheduler_locks table exists
+            client.table("scheduler_locks").select("lock_key").limit(1).execute()
+            print("[SCHEDULER] DB connectivity check passed.")
+        except Exception as e:
+            print(f"[SCHEDULER] DB check failed — scheduler disabled: {e}")
+            return
+
         self.stop_event.clear()
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
         self.thread.start()
@@ -42,16 +60,18 @@ class BackgroundScheduler:
             from config.supabase import supabase_client
             from datetime import datetime, timedelta, timezone
             if not supabase_client:
-                return False
-                
+                return True  # single-worker fallback: run without lock
+
+            client = supabase_client
             lock_key = "scheduler_lock"
             now_dt = datetime.now(timezone.utc)
             now = now_dt.isoformat()
-            expires_at = (now_dt + timedelta(seconds=90)).isoformat()
-            
-            # 1. Try insert first (succeeds if lock row doesn't exist)
+            # Extend expiry to 120s (2× interval) for safety margin
+            expires_at = (now_dt + timedelta(seconds=120)).isoformat()
+
+            # 1. Insert new lock
             try:
-                res = supabase_client.table("scheduler_locks").insert({
+                res = client.table("scheduler_locks").insert({
                     "lock_key": lock_key,
                     "worker_id": self.worker_id,
                     "locked_at": now,
@@ -59,39 +79,49 @@ class BackgroundScheduler:
                 }).execute()
                 if res.data:
                     return True
-            except Exception:
-                pass
-                
-            # 2. Try refreshing if we already own the lock
+            except Exception as insert_err:
+                print(f"[SCHEDULER] Lock insert failed (expected if row exists): {insert_err}")
+
+            # 2. Refresh own lock
             try:
-                res = supabase_client.table("scheduler_locks")\
-                    .update({
-                        "locked_at": now,
-                        "expires_at": expires_at
-                    })\
+                res = client.table("scheduler_locks")\
+                    .update({"locked_at": now, "expires_at": expires_at})\
                     .eq("lock_key", lock_key)\
                     .eq("worker_id", self.worker_id)\
                     .execute()
                 if res.data:
                     return True
-            except Exception:
-                pass
-                
-            # 3. Try taking over lock if it has expired
+            except Exception as refresh_err:
+                print(f"[SCHEDULER] Lock refresh failed: {refresh_err}")
+
+            # 3. Steal expired lock
             try:
-                res = supabase_client.table("scheduler_locks")\
-                    .update({
-                        "worker_id": self.worker_id,
-                        "locked_at": now,
-                        "expires_at": expires_at
-                    })\
+                res = client.table("scheduler_locks")\
+                    .update({"worker_id": self.worker_id, "locked_at": now, "expires_at": expires_at})\
                     .eq("lock_key", lock_key)\
                     .lt("expires_at", now)\
                     .execute()
-                return bool(res.data)
-            except Exception:
-                pass
-                
+                if res.data:
+                    print(f"[SCHEDULER] Claimed expired lock.")
+                    return True
+            except Exception as steal_err:
+                print(f"[SCHEDULER] Lock steal failed: {steal_err}")
+
+            # Log current holder for debugging
+            try:
+                cur = client.table("scheduler_locks")\
+                    .select("worker_id, expires_at")\
+                    .eq("lock_key", lock_key)\
+                    .execute()
+                if cur.data:
+                    holder = cur.data[0]
+                    if isinstance(holder, dict):
+                        worker_id = holder.get("worker_id")
+                        expires_at = holder.get("expires_at")
+                        print(f"[SCHEDULER] Lock held by {worker_id} until {expires_at}")
+            except Exception as holder_err:
+                print(f"[SCHEDULER] Failed to get lock holder details: {holder_err}")
+
             return False
         except Exception as e:
             print(f"[SCHEDULER] Lock acquisition error: {e}")
