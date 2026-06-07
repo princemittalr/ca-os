@@ -5,12 +5,8 @@ import PageHeader from '@/components/layout/PageHeader';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { api } from '@/lib/api';
 
-const getToken = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token;
-};
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { 
   User, 
@@ -174,21 +170,14 @@ function SettingsContent() {
     return () => clearInterval(interval);
   }, [disableOtpTimer]);
 
-  // Persistent profile photo preview
+  // Profile photo is kept in component state only (no localStorage persistence)
   useEffect(() => {
-    const savedImage = localStorage.getItem('reckon_profile_image');
-    if (savedImage) {
-      setProfileImage(savedImage);
-    }
+    // Future: load from user metadata or CDN if backend stores profile photos
   }, []);
 
   const updateProfileImage = (newImage: string | null) => {
     setProfileImage(newImage);
-    if (newImage) {
-      localStorage.setItem('reckon_profile_image', newImage);
-    } else {
-      localStorage.removeItem('reckon_profile_image');
-    }
+    // Future: sync to backend or CDN when profile photo upload endpoint is available
   };
 
   const getInitials = (name: string) => {
@@ -303,21 +292,11 @@ function SettingsContent() {
 
   const handleRevokeSession = async (id: string, name: string) => {
     try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE}/api/auth/sessions/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        setSessions(sessions.filter(s => s.id !== id));
-        triggerToast(`✓ Session revoked on ${name}`);
-      } else {
-        triggerToast("❌ Revocation Failed: Unable to revoke session.");
-      }
+      await api.delete(`/api/auth/sessions/${id}`);
+      setSessions(sessions.filter(s => s.id !== id));
+      triggerToast(`✓ Session revoked on ${name}`);
     } catch (err) {
-      triggerToast("❌ Revocation Failed: Connection error.");
+      triggerToast("❌ Revocation Failed: Unable to revoke session.");
     }
   };
 
@@ -831,23 +810,10 @@ function SettingsContent() {
                               onClick={async () => {
                                 setModalLoading(true);
                                 try {
-                                  const token = await getToken();
-                                  const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                      "Authorization": `Bearer ${token}`
-                                    },
-                                    body: JSON.stringify({ password: verifyPasswordInput })
-                                  });
-                                  if (res.ok) {
-                                    setModalStep(2);
-                                  } else {
-                                    const errData = await res.json().catch(() => ({}));
-                                    triggerToast(`❌ Verification Failed: ${errData.detail || "Invalid current master password!"}`);
-                                  }
-                                } catch (err) {
-                                  triggerToast("❌ Verification Failed: Connection error.");
+                                  await api.post('/api/auth/verify-password', { password: verifyPasswordInput });
+                                  setModalStep(2);
+                                } catch (err: any) {
+                                  triggerToast(`❌ Verification Failed: ${err.message || "Invalid current master password!"}`);
                                 } finally {
                                   setModalLoading(false);
                                 }
@@ -1056,26 +1022,13 @@ function SettingsContent() {
                                 onClick={async () => {
                                   setModalLoading(true);
                                   try {
-                                    const token = await getToken();
-                                    const res = await fetch(`${API_BASE}/api/auth/password`, {
-                                      method: "PUT",
-                                      headers: {
-                                        "Content-Type": "application/json",
-                                        "Authorization": `Bearer ${token}`
-                                      },
-                                      body: JSON.stringify({ new_password: newPassVal })
-                                    });
-                                    if (res.ok) {
-                                      // Invalidate sessions except current Windows one
-                                      setSessions(sessions.filter(s => s.last_active === 'Active now'));
-                                      setModalStep(4);
-                                      triggerToast("✓ Password updated. Dispatched security notification to rahul.sharma@reckon.ai.");
-                                    } else {
-                                      const errData = await res.json().catch(() => ({}));
-                                      triggerToast(`❌ Update Failed: ${errData.detail || "Unable to update password."}`);
-                                    }
-                                  } catch (err) {
-                                    triggerToast("❌ Connection Failure: Security logs mismatch.");
+                                    await api.put('/api/auth/password', { new_password: newPassVal });
+                                    // Invalidate sessions except current Windows one
+                                    setSessions(sessions.filter(s => s.last_active === 'Active now'));
+                                    setModalStep(4);
+                                    triggerToast("✓ Password updated. Dispatched security notification to rahul.sharma@reckon.ai.");
+                                  } catch (err: any) {
+                                    triggerToast(`❌ Update Failed: ${err.message || "Unable to update password."}`);
                                   } finally {
                                     setModalLoading(false);
                                   }
@@ -1329,23 +1282,10 @@ function SettingsContent() {
                               onClick={async () => {
                                 setModalLoading(true);
                                 try {
-                                  const token = await getToken();
-                                  const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                      "Authorization": `Bearer ${token}`
-                                    },
-                                    body: JSON.stringify({ password: twoFactorPasswordInput })
-                                  });
-                                  if (res.ok) {
-                                    setTwoFactorStep(2);
-                                  } else {
-                                    const errData = await res.json().catch(() => ({}));
-                                    triggerToast(`❌ Verification Failed: ${errData.detail || "Invalid current master password!"}`);
-                                  }
-                                } catch (err) {
-                                  triggerToast("❌ Verification Failed: Connection error.");
+                                  await api.post('/api/auth/verify-password', { password: twoFactorPasswordInput });
+                                  setTwoFactorStep(2);
+                                } catch (err: any) {
+                                  triggerToast(`❌ Verification Failed: ${err.message || "Invalid current master password!"}`);
                                 } finally {
                                   setModalLoading(false);
                                 }
@@ -1773,25 +1713,12 @@ function SettingsContent() {
                           onClick={async () => {
                             setDisableLoading(true);
                             try {
-                              const token = await getToken();
-                              const res = await fetch(`${API_BASE}/api/auth/verify-password`, {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                  "Authorization": `Bearer ${token}`
-                                },
-                                body: JSON.stringify({ password: disablePasswordInput })
-                              });
-                              if (res.ok) {
-                                setIs2FAEnabled(false);
-                                setShowDisable2FAModal(false);
-                                triggerToast("✓ Two-Factor Authentication disabled. Account status set to unprotected.");
-                              } else {
-                                const errData = await res.json().catch(() => ({}));
-                                triggerToast(`❌ Verification Failed: ${errData.detail || "Invalid current master password!"}`);
-                              }
-                            } catch (err) {
-                              triggerToast("❌ Verification Failed: Connection error.");
+                              await api.post('/api/auth/verify-password', { password: disablePasswordInput });
+                              setIs2FAEnabled(false);
+                              setShowDisable2FAModal(false);
+                              triggerToast("✓ Two-Factor Authentication disabled. Account status set to unprotected.");
+                            } catch (err: any) {
+                              triggerToast(`❌ Verification Failed: ${err.message || "Invalid current master password!"}`);
                             } finally {
                               setDisableLoading(false);
                             }
@@ -1822,21 +1749,11 @@ function SettingsContent() {
                     <button
                       onClick={async () => {
                         try {
-                          const token = await getToken();
-                          const res = await fetch(`${API_BASE}/api/auth/sessions`, {
-                            method: "DELETE",
-                            headers: {
-                              "Authorization": `Bearer ${token}`
-                            }
-                          });
-                          if (res.ok) {
-                            setSessions(sessions.slice(0,1));
-                            triggerToast("Logged out of all other devices successfully.");
-                          } else {
-                            triggerToast("❌ Action Failed: Unable to revoke all sessions.");
-                          }
+                          await api.delete('/api/auth/sessions');
+                          setSessions(sessions.slice(0,1));
+                          triggerToast("Logged out of all other devices successfully.");
                         } catch (err) {
-                          triggerToast("❌ Action Failed: Connection error.");
+                          triggerToast("❌ Action Failed: Unable to revoke all sessions.");
                         }
                       }}
                       className="btn btn-sm btn-destructive"

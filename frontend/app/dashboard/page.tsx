@@ -5,6 +5,8 @@ import { useDropzone } from 'react-dropzone';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { api } from '@/lib/api';
+import { getAuthHeaders } from '@/lib/auth';
 import {
   FileText,
   CheckCircle,
@@ -44,10 +46,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // Recharts colors palette matching exact brand guidelines
 const BRAND_COLORS = ['#1B4F8A', '#2563AB', '#3B82F6', '#93C5FD', '#DBEAFE'];
 
-const getToken = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session?.access_token;
-};
+
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -130,18 +129,7 @@ export default function DashboardPage() {
   React.useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const token = await getToken();
-        const res = await fetch(`${API_BASE}/api/clients/dashboard/summary`, {
-          headers: {
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          }
-        });
-        if (res.status === 401) {
-          router.push('/login');
-          return;
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
+        const data = await api.get<any>('/api/clients/dashboard/summary');
         setDashStats(data);
         if (data.clients && data.clients.length > 0) {
           setSelectedClientId(data.clients[0].id);
@@ -182,7 +170,7 @@ export default function DashboardPage() {
       }
     };
     fetchSummary();
-  }, [router]);
+  }, []);
 
   // Dual file reconciliation engine state
   const [filePR, setFilePR] = React.useState<File | null>(null);
@@ -269,23 +257,7 @@ export default function DashboardPage() {
     formData.append("file", file);
 
     try {
-      const token = await getToken();
-      const response = await fetch(`${API_BASE}/api/upload/gstr2b`, {
-        method: 'POST',
-        headers: {
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        body: formData
-      });
-      if (response.status === 401) {
-        router.push('/login');
-        return;
-      }
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || `HTTP ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await api.postForm<any>('/api/upload/gstr2b', formData);
       setResult(data);
       setToast({ message: "GST File processed and validated successfully!", type: 'success' });
     } catch (err: any) {
@@ -318,23 +290,7 @@ export default function DashboardPage() {
     formData.append("period", "2024-03");
 
     try {
-      const token = await getToken();
-      const response = await fetch(`${API_BASE}/api/reconcile/gstr2b`, {
-        method: 'POST',
-        headers: {
-          ...(token ? { "Authorization": `Bearer ${token}` } : {})
-        },
-        body: formData
-      });
-      if (response.status === 401) {
-        router.push('/login');
-        return;
-      }
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || `HTTP ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await api.postForm<any>('/api/reconcile/gstr2b', formData);
       setReconResult(data);
       setLastReconId(data.reconciliation_id);
       setToast({ message: "Automated GST Reconciliation completed successfully!", type: 'success' });
@@ -366,19 +322,12 @@ export default function DashboardPage() {
     setToast({ message: `Generating ${type.toUpperCase()} report...`, type: "success" });
 
     try {
-      const token = await getToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
+      // Blob download — use centralized auth headers, raw fetch needed for binary response
+      const headers = await getAuthHeaders();
       const response = await fetch(
         `${API_BASE}/api/reconcile/export/reconciliation/${type}?reconciliation_id=${lastReconId}`,
         { headers }
       );
-      if (response.status === 401) {
-        router.push('/login');
-        return;
-      }
       if (!response.ok) {
         const errText = await response.text();
         throw new Error(errText || `HTTP ${response.status}`);
