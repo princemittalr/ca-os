@@ -1,19 +1,6 @@
 version: '3.8'
 
 services:
-  # --- MOCK REDIS INFRASTRUCTURE SERVICE ---
-  redis:
-    image: redis:7-alpine
-    container_name: reckon_redis_mock
-    ports:
-      - "6379:6379"
-    restart: always
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
   # --- FASTAPI BACKEND SERVICE ---
   backend:
     build:
@@ -24,15 +11,21 @@ services:
       - "8000:8000"
     environment:
       - ENV=production
-      - SUPABASE_URL=${SUPABASE_URL:-mock_url}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-mock_key}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-mock_key}
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-mock_key}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock_key}
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      redis:
-        condition: service_healthy
+      - DEBUG=False
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENABLE_DEMO_MODE=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: always
 
   # --- NEXT.JS FRONTEND SERVICE ---
@@ -47,5 +40,12 @@ services:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => { if (r.statusCode === 200) process.exit(0); else process.exit(1); })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: always

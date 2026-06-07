@@ -7,9 +7,13 @@ python-jose[cryptography]
 passlib[bcrypt]
 rapidfuzz
 google-generativeai
+groq
 supabase
 pydantic
 pydantic-settings
 python-multipart
 reportlab
 slowapi
+python-magic
+bleach
+python-dotenv
