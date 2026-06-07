@@ -61,3 +61,27 @@ export async function getCurrentUserMeta(): Promise<{
     email: user.email || '',
   }
 }
+
+/**
+ * Returns an Authorization header object ready for use in fetch() calls.
+ * Returns an empty object when the user is unauthenticated so callers can
+ * safely spread it without null-checks.
+ *
+ * Usage:
+ *   const res = await fetch(url, { headers: await getAuthHeaders() })
+ */
+export async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await getAuthToken()
+  if (!token) return {}
+  return { Authorization: `Bearer ${token}` }
+}
+
+/**
+ * Returns true if a valid Supabase session currently exists.
+ * Intended for conditional rendering and client-side guard checks only —
+ * server-side RLS is the real security gate.
+ */
+export async function isAuthenticated(): Promise<boolean> {
+  const token = await getAuthToken()
+  return token !== null
+}
