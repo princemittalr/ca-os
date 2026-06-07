@@ -203,6 +203,7 @@ class AuditLogResponse(BaseModel):
 
 # --- Communication Schemas ---
 class CommunicationGenerateRequest(BaseModel):
+    client_id: Optional[str] = None  # Add client_id for firm scoping
     vendor_name: str
     gstin: str
     issue: str
