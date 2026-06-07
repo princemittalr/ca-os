@@ -170,7 +170,11 @@ function SettingsContent() {
     return () => clearInterval(interval);
   }, [disableOtpTimer]);
 
-  // Profile photo is kept in component state only (no localStorage persistence)
+  // NOTE: profile image stored in component state only (not localStorage).
+  // If a base64 data URL were persisted locally, it would be treated as a UI-only preference.
+  // That would be exempt from the no-localStorage rule:
+  //   - display-only, no security implications, auto-cleared on browser reset.
+  // For now: kept in React state only — no persistence at all.
   useEffect(() => {
     // Future: load from user metadata or CDN if backend stores profile photos
   }, []);
