@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { getAuthToken } from '@/lib/auth';
+import { api } from '@/lib/api';
 import {
   Building,
   Calendar as CalendarIcon,
@@ -127,14 +128,7 @@ function GSTReconciliationPageContent() {
   useEffect(() => {
     const loadClients = async () => {
       try {
-        const token = await getAuthToken();
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-        const response = await fetch(`${API_BASE}/api/clients/`, { headers });
-        if (!response.ok) throw new Error("Unsuccessful status from clients list API");
-        const data = await response.json();
+        const data = await api.get<any[]>('/api/clients/');
         if (data && data.length > 0) {
           setClients(data.map((c: any) => ({
             id: c.id,
@@ -199,52 +193,30 @@ function GSTReconciliationPageContent() {
       const fetchAIExplanation = async () => {
         setIsAiLoading(true);
         try {
-          const token = await getAuthToken();
-          if (!token) {
-            // Skip AI fetch entirely — use static fallback explanation only
-            setTimeout(() => {
-              applyStaticFallback();
-              setIsAiLoading(false);
-            }, 600);
-            return;
-          }
-          const res = await fetch(`${API_BASE}/api/ai/explain-mismatch`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              mismatch: {
-                supplier_gstin: selectedRow.supplier_gstin,
-                invoice_number: selectedRow.invoice_number,
-                invoice_date: selectedRow.invoice_date,
-                taxable_value_pr: selectedRow.taxable_value_pr,
-                taxable_value_2b: selectedRow.taxable_value_2b,
-                difference: selectedRow.difference,
-                issue: selectedRow.status.toUpperCase(),
-                likely_cause: selectedRow.ai_insight
-              }
-            })
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            setAiExplanation(data);
-            if (data.summary) {
-              let index = 0;
-              const text = data.summary;
-              setTypedSummary("");
-              const timer = setInterval(() => {
-                setTypedSummary((prev) => prev + text.charAt(index));
-                index++;
-                if (index >= text.length) {
-                  clearInterval(timer);
-                }
-              }, 10);
+          const data = await api.post<any>('/api/ai/explain-mismatch', {
+            mismatch: {
+              supplier_gstin: selectedRow.supplier_gstin,
+              invoice_number: selectedRow.invoice_number,
+              invoice_date: selectedRow.invoice_date,
+              taxable_value_pr: selectedRow.taxable_value_pr,
+              taxable_value_2b: selectedRow.taxable_value_2b,
+              difference: selectedRow.difference,
+              issue: selectedRow.status.toUpperCase(),
+              likely_cause: selectedRow.ai_insight
             }
-          } else {
-            throw new Error();
+          });
+          setAiExplanation(data);
+          if (data.summary) {
+            let index = 0;
+            const text = data.summary;
+            setTypedSummary("");
+            const timer = setInterval(() => {
+              setTypedSummary((prev) => prev + text.charAt(index));
+              index++;
+              if (index >= text.length) {
+                clearInterval(timer);
+              }
+            }, 10);
           }
         } catch (err) {
           // Fallback static explanation
@@ -354,26 +326,13 @@ function GSTReconciliationPageContent() {
     setProcessingProgress(0);
 
     try {
-      const token = await getAuthToken();
       const formData = new FormData();
       if (filePR) formData.append('file_pr', filePR);
       if (file2B) formData.append('file_2b', file2B);
       formData.append('client_id', selectedClient);
       formData.append('period', reconMonth);
 
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      const response = await fetch(`${API_BASE}/api/reconcile/gstr2b`, {
-        method: 'POST',
-        headers,
-        body: formData
-      });
-
-      if (!response.ok) throw new Error();
-
-      const data = await response.json();
+      const data = await api.postForm<any>('/api/reconcile/gstr2b', formData);
       setLastReconId(data.reconciliation_id);
       const apiRows: ReconRow[] = [];
       let idx = 1;
