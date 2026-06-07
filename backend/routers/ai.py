@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, status, Request
+from fastapi import APIRouter, HTTPException, status, Request, Depends
 from typing import List, Dict, Any
 from services.ai import copilot
 from services.ai import provider
 from middleware.rate_limit import limiter, AI_LIMIT
+from middleware.auth import verify_token
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,7 +12,11 @@ router = APIRouter()
 
 @router.post("/explain-mismatch")
 @limiter.limit(AI_LIMIT)
-async def explain_mismatch_root_cause(request: Request, payload: Dict[str, Any]):
+async def explain_mismatch_root_cause(
+    request: Request, 
+    payload: Dict[str, Any],
+    current_user: dict = Depends(verify_token)
+):
     try:
         mismatch = payload.get("mismatch") or payload
         client_context = payload.get("client_context")
@@ -22,7 +27,11 @@ async def explain_mismatch_root_cause(request: Request, payload: Dict[str, Any])
 
 @router.post("/daily-briefing")
 @limiter.limit(AI_LIMIT)
-async def get_daily_copilot_briefing(request: Request, payload: List[Dict[str, Any]]):
+async def get_daily_copilot_briefing(
+    request: Request, 
+    payload: List[Dict[str, Any]],
+    current_user: dict = Depends(verify_token)
+):
     try:
         briefing = await copilot.generate_daily_briefing(payload)
         return {"briefing": briefing}
@@ -32,7 +41,11 @@ async def get_daily_copilot_briefing(request: Request, payload: List[Dict[str, A
 
 @router.post("/draft-outreach")
 @limiter.limit(AI_LIMIT)
-async def draft_vendor_notice(request: Request, payload: Dict[str, Any]):
+async def draft_vendor_notice(
+    request: Request, 
+    payload: Dict[str, Any],
+    current_user: dict = Depends(verify_token)
+):
     try:
         return await copilot.generate_vendor_notice_draft(payload)
     except Exception as e:
@@ -40,5 +53,7 @@ async def draft_vendor_notice(request: Request, payload: Dict[str, Any]):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Vendor outreach notice drafting failed. Please try again.")
 
 @router.get("/usage")
-async def get_usage_metrics():
+async def get_usage_metrics(
+    current_user: dict = Depends(verify_token)
+):
     return provider.get_token_usage()
