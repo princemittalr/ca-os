@@ -39,6 +39,21 @@ def compliance_reminders_task(job_id: str):
                     subject=f"Urgent GST Filing Reminder: Due in 3 Days ({client['business_name']})",
                     body=body
                 )
+                # Look up user_id for assigned_to staff, then create notification
+                assigned_to = task.get("assigned_to")
+                if assigned_to:
+                    assigned_user_id = db_manager.get_user_id_by_name(assigned_to)
+                    if assigned_user_id:
+                        try:
+                            db_manager.create_user_notification(
+                                user_id=assigned_user_id,
+                                type="compliance",
+                                title=f"Filing Due: {task['compliance_type']}",
+                                message=f"{client['business_name']} - {task['filing_period']} due {task['due_date']}",
+                                action_url=f"/compliance"
+                            )
+                        except Exception as e:
+                            print(f"[WARN] Failed to trigger compliance reminder notification: {e}")
                 sent_count += 1
                 
     update_job(job_id, {"progress": 90.0})

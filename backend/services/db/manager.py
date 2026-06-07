@@ -235,6 +235,25 @@ def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, An
         ret = new_run
 
     sync_reconciliation_to_action_engine(client_id, cast(Dict[str, Any], ret))
+    
+    # Wire reconciliation completion to notify assigned manager
+    try:
+        client_info = get_client_by_id(client_id)
+        if client_info:
+            manager_name = client_info.get("assigned_manager")
+            if manager_name:
+                manager_id = get_user_id_by_name(manager_name)
+                if manager_id:
+                    create_user_notification(
+                        user_id=manager_id,
+                        type="reconciliation",
+                        title="Reconciliation Completed",
+                        message=f"Reconciliation run completed for {client_info['business_name']} - Period {ret.get('filing_period')}.",
+                        action_url=f"/gst-recon"
+                    )
+    except Exception as e:
+        print(f"[WARN] Failed to trigger reconciliation completion notification: {e}")
+
     return cast(Dict[str, Any], ret)
 
 # -------------------------------------------------------------------------
@@ -597,8 +616,71 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
     return None
 
 # -------------------------------------------------------------------------
-# NOTIFICATIONS LOGGER CRUD ABSTRACTION
+# NOTIFICATIONS INBOX & LOGGER CRUD ABSTRACTION
 # -------------------------------------------------------------------------
+def get_user_id_by_name(full_name: str) -> Optional[str]:
+    """
+    Looks up user_id for a staff user by their full name.
+    Falls back to a default mock user UUID if database is not active.
+    """
+    if not is_supabase_active():
+        return "mock-user-uuid-12345"
+    try:
+        res = supabase_client.table("users").select("id").eq("full_name", full_name).execute()
+        if res.data:
+            data_list = cast(List[Dict[str, Any]], res.data)
+            return str(data_list[0]["id"])
+    except Exception as e:
+        print(f"[ERROR] get_user_id_by_name error: {str(e)}")
+    return None
+
+def create_user_notification(
+    user_id: str,
+    type: str,
+    title: str,
+    message: str,
+    action_url: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Creates a user inbox notification in the notifications table.
+    Bypasses RLS using the service role client. Non-blocking.
+    """
+    firm_id = None
+    if is_supabase_active():
+        try:
+            res = supabase_client.table("users").select("firm_id").eq("id", user_id).execute()
+            if res.data:
+                data_list = cast(List[Dict[str, Any]], res.data)
+                firm_id = str(data_list[0]["firm_id"])
+        except Exception as e:
+            print(f"[ERROR] Could not fetch firm_id for user {user_id}: {e}")
+
+    payload = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "firm_id": firm_id or "00000000-0000-0000-0000-000000000001",
+        "type": type,
+        "title": title,
+        "message": message,
+        "is_read": False,
+        "action_url": action_url,
+        "created_at": datetime.now().isoformat()
+    }
+
+    db_success = False
+    if is_supabase_active():
+        try:
+            supabase_client.table("notifications").insert(payload).execute()
+            db_success = True
+        except Exception as e:
+            print(f"[WARN] Failed to insert notification to DB: {e}")
+
+    if not db_success:
+        # Fallback to local in-memory store
+        MOCK_NOTIFICATIONS.insert(0, payload)
+
+    return payload
+
 def get_notifications_log() -> List[Dict[str, Any]]:
     if is_supabase_active():
         try:
@@ -609,25 +691,41 @@ def get_notifications_log() -> List[Dict[str, Any]]:
     return MOCK_NOTIFICATIONS
 
 def create_notification_log(channel: str, recipient: str, body: str, status: str, subject: Optional[str] = None) -> Dict[str, Any]:
+    firm_id = None
+    if is_supabase_active():
+        try:
+            # Resolve firm_id from recipient email by searching clients then users
+            res = supabase_client.table("clients").select("firm_id").eq("email", recipient).execute()
+            if res.data:
+                data_list = cast(List[Dict[str, Any]], res.data)
+                firm_id = str(data_list[0]["firm_id"])
+            else:
+                res = supabase_client.table("users").select("firm_id").eq("email", recipient).execute()
+                if res.data:
+                    data_list = cast(List[Dict[str, Any]], res.data)
+                    firm_id = str(data_list[0]["firm_id"])
+        except Exception as e:
+            print(f"[WARN] Failed to resolve firm_id for notification log: {e}")
+
     new_notif = {
-        "id": f"notif-{str(uuid.uuid4())[:8]}",
+        "id": str(uuid.uuid4()),
+        "firm_id": firm_id or "00000000-0000-0000-0000-000000000001",
         "channel": channel,
         "recipient": recipient,
         "subject": subject,
         "body": body,
         "status": status,
-        "sent_at": datetime.now()
+        "sent_at": datetime.now().isoformat()
     }
     if is_supabase_active():
         try:
-            res = supabase_client.table("notifications_log").insert(cast(Any, new_notif)).execute()
-            if res.data:
-                return cast(Dict[str, Any], res.data[0])
+            supabase_client.table("notifications_log").insert(new_notif).execute()
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
             
     MOCK_NOTIFICATIONS.insert(0, new_notif)
     return new_notif
+
 
 
 # -------------------------------------------------------------------------
@@ -756,6 +854,25 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
         ret = new_notice
 
     sync_notice_to_action_engine(cast(Dict[str, Any], ret))
+    
+    # Wire notice upload to notify relevant staff
+    try:
+        client_info = get_client_by_id(str(ret["client_id"]))
+        if client_info:
+            manager_name = client_info.get("assigned_manager")
+            if manager_name:
+                manager_id = get_user_id_by_name(manager_name)
+                if manager_id:
+                    create_user_notification(
+                        user_id=manager_id,
+                        type="notice",
+                        title=f"New Notice Uploaded: {ret.get('notice_type', 'Notice')}",
+                        message=f"A new GST notice has been uploaded for {client_info['business_name']}.",
+                        action_url=f"/notices"
+                    )
+    except Exception as e:
+        print(f"[WARN] Failed to trigger notice upload notification: {e}")
+
     return cast(Dict[str, Any], ret)
 
 def update_notice_status(notice_id: str, new_status: str) -> Optional[Dict[str, Any]]:
