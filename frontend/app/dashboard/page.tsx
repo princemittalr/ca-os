@@ -1,10 +1,10 @@
 "use client";
 
 import React from 'react';
-import { api } from '@/lib/api';
 import { useDropzone } from 'react-dropzone';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import {
   FileText,
   CheckCircle,
@@ -44,8 +44,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 // Recharts colors palette matching exact brand guidelines
 const BRAND_COLORS = ['#1B4F8A', '#2563AB', '#3B82F6', '#93C5FD', '#DBEAFE'];
 
+const getToken = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
+
+  const [selectedClientId, setSelectedClientId] = React.useState<string>("");
+  const [lastReconId, setLastReconId] = React.useState<string | null>(null);
+  const [isExportingExcel, setIsExportingExcel] = React.useState(false);
+  const [isExportingPdf, setIsExportingPdf] = React.useState(false);
 
   const formatCurrency = (val: number) => {
     if (val === 0) return '₹0';
@@ -116,18 +126,23 @@ export default function DashboardPage() {
   }, []);
 
   React.useEffect(() => {
-    api.get<any>('/api/clients/dashboard/summary')
-      .then(data => {
-        setDashStats(data);
-        if (data.total_mismatches >= 0 && data.total_clients >= 0) {
-          const total = data.total_mismatches + (data.total_clients * 3);
-          const matchedPct = total > 0 ? Math.round(((total - data.total_mismatches) / total) * 100) : 100;
-          setPieData([
-            { name: 'Matched', value: matchedPct, color: '#1B4F8A' },
-            { name: 'At Risk', value: 100 - matchedPct, color: '#93C5FD' },
-          ]);
+    const fetchSummary = async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_BASE}/api/clients/dashboard/summary`, {
+          headers: {
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          }
+        });
+        if (res.status === 401) {
+          router.push('/login');
+          return;
         }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setDashStats(data);
         if (data.clients && data.clients.length > 0) {
+          setSelectedClientId(data.clients[0].id);
           const mapped = data.clients.map((c: any) => ({
             name: c.business_name.split(' ')[0],
             protected: Math.round((c.mismatch_count || 1) * 2.5),
@@ -144,8 +159,15 @@ export default function DashboardPage() {
             { name: 'Jun', protected: 23, risk: 38 },
           ]);
         }
-      })
-      .catch(err => {
+        if (data.total_mismatches >= 0 && data.total_clients >= 0) {
+          const total = data.total_mismatches + (data.total_clients * 3);
+          const matchedPct = total > 0 ? Math.round(((total - data.total_mismatches) / total) * 100) : 100;
+          setPieData([
+            { name: 'Matched', value: matchedPct, color: '#1B4F8A' },
+            { name: 'At Risk', value: 100 - matchedPct, color: '#93C5FD' },
+          ]);
+        }
+      } catch (err) {
         console.log("Dashboard stats fallback:", err);
         setBarData([
           { name: 'Jan', protected: 40, risk: 24 },
@@ -155,8 +177,10 @@ export default function DashboardPage() {
           { name: 'May', protected: 18, risk: 48 },
           { name: 'Jun', protected: 23, risk: 38 },
         ]);
-      });
-  }, []);
+      }
+    };
+    fetchSummary();
+  }, [router]);
 
   // Dual file reconciliation engine state
   const [filePR, setFilePR] = React.useState<File | null>(null);
@@ -243,7 +267,23 @@ export default function DashboardPage() {
     formData.append("file", file);
 
     try {
-      const data = await api.postForm<any>('/api/upload/gstr2b', formData);
+      const token = await getToken();
+      const response = await fetch(`${API_BASE}/api/upload/gstr2b`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: formData
+      });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
       setResult(data);
       setToast({ message: "GST File processed and validated successfully!", type: 'success' });
     } catch (err: any) {
@@ -272,10 +312,29 @@ export default function DashboardPage() {
     const formData = new FormData();
     formData.append("file_pr", filePR);
     formData.append("file_2b", file2B);
+    formData.append("client_id", selectedClientId || (dashStats.clients?.[0]?.id) || "");
+    formData.append("period", "2024-03");
 
     try {
-      const data = await api.postForm<any>('/api/reconcile/gstr2b', formData);
+      const token = await getToken();
+      const response = await fetch(`${API_BASE}/api/reconcile/gstr2b`, {
+        method: 'POST',
+        headers: {
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: formData
+      });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
       setReconResult(data);
+      setLastReconId(data.reconciliation_id);
       setToast({ message: "Automated GST Reconciliation completed successfully!", type: 'success' });
     } catch (err: any) {
       const errMsg = err.message || "An error occurred during reconciliation.";
@@ -292,6 +351,52 @@ export default function DashboardPage() {
     setReconResult(null);
     setReconError(null);
     setExpandedRow(null);
+  };
+
+  const handleExport = async (type: 'excel' | 'pdf') => {
+    if (!lastReconId) {
+      setToast({ message: "Run reconciliation first before exporting.", type: "error" });
+      return;
+    }
+
+    const setLoader = type === 'excel' ? setIsExportingExcel : setIsExportingPdf;
+    setLoader(true);
+    setToast({ message: `Generating ${type.toUpperCase()} report...`, type: "success" });
+
+    try {
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const response = await fetch(`${API_BASE}/api/export/reconciliation/${type}?reconciliation_id=${lastReconId}`, {
+        headers
+      });
+      if (response.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = type === 'excel' ? 'GST_Reconciliation_Working_Papers.xlsx' : 'GST_Reconciliation_Executive_Summary.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setToast({ message: `✓ ${type.toUpperCase()} report downloaded successfully!`, type: "success" });
+    } catch (err: any) {
+      setToast({ message: `Export failed: ${err.message || err}`, type: "error" });
+    } finally {
+      setLoader(false);
+    }
   };
 
   return (
@@ -755,6 +860,37 @@ export default function DashboardPage() {
           {/* TAB B: DUAL-FILE RECONCILIATION ENGINE */}
           {activeTab === 'reconciler' && (
             <div className="space-y-6">
+              {/* Client Selector Dropdown */}
+              {!reconUploading && !reconResult && (
+                <div className="flex flex-col gap-1.5 max-w-xs">
+                  <label htmlFor="client-select" className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Select Client
+                  </label>
+                  <select
+                    id="client-select"
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    disabled={!dashStats.clients || dashStats.clients.length === 0}
+                    className="h-8 bg-white border border-[#E5E7EB] rounded-[4px] px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
+                  >
+                    {dashStats.clients && dashStats.clients.length > 0 ? (
+                      dashStats.clients.map((c: any) => (
+                        <option key={c.id} value={c.id}>
+                          {c.business_name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No clients onboarded</option>
+                    )}
+                  </select>
+                  {(!dashStats.clients || dashStats.clients.length === 0) && (
+                    <p className="text-[11px] text-amber-600 font-medium">
+                      ⚠️ No onboarded clients found. Please add a client first.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {!filePR && !file2B && !reconUploading && !reconResult && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Slot 1: Purchase Register */}
@@ -1046,22 +1182,18 @@ export default function DashboardPage() {
 
                   <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
                     <button
-                      onClick={() => {
-                        setToast({ message: "Dispatched PDF download successfully!", type: "success" });
-                        window.open(`${API_BASE}/api/export/reconciliation/pdf`, "_blank");
-                      }}
-                      className="px-4 py-2 rounded-[4px] text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-[#E5E7EB] transition-all cursor-pointer"
+                      onClick={() => handleExport('pdf')}
+                      disabled={isExportingPdf || !lastReconId}
+                      className="px-4 py-2 rounded-[4px] text-xs font-bold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-[#E5E7EB] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Export Summary (PDF)
+                      {isExportingPdf ? "Exporting..." : "Export Summary (PDF)"}
                     </button>
                     <button
-                      onClick={() => {
-                        setToast({ message: "Dispatched working papers successfully!", type: "success" });
-                        window.open(`${API_BASE}/api/export/reconciliation/excel`, "_blank");
-                      }}
-                      className="px-4 py-2 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-xs font-bold rounded-[4px] transition-all cursor-pointer"
+                      onClick={() => handleExport('excel')}
+                      disabled={isExportingExcel || !lastReconId}
+                      className="px-4 py-2 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-xs font-bold rounded-[4px] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Export Working Papers (Excel)
+                      {isExportingExcel ? "Exporting..." : "Export Working Papers (Excel)"}
                     </button>
                     <button
                       onClick={handleReconReset}
