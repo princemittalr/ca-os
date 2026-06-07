@@ -14,20 +14,35 @@ validate_environment()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Verify database connection and jobs table exists before starting scheduler
+    # ── Startup summary ──────────────────────────────────────────────────────
+    print(f"[INFO] Environment  : {settings.ENV}")
+    print(f"[INFO] Debug mode   : {settings.DEBUG}")
+    print(f"[INFO] Demo mode    : {settings.ENABLE_DEMO_MODE}")
+    print(f"[INFO] CORS origins : {len(settings.CORS_ORIGINS)} configured → {settings.CORS_ORIGINS}")
+
+    # ── Database readiness check ──────────────────────────────────────────────
+    _scheduler_started = False
     try:
         from config.supabase import supabase_client, is_supabase_active
         if not is_supabase_active() or supabase_client is None:
-            raise RuntimeError("Database client is not initialized or inactive")
+            raise RuntimeError("Supabase client is not initialised or inactive")
         supabase_client.table("jobs").select("job_id").limit(1).execute()
+        # DB is reachable — safe to start scheduler
+        cron_scheduler.start()
+        _scheduler_started = True
+        print("[SUCCESS] DB readiness check passed. Scheduler started.")
     except Exception as e:
-        raise RuntimeError(f"Database startup check failed: jobs table is missing or DB is down. Error: {e}")
+        print(
+            f"[CRITICAL] DB startup check failed — scheduler will NOT start. "
+            f"Reason: {e}"
+        )
 
-    # Start periodic scheduler
-    cron_scheduler.start()
     yield
-    # Shutdown: Stop periodic scheduler
-    cron_scheduler.stop()
+
+    # ── Shutdown ──────────────────────────────────────────────────────────────
+    if _scheduler_started:
+        cron_scheduler.stop()
+        print("[INFO] Scheduler stopped.")
 
 app = FastAPI(
     title="Reckon AI API",

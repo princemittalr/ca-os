@@ -1,7 +1,7 @@
 import os
 from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 
 class Settings(BaseSettings):
     """
@@ -24,14 +24,21 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field("mock_key", validation_alias="OPENAI_API_KEY")
     GROQ_API_KEY: str = Field("mock_key", validation_alias="GROQ_API_KEY")  # ← add this
     
-    # CORS parameters
-    CORS_ORIGINS: List[str] = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "https://reckon-ai.vercel.app",
-]
+    # CORS parameters — configurable via comma-separated CORS_ORIGINS env var.
+    # Production deployments should set CORS_ORIGINS explicitly (e.g. https://reckon-ai.vercel.app).
+    # Default: localhost only (safe for development).
+    CORS_ORIGINS: List[str] = Field(
+        default=["http://localhost:3000", "http://127.0.0.1:3000"],
+        validation_alias="CORS_ORIGINS",
+    )
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors(cls, v: object) -> List[str]:
+        """Accept a comma-separated string (from env) or a list (from code)."""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return list(v)  # type: ignore[arg-type]
     
     # Rate limit parameters
     RATE_LIMIT_CALLS: int = Field(100, validation_alias="RATE_LIMIT_CALLS")
