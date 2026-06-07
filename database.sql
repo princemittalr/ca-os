@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS users (
     designation         TEXT,
     role                TEXT NOT NULL DEFAULT 'member',  -- 'owner' | 'manager' | 'member'
     onboarding_complete BOOLEAN NOT NULL DEFAULT FALSE,
+    is_deleted          BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -148,6 +149,29 @@ CREATE TABLE IF NOT EXISTS mismatch_records (
 
 
 -- =============================================================================
+-- SECTION 5b: RECON ROWS TABLE
+-- Individual invoice-level rows from a reconciliation run.
+-- Scoped to firm via the reconciliation_runs → clients → firm_id chain.
+-- Canonical name: recon_rows (matches router and services).
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS recon_rows (
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    reconciliation_id UUID NOT NULL REFERENCES reconciliation_runs(reconciliation_id) ON DELETE CASCADE,
+    row_type          TEXT NOT NULL,                   -- 'MATCH' | 'MISMATCH' | 'MISSING_IN_2B' | 'MISSING_IN_BOOKS'
+    gstin             TEXT,
+    invoice_number    TEXT,
+    invoice_date      DATE,
+    taxable_value     NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+    tax_amount        NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+    issue             TEXT,
+    row_data          JSONB NOT NULL DEFAULT '{}',
+    summary_snapshot  JSONB NOT NULL DEFAULT '{}',
+    is_deleted        BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+-- =============================================================================
 -- SECTION 6: COMPLIANCE TASKS TABLE
 -- Filing deadlines and compliance obligations per client.
 -- =============================================================================
@@ -200,21 +224,30 @@ CREATE TABLE IF NOT EXISTS communications (
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS action_items (
     action_id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    action_id_text       TEXT UNIQUE,                     -- human-readable action identifier
     firm_id              UUID NOT NULL REFERENCES firms(id) ON DELETE CASCADE,
     client_id            UUID REFERENCES clients(id) ON DELETE SET NULL,
     client_name          TEXT,
+    source_module        TEXT,                            -- module that generated the action
     category             TEXT NOT NULL,                  -- 'COMPLIANCE' | 'RECONCILIATION' | 'NOTICE' | 'VENDOR' | 'RISK'
     priority             TEXT NOT NULL DEFAULT 'HIGH',   -- 'HIGH' | 'MEDIUM' | 'LOW'
     title                TEXT NOT NULL,
     description          TEXT,
     recommended_action   TEXT,
+    due_date             TEXT,                           -- ISO date string (flexible format)
     deadline             DATE,
     risk_score           NUMERIC(5, 2) NOT NULL DEFAULT 15.00,
+    exposure_amount      NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
     status               TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING' | 'IN_PROGRESS' | 'RESOLVED'
+    action_state         TEXT NOT NULL DEFAULT 'NEW',    -- 'NEW' | 'ACTIONED' | 'SNOOZED' | 'DISMISSED'
     assigned_to          TEXT,
     confidence_score     NUMERIC(4, 3) NOT NULL DEFAULT 0.90,
     ai_summary           TEXT,
     predicted_impact     TEXT,
+    source_url           TEXT,
+    automation_candidate BOOLEAN NOT NULL DEFAULT FALSE,
+    can_auto_resolve     BOOLEAN NOT NULL DEFAULT FALSE,
+    resolved_at          TIMESTAMPTZ,
     is_deleted           BOOLEAN NOT NULL DEFAULT FALSE,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -265,16 +298,17 @@ CREATE TABLE IF NOT EXISTS gst_notices (
 -- Async background job tracking (reconciliation uploads, exports, etc.).
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS jobs (
-    job_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    firm_id UUID REFERENCES firms(id) ON DELETE CASCADE,
-    job_type VARCHAR(100) NOT NULL,
-    status VARCHAR(50) DEFAULT 'PENDING',
-    progress NUMERIC(5,2) DEFAULT 0.0,
-    retry_count INT DEFAULT 0,
-    error_logs TEXT,
+    job_id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    job_id_text  TEXT UNIQUE,                              -- human-readable job identifier (e.g. recon_<uuid>)
+    firm_id      UUID REFERENCES firms(id) ON DELETE CASCADE,
+    job_type     VARCHAR(100) NOT NULL,
+    status       VARCHAR(50) DEFAULT 'PENDING',
+    progress     NUMERIC(5,2) DEFAULT 0.0,
+    retry_count  INT DEFAULT 0,
+    error_logs   TEXT,
     completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at   TIMESTAMPTZ DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 
@@ -283,11 +317,13 @@ CREATE TABLE IF NOT EXISTS jobs (
 -- Distributed lock table to prevent multi-worker background scheduler execution.
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS scheduler_locks (
-    lock_key VARCHAR(100) PRIMARY KEY,
+    lock_key  VARCHAR(100) PRIMARY KEY,
     worker_id VARCHAR(100) NOT NULL,
     locked_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL
 );
+-- NOTE: scheduler_locks intentionally has NO RLS — service role only.
+-- Users must never access this table directly.
 
 
 -- =============================================================================
@@ -334,12 +370,16 @@ CREATE TABLE IF NOT EXISTS support_tickets (
     id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     firm_id       UUID NOT NULL REFERENCES firms(id) ON DELETE CASCADE,
     user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    ticket_number TEXT,
+    ticket_number TEXT UNIQUE,
     category      TEXT,
     subject       TEXT NOT NULL,
     description   TEXT,
     priority      TEXT NOT NULL DEFAULT 'medium',  -- 'low' | 'medium' | 'high' | 'critical'
     status        TEXT NOT NULL DEFAULT 'open',    -- 'open' | 'in_progress' | 'resolved' | 'closed'
+    agent         TEXT,                            -- assigned support agent
+    timeline      JSONB NOT NULL DEFAULT '[]',     -- array of status-change events
+    replies       JSONB NOT NULL DEFAULT '[]',     -- thread of replies
+    is_deleted    BOOLEAN NOT NULL DEFAULT FALSE,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -491,6 +531,8 @@ CREATE INDEX IF NOT EXISTS idx_recon_runs_firm_id          ON reconciliation_run
 CREATE INDEX IF NOT EXISTS idx_recon_runs_client_period    ON reconciliation_runs(client_id, filing_period);
 CREATE INDEX IF NOT EXISTS idx_mismatch_records_firm_id    ON mismatch_records(firm_id);
 CREATE INDEX IF NOT EXISTS idx_mismatch_records_recon_id   ON mismatch_records(reconciliation_id);
+CREATE INDEX IF NOT EXISTS idx_recon_rows_recon_id         ON recon_rows(reconciliation_id);
+CREATE INDEX IF NOT EXISTS idx_recon_rows_row_type         ON recon_rows(reconciliation_id, row_type);
 CREATE INDEX IF NOT EXISTS idx_compliance_tasks_firm_id    ON compliance_tasks(firm_id);
 CREATE INDEX IF NOT EXISTS idx_compliance_tasks_client_id  ON compliance_tasks(client_id);
 CREATE INDEX IF NOT EXISTS idx_communications_firm_id      ON communications(firm_id);
@@ -505,8 +547,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_firm_id       ON notifications(firm
 CREATE INDEX IF NOT EXISTS idx_support_tickets_firm_id     ON support_tickets(firm_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_firm_id          ON audit_logs(firm_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_id         ON audit_logs(actor_id);
-CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_id        ON automation_agents(firm_id);
-CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_key       ON automation_agents(firm_id, agent_key);
+CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_id   ON automation_agents(firm_id);
+CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_key  ON automation_agents(firm_id, agent_key);
 
 
 -- =============================================================================
@@ -518,6 +560,7 @@ ALTER TABLE users               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE clients             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reconciliation_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mismatch_records    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recon_rows          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE compliance_tasks    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE communications      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE action_items        ENABLE ROW LEVEL SECURITY;
@@ -528,7 +571,7 @@ ALTER TABLE notifications       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE support_tickets     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_agents   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE scheduler_locks     ENABLE ROW LEVEL SECURITY;
+-- scheduler_locks: NO RLS — service role only, users must never access directly.
 
 
 -- =============================================================================
@@ -643,6 +686,36 @@ CREATE POLICY "recon_runs_update_firm"
 CREATE POLICY "recon_runs_delete_firm"
     ON reconciliation_runs FOR DELETE
     USING (firm_id = get_user_firm_id());
+
+-- ---------------------------------------------------------------------------
+-- recon_rows table: firm isolation via reconciliation_runs → clients → firm_id
+-- ---------------------------------------------------------------------------
+CREATE POLICY "recon_rows_select_firm"
+    ON recon_rows FOR SELECT
+    USING (
+        reconciliation_id IN (
+            SELECT reconciliation_id FROM reconciliation_runs
+            WHERE firm_id = get_user_firm_id()
+        )
+    );
+
+CREATE POLICY "recon_rows_insert_firm"
+    ON recon_rows FOR INSERT
+    WITH CHECK (
+        reconciliation_id IN (
+            SELECT reconciliation_id FROM reconciliation_runs
+            WHERE firm_id = get_user_firm_id()
+        )
+    );
+
+CREATE POLICY "recon_rows_delete_firm"
+    ON recon_rows FOR DELETE
+    USING (
+        reconciliation_id IN (
+            SELECT reconciliation_id FROM reconciliation_runs
+            WHERE firm_id = get_user_firm_id()
+        )
+    );
 
 -- ---------------------------------------------------------------------------
 -- mismatch_records table: firm isolation
