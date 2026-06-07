@@ -14,7 +14,16 @@ validate_environment()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Start periodic scheduler
+    # Startup: Verify database connection and jobs table exists before starting scheduler
+    try:
+        from config.supabase import supabase_client, is_supabase_active
+        if not is_supabase_active() or supabase_client is None:
+            raise RuntimeError("Database client is not initialized or inactive")
+        supabase_client.table("jobs").select("job_id").limit(1).execute()
+    except Exception as e:
+        raise RuntimeError(f"Database startup check failed: jobs table is missing or DB is down. Error: {e}")
+
+    # Start periodic scheduler
     cron_scheduler.start()
     yield
     # Shutdown: Stop periodic scheduler

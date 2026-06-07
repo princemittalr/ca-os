@@ -578,31 +578,38 @@ def get_job_by_id(job_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 def create_job(job_type: str, status: str = "PENDING") -> Dict[str, Any]:
+    if not is_supabase_active():
+        raise RuntimeError("Cannot create job: database unavailable")
+        
     new_job = {
         "job_id": f"job-{str(uuid.uuid4())[:8]}",
         "job_type": job_type,
         "status": status,
         "progress": 0.0,
         "retry_count": 0,
-        "created_at": datetime.now(),
+        "created_at": datetime.now().isoformat(),
         "completed_at": None,
         "error_logs": None
     }
-    if is_supabase_active():
-        try:
-            res = supabase_client.table("jobs").insert(cast(Any, new_job)).execute()
-            if res.data:
-                return cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
     
-    MOCK_JOBS.insert(0, new_job)
-    return new_job
+    try:
+        res = supabase_client.table("jobs").insert(cast(Any, new_job)).execute()
+        if res.data:
+            return cast(Dict[str, Any], res.data[0])
+        raise RuntimeError("Failed to create job: No data returned from database")
+    except Exception as e:
+        raise RuntimeError(f"Cannot create job: {str(e)}") from e
 
 def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if is_supabase_active():
         try:
-            res = supabase_client.table("jobs").update(updates).eq("job_id", job_id).execute()
+            formatted_updates = {}
+            for k, v in updates.items():
+                if isinstance(v, datetime):
+                    formatted_updates[k] = v.isoformat()
+                else:
+                    formatted_updates[k] = v
+            res = supabase_client.table("jobs").update(formatted_updates).eq("job_id", job_id).execute()
             if res.data:
                 return cast(Optional[Dict[str, Any]], res.data[0])
         except Exception as e:
@@ -611,7 +618,10 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
     for j in MOCK_JOBS:
         if j["job_id"] == job_id:
             for k, v in updates.items():
-                j[k] = v
+                if isinstance(v, datetime):
+                    j[k] = v.isoformat()
+                else:
+                    j[k] = v
             return j
     return None
 

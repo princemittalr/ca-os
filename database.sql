@@ -266,7 +266,7 @@ CREATE TABLE IF NOT EXISTS gst_notices (
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS jobs (
     job_id       TEXT PRIMARY KEY,
-    firm_id      UUID NOT NULL REFERENCES firms(id) ON DELETE CASCADE,
+    firm_id      UUID REFERENCES firms(id) ON DELETE CASCADE,
     job_type     TEXT NOT NULL,
     status       TEXT NOT NULL DEFAULT 'PENDING',  -- 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED'
     progress     NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
@@ -275,6 +275,18 @@ CREATE TABLE IF NOT EXISTS jobs (
     completed_at TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+-- =============================================================================
+-- SECTION 10b: SCHEDULER LOCKS TABLE
+-- Distributed lock table to prevent multi-worker background scheduler execution.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS scheduler_locks (
+    lock_key   TEXT PRIMARY KEY,
+    worker_id  TEXT NOT NULL,
+    locked_at  TIMESTAMPTZ NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
 );
 
 
@@ -516,6 +528,7 @@ ALTER TABLE notifications       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE support_tickets     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_agents   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE scheduler_locks     ENABLE ROW LEVEL SECURITY;
 
 
 -- =============================================================================
