@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 import { useEffect } from 'react';
-import { getAuthToken } from '@/lib/auth';
+import { api } from '@/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -46,12 +46,7 @@ export default function NotificationsPage() {
   const loadNotifications = async () => {
     try {
       setIsLoading(true);
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/notifications/`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to load notifications");
-      const data = await res.json();
+      const data = await api.get<any[]>('/api/notifications/');
       setNotifications(data);
     } catch (err) {
       console.error(err);
@@ -67,12 +62,7 @@ export default function NotificationsPage() {
 
   const handleMarkRead = async (id: string) => {
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/notifications/${id}/read`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to mark read");
+      await api.post(`/api/notifications/${id}/read`, {});
       setNotifications(notifications.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (err) {
       console.error(err);
@@ -81,12 +71,7 @@ export default function NotificationsPage() {
 
   const handleMarkAllRead = async () => {
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/notifications/read-all`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to mark all read");
+      await api.post('/api/notifications/read-all', {});
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
     } catch (err) {
       console.error(err);
@@ -95,12 +80,7 @@ export default function NotificationsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/notifications/${id}`, {
-        method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to delete notification");
+      await api.delete(`/api/notifications/${id}`);
       setNotifications(notifications.filter(n => n.id !== id));
     } catch (err) {
       console.error(err);

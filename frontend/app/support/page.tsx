@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import { api } from '@/lib/api';
 import { 
   MessageSquare, 
   Ticket, 
@@ -19,7 +20,6 @@ import {
   ArrowUpRight,
   Plus
 } from 'lucide-react';
-import { getAuthToken } from '@/lib/auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -55,12 +55,7 @@ export default function SupportCenterPage() {
   const loadTickets = async () => {
     try {
       setIsLoading(true);
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/support/tickets`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to load tickets");
-      const data = await res.json();
+      const data = await api.get<any[]>('/api/support/tickets');
       const formatted = data.map((t: any) => ({
         ...t,
         date: t.created_at ? new Date(t.created_at).toLocaleDateString('en-GB').replace(/\//g, '-') : t.date || ''
@@ -139,17 +134,7 @@ export default function SupportCenterPage() {
   const sendBotReply = async (userQuery: string) => {
     setIsBotTyping(true);
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/support/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ message: userQuery })
-      });
-      if (!res.ok) throw new Error("Failed to fetch chat response");
-      const data = await res.json();
+      const data = await api.post<any>('/api/support/chat', { message: userQuery });
       
       if (data.agent) {
         setChatAgent({
@@ -196,22 +181,12 @@ export default function SupportCenterPage() {
     if (!replyInput.trim() || !selectedTicket) return;
 
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/support/tickets/${selectedTicket.id}/replies`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          sender: 'user',
-          text: replyInput,
-          date: new Date().toLocaleString('en-GB').replace(',', '')
-        })
+      const updatedTicket = await api.post<any>(`/api/support/tickets/${selectedTicket.id}/replies`, {
+        sender: 'user',
+        text: replyInput,
+        date: new Date().toLocaleString('en-GB').replace(',', '')
       });
-      if (!res.ok) throw new Error("Failed to post reply");
       
-      const updatedTicket = await res.json();
       const formattedTicket = {
         ...updatedTicket,
         date: updatedTicket.created_at ? new Date(updatedTicket.created_at).toLocaleDateString('en-GB').replace(/\//g, '-') : updatedTicket.date || ''
@@ -236,18 +211,7 @@ export default function SupportCenterPage() {
     if (!subject || !description) return;
 
     try {
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/support/tickets`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ category, subject, description, priority })
-      });
-      if (!res.ok) throw new Error("Failed to submit ticket");
-      
-      const newTicket = await res.json();
+      const newTicket = await api.post<any>('/api/support/tickets', { category, subject, description, priority });
       const formatted = {
         ...newTicket,
         date: newTicket.created_at ? new Date(newTicket.created_at).toLocaleDateString('en-GB').replace(/\//g, '-') : newTicket.date || ''

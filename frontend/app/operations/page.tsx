@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
-import { getAuthToken } from '@/lib/auth';
+import { api } from '@/lib/api';
 import {
   Activity,
   Play,
@@ -78,34 +78,22 @@ export default function OperationsDashboard() {
 
   const fetchLogs = async () => {
     try {
-      const token = getAuthToken();
-      if (!token) {
-        setHasToken(false);
-        setIsLoading(false);
-        return;
-      }
       setHasToken(true);
-      const headers = { "Authorization": `Bearer ${token}` };
 
-      const [jobsRes, notifRes, statusRes] = await Promise.all([
-        fetch(`${API_BASE}/api/jobs`, { headers }),
-        fetch(`${API_BASE}/api/jobs/notifications`, { headers }),
-        fetch(`${API_BASE}/api/status`, { headers })
+      const [jobsData, notifData, statusData] = await Promise.all([
+        api.get<Job[]>('/api/jobs'),
+        api.get<NotificationLog[]>('/api/jobs/notifications'),
+        api.get<any>('/api/status')
       ]);
 
-      if (jobsRes.ok && notifRes.ok) {
-        const jobsData = await jobsRes.json();
-        const notifData = await notifRes.json();
-        setJobs(jobsData);
-        setNotifications(notifData);
+      setJobs(jobsData);
+      setNotifications(notifData);
+      setTelemetry(statusData);
+    } catch (err: any) {
+      console.error("Ops fetch failed:", err);
+      if (err.message?.includes("Unauthorized")) {
+        setHasToken(false);
       }
-
-      if (statusRes.ok) {
-        const statusData = await statusRes.json();
-        setTelemetry(statusData);
-      }
-    } catch (err) {
-      console.error("Failed to load operations logs:", err);
     } finally {
       setIsLoading(false);
     }
@@ -119,24 +107,9 @@ export default function OperationsDashboard() {
   }, []);
 
   const handleForceTrigger = async (jobType: string) => {
+    setIsActioning(jobType);
     try {
-      setIsActioning(jobType);
-      const token = getAuthToken();
-      if (!token) {
-        setToastMessage("Please login to access operations.");
-        return;
-      }
-      const res = await fetch(`${API_BASE}/api/jobs/trigger`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ job_type: jobType })
-      });
-
-      if (!res.ok) throw new Error("Failed to trigger automated job");
-      
+      await api.post('/api/jobs/trigger', { job_type: jobType });
       showToast(`✓ Automation job [${jobType.toUpperCase()}] queued successfully!`);
       fetchLogs();
     } catch (err) {
@@ -147,20 +120,9 @@ export default function OperationsDashboard() {
   };
 
   const handleRetryJob = async (jobId: string) => {
+    setIsActioning(jobId);
     try {
-      setIsActioning(jobId);
-      const token = getAuthToken();
-      if (!token) {
-        setToastMessage("Please login to access operations.");
-        return;
-      }
-      const res = await fetch(`${API_BASE}/api/jobs/${jobId}/retry`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-
-      if (!res.ok) throw new Error("Retry command failed");
-
+      await api.post(`/api/jobs/${jobId}/retry`, {});
       showToast(`✓ Retry run initialized for job ${jobId}!`);
       fetchLogs();
     } catch (err) {

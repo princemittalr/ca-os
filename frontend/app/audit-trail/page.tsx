@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
-import { getAuthToken } from '@/lib/auth';
+import { api } from '@/lib/api';
 import { 
   ClipboardList, 
   Search, 
@@ -61,12 +61,7 @@ export default function AuditTrailPage() {
   const fetchLogs = async () => {
     try {
       setIsLoadingLogs(true);
-      const token = getAuthToken();
-      const res = await fetch(`${API_BASE}/api/audit/`, {
-        headers: token ? { "Authorization": `Bearer ${token}` } : {}
-      });
-      if (!res.ok) throw new Error("Failed to fetch audit logs");
-      const data = await res.json();
+      const data = await api.get<any[]>('/api/audit/');
       // Map Supabase audit_logs fields to LogEntry format
       const mapped = data.map((row: any) => {
         const rawUser = row.user_id || row.actor_id;

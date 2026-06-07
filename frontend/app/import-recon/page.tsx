@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
-import { getAuthToken } from '@/lib/auth';
+import { api } from '@/lib/api';
 import {
   Search,
   CheckCircle2,
@@ -97,20 +97,11 @@ export default function BoeIntelligenceCenter() {
   useEffect(() => {
     const loadClients = async () => {
       try {
-        const token = await getAuthToken();
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-        const response = await fetch(`${API_BASE}/api/clients/`, { headers });
-        if (!response.ok) throw new Error("Unsuccessful status from clients list API");
-        const data = await response.json();
-        if (data && data.length > 0) {
-          setClients(data);
-          setSelectedClient(data[0].id);
-        }
+        const data = await api.get<any[]>('/api/clients/');
+        setClients(data);
+        if (data.length > 0) setSelectedClient(data[0].id);
       } catch (err) {
-        console.error("Client fetch failed:", err);
+        console.error("Failed to load clients:", err);
       }
     };
     loadClients();
@@ -158,6 +149,32 @@ export default function BoeIntelligenceCenter() {
   };
 
   // Step 3 GSTR-2B Sync simulator
+  const handleSyncGstr2b = async () => {
+    if (!gstr2bFile) {
+      triggerToast("⚠ Please select a GSTR-2B file first.");
+      return;
+    }
+    setSyncingGstr2b(true);
+    setSyncLogs(["Initiating secure gateway to GSTN portal...", "Uploading GSTR-2B JSON artifacts..."]);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', gstr2bFile);
+      await api.postForm('/api/upload/gstr2b', formData);
+
+      setSyncLogs(prev => [...prev, "✓ GSTR-2B artifacts uploaded successfully.", "Parsing ITC data structures..."]);
+      setTimeout(() => {
+        setSyncLogs(prev => [...prev, "✓ 2B Data structures synchronized.", "Ready for cross-verification analysis."]);
+        setSyncingGstr2b(false);
+        setGstr2bSynced(true);
+      }, 1500);
+    } catch (err) {
+      console.error(err);
+      setSyncLogs(prev => [...prev, "✖ Synchronization failed. Please retry."]);
+      setSyncingGstr2b(false);
+    }
+  };
+
   const startGstr2bSync = () => {
     setSyncingGstr2b(true);
     setSyncLogs([]);
@@ -184,7 +201,10 @@ export default function BoeIntelligenceCenter() {
 
   const handleGstr2bFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setGstr2bFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setGstr2bFile(file);
+      // We'll call handleSyncGstr2b manually or let the user click a button later,
+      // but for consistency with the provided block, we'll keep the UI triggering it.
       setSyncingGstr2b(true);
       setTimeout(() => {
         setSyncingGstr2b(false);
@@ -219,26 +239,15 @@ export default function BoeIntelligenceCenter() {
               triggerToast("⚠ Please select a client first.");
               return;
             }
-            const token = await getAuthToken();
             const formData = new FormData();
             formData.append("file_boe", boeFile);
             formData.append("file_2b", gstr2bFile);
             formData.append("client_id", selectedClient);
             formData.append("period", selectedPeriod);
-            const headers: Record<string, string> = {};
-            if (token) {
-              headers["Authorization"] = `Bearer ${token}`;
-            }
             try {
-              const res = await fetch(`${API_BASE}/api/reconcile/import-boe`, {
-                method: "POST",
-                headers,
-                body: formData
-              });
-              if (res.ok) {
-                const data = await res.json();
-                // Map real API results to BoeItem format
-                const mapped: BoeItem[] = [
+              const data = await api.postForm<any>('/api/reconcile/import-boe', formData);
+              // Map real API results to BoeItem format
+              const mapped: BoeItem[] = [
                   ...(data.matches || []).map((m: any, i: number) => ({
                     id: `boe-match-${i}`,
                     boe_number: m.invoice_number || `BOE/${i}`,
