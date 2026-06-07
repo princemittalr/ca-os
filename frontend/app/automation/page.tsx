@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import { supabase } from '@/lib/supabase';
 import { 
   Play, 
   CheckCircle2, 
@@ -16,6 +18,11 @@ import {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const getToken = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token;
+};
+
 const formatJobType = (type: string) => {
   const displayNames: Record<string, string> = {
     'nightly_reconciliation': 'Nightly Reconciliation',
@@ -26,79 +33,101 @@ const formatJobType = (type: string) => {
   return displayNames[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
-const initialAgents = [
-  {
-    id: 'a-1',
+const AGENT_DISPLAY_CONFIG: Record<string, {
+  name: string;
+  description: string;
+  icon: React.ComponentType<any>;
+  icon_color: string;
+  category: string;
+}> = {
+  reconciliation_sync: {
     name: 'Auto-Reconciliation Agent',
     description: 'Automatically triggers GSTR-2B API matching as soon as portal records update on the 11th of each month.',
-    is_active: true,
     icon: Database,
-    icon_color: '#4F46E5', // Orange
-    category: 'RECONCILIATION',
-    config: {
-      trigger: 'Portal Update (11th)',
-      ledger: 'Tally Prime',
-      threshold: 98,
-      notify_channels: ['email', 'system']
-    }
+    icon_color: '#4F46E5',
+    category: 'RECONCILIATION'
   },
-  {
-    id: 'a-2',
+  vendor_communication: {
     name: 'Vendor Compliance Robot',
     description: 'Scans for non-matching invoices and dispatches recurring reminder notifications to suppliers with pending uploads.',
-    is_active: false,
     icon: Users,
-    icon_color: '#6B7280', // gray
-    category: 'COMPLIANCE',
-    config: {
-      trigger: 'On Mismatch Detected',
-      ledger: 'Zoho Books',
-      threshold: 95,
-      notify_channels: ['email', 'whatsapp']
-    }
+    icon_color: '#7C3AED',
+    category: 'COMPLIANCE'
   },
-  {
-    id: 'a-3',
+  compliance_reminder: {
     name: 'Deadline Reminder Bot',
     description: 'Sends alerts to client personnel and billing desks regarding upcoming TDS, GSTR-1, and GSTR-3B filings.',
-    is_active: true,
     icon: Clock,
-    icon_color: '#F59E0B', // amber
-    category: 'COMPLIANCE',
-    config: {
-      trigger: '5 Days Before Due',
-      ledger: 'Busy Accounting',
-      threshold: 100,
-      notify_channels: ['system', 'whatsapp']
-    }
+    icon_color: '#F59E0B',
+    category: 'COMPLIANCE'
   },
-  {
-    id: 'a-4',
+  overdue_escalation: {
     name: 'ITC Finalization Bot',
     description: 'Performs final risk evaluations and files claim logs inside the Supabase ledger automatically after approval.',
-    is_active: false,
     icon: Shield,
-    icon_color: '#10B981', // green
-    category: 'RECONCILIATION',
-    config: {
-      trigger: 'Manual Approval',
-      ledger: 'Tally Prime',
-      threshold: 99,
-      notify_channels: ['email']
-    }
+    icon_color: '#10B981',
+    category: 'RECONCILIATION'
   }
-];
+};
 
 export default function AutomationCenterPage() {
-  const [agents, setAgents] = useState(initialAgents);
+  const router = useRouter();
+  const [agents, setAgents] = useState<any[]>([]);
   const [jobsHistory, setJobsHistory] = useState<any[]>([]);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
+  const fetchAgents = async () => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/automation/agents`, {
+        headers: { 
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        }
+      });
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = data.map((agent: any) => {
+          const config = AGENT_DISPLAY_CONFIG[agent.agent_key] || {
+            name: agent.name,
+            description: 'No description available.',
+            icon: Database,
+            icon_color: '#6B7280',
+            category: 'SYSTEM'
+          };
+          return {
+            ...agent,
+            name: config.name,
+            description: config.description,
+            icon: config.icon,
+            icon_color: agent.is_active ? config.icon_color : '#6B7280',
+            category: config.category
+          };
+        });
+        setAgents(mapped);
+      }
+    } catch (err) {
+      console.error("Agents fetch failed:", err);
+    }
+  };
+
   const fetchJobs = async () => {
     try {
       setIsJobsLoading(true);
-      const res = await fetch(`${API_BASE}/api/jobs`);
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/jobs`, {
+        headers: {
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        }
+      });
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setJobsHistory(data);
@@ -111,6 +140,7 @@ export default function AutomationCenterPage() {
   };
 
   useEffect(() => {
+    fetchAgents();
     fetchJobs();
   }, []);
 
@@ -181,34 +211,29 @@ export default function AutomationCenterPage() {
     }
   };
 
-  // TODO:
-  // Persist automation toggle state once a real backend
-  // automation configuration API exists.
-  const handleToggleAgent = (id: string) => {
-    setAgents(prev =>
-      prev.map(agent =>
-        agent.id === id
-          ? {
-              ...agent,
-              is_active: !agent.is_active,
-              icon_color: !agent.is_active
-                ? (agent.id === 'a-1'
-                    ? '#4F46E5'
-                    : agent.id === 'a-2'
-                    ? '#7C3AED'
-                    : agent.id === 'a-3'
-                    ? '#F59E0B'
-                    : '#10B981')
-                : '#6B7280'
-            }
-          : agent
-      )
-    );
-
-    const agent = agents.find(a => a.id === id);
-    if (agent) {
-      const nextState = !agent.is_active;
-      triggerToast(`✓ ${agent.name} turned ${nextState ? 'ON' : 'OFF'}.`);
+  const handleToggleAgent = async (agentKey: string, currentState: boolean) => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE}/api/automation/agents/${agentKey}/toggle`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ is_active: !currentState })
+      });
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (res.ok) {
+        await fetchAgents(); // refresh from DB
+        triggerToast(`✓ Agent updated.`);
+      } else {
+        triggerToast("⚠ Failed to update agent. Check permissions.");
+      }
+    } catch (err) {
+      triggerToast("⚠ Failed to update agent. Check connection.");
     }
   };
 
@@ -220,11 +245,19 @@ export default function AutomationCenterPage() {
     };
     const job_type = typeMap[workflowName] || workflowName || 'action_center_refresh';
     try {
+      const token = await getToken();
       const res = await fetch(`${API_BASE}/api/jobs/trigger`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ job_type })
       });
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
       if (res.ok) {
         triggerToast(`✓ Job "${job_type}" triggered. Check jobs history.`);
         await fetchJobs();
@@ -265,9 +298,9 @@ export default function AutomationCenterPage() {
             <div className="flex items-center justify-between">
               <div 
                 className={`agent-icon-container ${
-                  agent.id === 'a-1' ? 'agent-icon-purple' :
-                  agent.id === 'a-2' ? 'agent-icon-blue' :
-                  agent.id === 'a-3' ? 'agent-icon-amber' :
+                  agent.agent_key === 'reconciliation_sync' ? 'agent-icon-purple' :
+                  agent.agent_key === 'vendor_communication' ? 'agent-icon-blue' :
+                  agent.agent_key === 'compliance_reminder' ? 'agent-icon-amber' :
                   'agent-icon-green'
                 } transition-transform duration-300 group-hover:scale-105`}
                 style={{ color: agent.icon_color }}
@@ -277,7 +310,7 @@ export default function AutomationCenterPage() {
 
               {/* IOS Styled Toggle Switch */}
               <button 
-                onClick={() => handleToggleAgent(agent.id)}
+                onClick={() => handleToggleAgent(agent.agent_key, agent.is_active)}
                 className={`w-12 h-6.5 rounded-full p-0.5 transition-colors duration-300 focus:outline-none flex items-center cursor-pointer ${
                   agent.is_active ? 'bg-[#4F46E5]' : 'bg-[#F8FAFC] border border-slate-200'
                 }`}
