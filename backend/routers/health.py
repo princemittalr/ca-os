@@ -13,24 +13,45 @@ def check_service_health() -> Dict[str, Any]:
     Diagnostic endpoint scanning active backend core elements and persistent registries.
     """
     supabase_ok = is_supabase_active()
-    scheduler_ok = cron_scheduler.is_running if hasattr(cron_scheduler, "is_running") else True
-    
-    # Complete diagnostic health scan
+
+    # Fix: scheduler has no is_running attribute — check thread
+    scheduler_ok = (
+        cron_scheduler.thread is not None
+        and cron_scheduler.thread.is_alive()
+    )
+
     health_status = "HEALTHY"
-    if not supabase_ok and settings.ENV == "production":
-        # Production requires database persistent layer active
+    issues = []
+
+    if not supabase_ok:
         health_status = "DEGRADED"
-        
-    return {
+        issues.append("database_unreachable")
+
+    if not scheduler_ok:
+        # Scheduler down is WARNING, not DEGRADED
+        issues.append("scheduler_not_running")
+        if health_status == "HEALTHY":
+            health_status = "WARNING"
+
+    response = {
         "status": health_status,
         "environment": settings.ENV,
         "database_connected": supabase_ok,
         "jobs_scheduler_active": scheduler_ok,
         "services": {
             "api_layer": "UP",
-            "background_workers": "UP"
+            "background_workers": "UP" if scheduler_ok else "DOWN"
         }
     }
+
+    if issues:
+        response["issues"] = issues
+
+    # Only expose debug info in non-production
+    if settings.ENV != "production":
+        response["debug"] = settings.DEBUG
+
+    return response
 
 @router.get("/status", status_code=status.HTTP_200_OK)
 def get_operational_telemetry() -> Dict[str, Any]:
