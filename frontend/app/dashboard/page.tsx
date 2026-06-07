@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import axios from "axios";
+import { api } from '@/lib/api';
 import { useDropzone } from 'react-dropzone';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { useRouter } from 'next/navigation';
@@ -38,7 +38,8 @@ import {
   Legend,
 } from 'recharts';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// URL base for direct download links (window.open / <a href>). Not used for fetch.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Recharts colors palette matching exact brand guidelines
 const BRAND_COLORS = ['#1B4F8A', '#2563AB', '#3B82F6', '#93C5FD', '#DBEAFE'];
@@ -115,8 +116,7 @@ export default function DashboardPage() {
   }, []);
 
   React.useEffect(() => {
-    fetch(`${API_BASE}/api/clients/dashboard/summary`)
-      .then(r => r.json())
+    api.get<any>('/api/clients/dashboard/summary')
       .then(data => {
         setDashStats(data);
         if (data.total_mismatches >= 0 && data.total_clients >= 0) {
@@ -243,19 +243,11 @@ export default function DashboardPage() {
     formData.append("file", file);
 
     try {
-      const response = await axios.post(
-        `${API_BASE}/api/upload/gstr2b`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      setResult(response.data);
+      const data = await api.postForm<any>('/api/upload/gstr2b', formData);
+      setResult(data);
       setToast({ message: "GST File processed and validated successfully!", type: 'success' });
     } catch (err: any) {
-      const errMsg = err.response?.data?.detail || "An error occurred while uploading the file.";
+      const errMsg = err.message || "An error occurred while uploading the file.";
       setError(errMsg);
       setToast({ message: errMsg, type: 'error' });
     } finally {
@@ -282,19 +274,11 @@ export default function DashboardPage() {
     formData.append("file_2b", file2B);
 
     try {
-      const response = await axios.post(
-        `${API_BASE}/api/reconcile/gstr2b`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      setReconResult(response.data);
+      const data = await api.postForm<any>('/api/reconcile/gstr2b', formData);
+      setReconResult(data);
       setToast({ message: "Automated GST Reconciliation completed successfully!", type: 'success' });
     } catch (err: any) {
-      const errMsg = err.response?.data?.detail || "An error occurred during reconciliation.";
+      const errMsg = err.message || "An error occurred during reconciliation.";
       setReconError(errMsg);
       setToast({ message: errMsg, type: 'error' });
     } finally {

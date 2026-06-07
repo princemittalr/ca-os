@@ -24,8 +24,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { api } from '@/lib/api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// URL base for direct download links (<a href> / window.open). Not used for fetch.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 interface ReconciliationRun {
   reconciliation_id: string;
@@ -101,9 +103,7 @@ export default function ClientWorkspacePortal() {
     try {
       setIsCommsLoading(true);
       setCommsError(false);
-      const res = await fetch(`${API_BASE}/api/communications/${clientId}`);
-      if (!res.ok) throw new Error("Failed to load communications");
-      const data = await res.json();
+      const data = await api.get<any[]>(`/api/communications/${clientId}`);
       setCommunications(data);
     } catch (err) {
       console.error(err);
@@ -121,21 +121,15 @@ export default function ClientWorkspacePortal() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE}/api/communications/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          vendor_name: formVendorName,
-          gstin: formGstin,
-          issue: formIssue,
-          invoice_number: formInvoiceNumber || undefined,
-          taxable_value: parseFloat(formTaxableValue) || 0.0,
-          recommended_deadline: formDeadline || undefined,
-          client_id: clientId
-        })
+      const newDraft = await api.post<any>('/api/communications/generate', {
+        vendor_name: formVendorName,
+        gstin: formGstin,
+        issue: formIssue,
+        invoice_number: formInvoiceNumber || undefined,
+        taxable_value: parseFloat(formTaxableValue) || 0.0,
+        recommended_deadline: formDeadline || undefined,
+        client_id: clientId
       });
-      if (!res.ok) throw new Error("Failed to generate draft notice");
-      const newDraft = await res.json();
       showToast("✓ Outreach draft notice generated successfully!");
 
       // Reset form fields
@@ -158,10 +152,7 @@ export default function ClientWorkspacePortal() {
 
   const handleUpdateStatus = async (commId: string, newStatus: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/communications/${commId}/status?new_status=${encodeURIComponent(newStatus)}`, {
-        method: "PUT"
-      });
-      if (!res.ok) throw new Error("Failed to update status");
+      await api.put(`/api/communications/${commId}/status?new_status=${encodeURIComponent(newStatus)}`, {});
       showToast(`✓ Status updated to ${newStatus}`);
       setCommunications(prev => prev.map(c => c.id === commId ? { ...c, status: newStatus } : c));
     } catch (err: any) {
@@ -180,23 +171,14 @@ export default function ClientWorkspacePortal() {
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_BASE}/api/clients/${clientId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          business_name: editName,
-          legal_name: editLegalName,
-          state: editState,
-          email: editEmail,
-          phone: editPhone,
-          filing_frequency: editFilingFrequency
-        })
+      const updatedData = await api.put<any>(`/api/clients/${clientId}`, {
+        business_name: editName,
+        legal_name: editLegalName,
+        state: editState,
+        email: editEmail,
+        phone: editPhone,
+        filing_frequency: editFilingFrequency
       });
-
-      if (!response.ok) throw new Error("Failed to update client details");
-      const updatedData = await response.json();
       setClient(updatedData);
       showToast("✓ Client details updated successfully!");
       setIsEditModalOpen(false);
@@ -222,16 +204,8 @@ export default function ClientWorkspacePortal() {
     try {
       setIsLoading(true);
       setFetchError(null);
-      // Fetch Client details
-      const clientRes = await fetch(`${API_BASE}/api/clients/${clientId}`);
-      if (!clientRes.ok) throw new Error("Failed to load client details");
-      const clientData = await clientRes.json();
-
-      // Fetch Historical reconciliation runs
-      const historyRes = await fetch(`${API_BASE}/api/clients/${clientId}/reconciliations`);
-      if (!historyRes.ok) throw new Error("Failed to load filing history");
-      const historyData = await historyRes.json();
-
+      const clientData = await api.get<any>(`/api/clients/${clientId}`);
+      const historyData = await api.get<ReconciliationRun[]>(`/api/clients/${clientId}/reconciliations`);
       setClient(clientData);
       setHistory(historyData);
     } catch (err) {

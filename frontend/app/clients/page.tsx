@@ -21,8 +21,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { api } from '@/lib/api';
 
 // Helper to calculate health score and risk level deterministically based on status and ITC exposure
 const getHealthAndRisk = (status: string, itcRisk: number) => {
@@ -87,28 +86,21 @@ export default function ClientPortfolioPage() {
   const fetchClientWorkspaceData = async () => {
     try {
       setIsLoading(true);
-      const clientsRes = await fetch(`${API_BASE}/api/clients/`);
-      if (!clientsRes.ok) throw new Error("Failed to load clients portfolio");
-      const clientsData = await clientsRes.json();
-
-      const summaryRes = await fetch(`${API_BASE}/api/clients/dashboard/summary`);
-      if (!summaryRes.ok) throw new Error("Failed to load summary aggregates");
-      const summaryData = await summaryRes.json();
+      const clientsData = await api.get<any[]>('/api/clients/');
+      const summaryData = await api.get<any>('/api/clients/dashboard/summary');
 
       // Fetch notices
-      let noticesData = [];
+      let noticesData: any[] = [];
       try {
-        const noticesRes = await fetch(`${API_BASE}/api/notices`);
-        if (noticesRes.ok) noticesData = await noticesRes.json();
+        noticesData = await api.get<any[]>('/api/notices');
       } catch (err) {
         console.warn("Failed to fetch notices, using fallback", err);
       }
 
       // Fetch compliance tasks
-      let complianceData = [];
+      let complianceData: any[] = [];
       try {
-        const complianceRes = await fetch(`${API_BASE}/api/compliance`);
-        if (complianceRes.ok) complianceData = await complianceRes.json();
+        complianceData = await api.get<any[]>('/api/compliance');
       } catch (err) {
         console.warn("Failed to fetch compliance, using fallback", err);
       }
@@ -117,16 +109,13 @@ export default function ClientPortfolioPage() {
       const reconciliationsList = await Promise.all(
         clientsData.map(async (c: any) => {
           try {
-            const res = await fetch(`${API_BASE}/api/clients/${c.id}/reconciliations`);
-            if (res.ok) {
-              const runs = await res.json();
-              const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
-              return {
-                client_id: c.id,
-                mismatch_count: latestRun ? latestRun.mismatch_count : 0,
-                itc_at_risk: latestRun ? latestRun.itc_at_risk : 0
-              };
-            }
+            const runs = await api.get<any[]>(`/api/clients/${c.id}/reconciliations`);
+            const latestRun = runs.length > 0 ? runs[runs.length - 1] : null;
+            return {
+              client_id: c.id,
+              mismatch_count: latestRun ? latestRun.mismatch_count : 0,
+              itc_at_risk: latestRun ? latestRun.itc_at_risk : 0
+            };
           } catch (e) {
             console.warn(`Failed to fetch reconciliations for client ${c.id}`);
           }
@@ -240,24 +229,17 @@ export default function ClientPortfolioPage() {
     if (!newName || !newGstin) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/clients`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          business_name: newName,
-          legal_name: newName,
-          trade_name: newName,
-          gstin: newGstin.toUpperCase(),
-          state: newState,
-          email: newEmail || undefined,
-          phone: newPhone || undefined,
-          filing_frequency: "monthly"
-        })
+      await api.post('/api/clients', {
+        business_name: newName,
+        legal_name: newName,
+        trade_name: newName,
+        gstin: newGstin.toUpperCase(),
+        state: newState,
+        email: newEmail || undefined,
+        phone: newPhone || undefined,
+        filing_frequency: "monthly"
       });
 
-      if (!response.ok) throw new Error("Onboarding error");
       await fetchClientWorkspaceData();
 
       setNewName('');

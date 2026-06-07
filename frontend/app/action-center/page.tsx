@@ -27,9 +27,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
-import { getAuthToken } from '@/lib/auth';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { api } from '@/lib/api';
 
 interface ActionItem {
   action_id: string;
@@ -86,7 +84,7 @@ export default function SmartActionCenter() {
   const fetchActionCenter = async () => {
     try {
       setIsLoading(true);
-      
+
       let listData: ActionItem[] = [];
       let summaryData: ActionSummary = {
         total_actions: 0,
@@ -96,13 +94,8 @@ export default function SmartActionCenter() {
       };
 
       try {
-        const listRes = await fetch(`${API_BASE}/api/action-center`);
-        if (!listRes.ok) throw new Error("Failed to load actions");
-        listData = await listRes.json();
-        
-        const summaryRes = await fetch(`${API_BASE}/api/action-center/summary`);
-        if (!summaryRes.ok) throw new Error("Failed to load summary");
-        summaryData = await summaryRes.json();
+        listData = await api.get<ActionItem[]>('/api/action-center');
+        summaryData = await api.get<ActionSummary>('/api/action-center/summary');
       } catch (err) {
         console.error("Backend offline:", err);
         setActions([]);
@@ -110,31 +103,19 @@ export default function SmartActionCenter() {
         setIsLoading(false);
         return;
       }
-      
+
       setActions(listData);
-      
+
       // Fetch dynamic narrative briefing from AI Copilot layer
       try {
-        const token = getAuthToken();
-        if (!token) throw new Error("No auth token");
-        const aiBriefingRes = await fetch(`${API_BASE}/api/ai/daily-briefing`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-          body: JSON.stringify(listData)
-        });
-        if (aiBriefingRes.ok) {
-          const aiBriefingData = await aiBriefingRes.json();
-          if (aiBriefingData.briefing) {
-            summaryData.daily_summary = aiBriefingData.briefing;
-          }
+        const aiBriefingData = await api.post<{ briefing?: string }>('/api/ai/daily-briefing', listData);
+        if (aiBriefingData.briefing) {
+          summaryData.daily_summary = aiBriefingData.briefing;
         }
       } catch (aiErr) {
         console.error("AI dynamic briefing generation failed:", aiErr);
       }
-      
+
       setSummary(summaryData);
     } finally {
       setIsLoading(false);
@@ -146,9 +127,7 @@ export default function SmartActionCenter() {
 
     const fetchStaff = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/staff`);
-        if (!res.ok) throw new Error("Failed to load staff");
-        const data = await res.json();
+        const data = await api.get<string[]>('/api/staff');
         setStaffMembers(data);
       } catch (err) {
         console.error("Error fetching staff:", err);
@@ -164,10 +143,7 @@ export default function SmartActionCenter() {
       if (itemToResolve) {
         setResolvedActions(prev => [...prev, { ...itemToResolve, status: 'RESOLVED' }]);
       }
-      const res = await fetch(`${API_BASE}/api/action-center/${actionId}/resolve`, {
-        method: "PUT"
-      });
-      if (!res.ok) throw new Error("Failed to resolve action item");
+      await api.put(`/api/action-center/${actionId}/resolve`, {});
       showToast("✓ Action resolved!");
       await fetchActionCenter();
     } catch (err) {
@@ -180,15 +156,8 @@ export default function SmartActionCenter() {
     try {
       // Update local state assignments to reflect in UI immediately
       setActions(prev => prev.map(a => a.action_id === actionId ? { ...a, assigned_to: staff } : a));
-      
-      const res = await fetch(`${API_BASE}/api/action-center/${actionId}/assign`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ assigned_to: staff })
-      });
-      if (!res.ok) throw new Error("Failed to persist staff assignment");
+
+      await api.put(`/api/action-center/${actionId}/assign`, { assigned_to: staff });
       showToast(`✓ Staff member ${staff} assigned to execute this action.`);
     } catch (err) {
       console.error(err);
