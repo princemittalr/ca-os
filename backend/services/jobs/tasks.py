@@ -91,10 +91,38 @@ def overdue_escalation_task(job_id: str):
                 if client:
                     print(f"[TASKS] ESCALATION CRITICAL: Client {client['business_name']} is overdue on filings by {overdue_days} days!")
                     
-            db_manager.update_compliance_status(task["compliance_id"], new_status)
-            assigned_to: str = task.get("assigned_to") or ""
+            db_manager.update_compliance_status(
+                task.get("compliance_id") or task.get("id"), new_status
+            )
+            
+            assigned_to = task.get("assigned_to")
             if assigned_to:
-                db_manager.update_compliance_assignment(task["compliance_id"], assigned_to)
+                try:
+                    db_manager.update_compliance_assignment(
+                        task.get("compliance_id") or task.get("id"), assigned_to
+                    )
+                except Exception as e:
+                    print(f"[WARN] Failed to update compliance assignment: {e}")
+
+            # NEW: notify assigned staff on escalation
+            if assigned_to and new_status == "Escalated":
+                assigned_user_id = db_manager.get_user_id_by_name(assigned_to)
+                if assigned_user_id:
+                    client = db_manager.get_client_by_id(task["client_id"])
+                    client_name = (client or {}).get("business_name", "Unknown")
+                    try:
+                        db_manager.create_user_notification(
+                            user_id=assigned_user_id,
+                            type="compliance",
+                            title=f"ESCALATED: {task['compliance_type']} Overdue {overdue_days} Days",
+                            message=(
+                                f"{client_name} — {task.get('filing_period')} "
+                                f"is overdue by {overdue_days} days. Immediate action required."
+                            ),
+                            action_url="/compliance"
+                        )
+                    except Exception as e:
+                        print(f"[WARN] Escalation notification failed: {e}")
             escalated_count += 1
             
     update_job(job_id, {"progress": 85.0})
@@ -106,18 +134,25 @@ def nightly_reconciliation_summary_job(job_id: str):
     Task worker: Performs recalculations of ITC risks and mismatch exposure rankings.
     """
     update_job(job_id, {"progress": 20.0})
-    time.sleep(0.5)
-    
-    update_job(job_id, {"progress": 50.0})
-    time.sleep(0.5)
-    
-    update_job(job_id, {"progress": 80.0})
-    time.sleep(0.2)
-    print("[TASKS] Nightly reconciliation portfolio re-ranking completed.")
+    # Fetch all firms' reconciliation runs (unscoped background job)
+    # Log count of high-risk runs for monitoring
+    try:
+        from config.supabase import supabase_client, is_supabase_active
+        if is_supabase_active():
+            res = supabase_client.table("reconciliation_runs")\
+                .select("risk_score")\
+                .eq("is_deleted", False)\
+                .execute()
+            high_risk = sum(1 for r in (res.data or []) if r.get("risk_score") == "HIGH")
+            print(f"[TASKS] Nightly recon summary: {len(res.data or [])} runs, {high_risk} HIGH risk.")
+    except Exception as e:
+        print(f"[WARN] Nightly recon summary failed: {e}")
+    update_job(job_id, {"progress": 100.0})
 
 def action_center_refresh_task(job_id: str):
     """
-    Task worker: Triggers recalculation of Smart AI Copilot ranked actions feed.
+    Background diagnostic only — unscoped by design.
+    Does NOT expose cross-firm data; only logs aggregate count.
     """
     update_job(job_id, {"progress": 30.0})
     time.sleep(0.4)
