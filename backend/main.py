@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request, APIRouter
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 
@@ -82,7 +82,23 @@ def read_root():
 from routers import upload, reconcile, clients, communication, compliance, action_center, auth, jobs, ai, notices, health, audit, notifications, staff, automation, messages
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
 app.include_router(reconcile.router, prefix="/api/reconcile", tags=["reconcile"])
-app.include_router(reconcile.router, prefix="/api/gst-recon", tags=["reconcile"])
+
+# Aliasing /api/gst-recon to /api/reconcile via 307 Redirect (preserves method/body)
+gst_recon_alias = APIRouter()
+
+@gst_recon_alias.api_route(
+    "/{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    include_in_schema=False
+)
+async def gst_recon_redirect(path: str, request: Request):
+    return RedirectResponse(
+        url=f"/api/reconcile/{path}",
+        status_code=307
+    )
+
+app.include_router(gst_recon_alias, prefix="/api/gst-recon")
+
 app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
 app.include_router(communication.router, prefix="/api/communications", tags=["communications"])
 app.include_router(compliance.router, prefix="/api/compliance", tags=["compliance"])
@@ -117,14 +133,6 @@ from routers.reconcile import export_reconciliation_excel, export_reconciliation
 app.get("/api/export/reconciliation/excel", tags=["export"])(export_reconciliation_excel)
 app.get("/api/export/reconciliation/pdf", tags=["export"])(export_reconciliation_pdf)
 
-# from app.routers import auth, clients, reconcile, compliance, notifications, support, audit
-# app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-# app.include_router(clients.router, prefix="/api/clients", tags=["clients"])
-# app.include_router(reconcile.router, prefix="/api/reconcile", tags=["reconcile"])
-# app.include_router(compliance.router, prefix="/api/compliance", tags=["compliance"])
-# app.include_router(notifications.router, prefix="/api/notifications", tags=["notifications"])
-# app.include_router(support.router, prefix="/api/support", tags=["support"])
-# app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 
 if __name__ == "__main__":
     import uvicorn
