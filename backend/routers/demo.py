@@ -1,5 +1,5 @@
 from fastapi import APIRouter, status, HTTPException, Depends
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 from pydantic import BaseModel
 
@@ -72,7 +72,7 @@ def trigger_sandbox_reset() -> Dict[str, Any]:
     return {
         "status": "SUCCESS",
         "message": "CA-OS pilot sandbox environment reset successfully!",
-        "reset_timestamp": datetime.now().isoformat() if 'datetime' in globals() else "2026-05-28T19:53:00"
+        "reset_timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @router.post("/feature-flags", status_code=status.HTTP_200_OK)
