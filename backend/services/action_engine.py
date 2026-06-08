@@ -1,7 +1,11 @@
 import uuid
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Any, Optional, cast
 from supabase import Client
+
+def _now() -> str:
+    """UTC ISO-8601 timestamp string for Supabase timestamptz columns."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 class ActionEngineService:
@@ -25,7 +29,7 @@ class ActionEngineService:
         # Determine unique ID
         act_id = action_data.get("id") or action_data.get("action_id") or f"act-{str(uuid.uuid4())[:8]}"
 
-        now_str = datetime.now().isoformat()
+        now_str = _now()
 
         action_data = dict(action_data)
 
@@ -164,7 +168,7 @@ class ActionEngineService:
         """
         Transitions an action item to RESOLVED in Supabase.
         """
-        now_str = datetime.now().isoformat()
+        now_str = _now()
         updates = {
             "status": "RESOLVED",
             "action_state": "RESOLVED",
@@ -187,7 +191,7 @@ class ActionEngineService:
         """
         Updates the assigned_to field for an action item in Supabase.
         """
-        now_str = datetime.now().isoformat()
+        now_str = _now()
         updates = {
             "assigned_to": staff,
             "updated_at": now_str,

@@ -1,5 +1,9 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, Any, Optional
+
+def _now() -> str:
+    """UTC ISO-8601 timestamp string for Supabase timestamptz columns."""
+    return datetime.now(timezone.utc).isoformat()
 
 
 def sync_compliance_to_action_engine(task: Dict[str, Any], firm_id: Optional[str] = None) -> None:
@@ -19,7 +23,7 @@ def sync_compliance_to_action_engine(task: Dict[str, Any], firm_id: Optional[str
         comp_id = task.get("compliance_id") or task.get("id", "unknown")
         act_id = f"act-comp-{comp_id}"
         client_id = task.get("client_id")
-        now_str = datetime.now().isoformat()
+        now_str = _now()
 
         # Resolve firm_id from client record if not provided
         if not firm_id and client_id:

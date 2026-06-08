@@ -1,10 +1,14 @@
 import json
 import uuid
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Any, Optional, cast
 from supabase import Client
 
 from config.supabase import get_supabase_client, is_supabase_active
+
+def _now() -> str:
+    """UTC ISO-8601 timestamp string for Supabase timestamptz columns."""
+    return datetime.now(timezone.utc).isoformat()
 
 # -------------------------------------------------------------------------
 # CLIENTS CRUD ABSTRACTION
@@ -442,7 +446,7 @@ def create_communication(data: Dict[str, Any]) -> Dict[str, Any]:
         "recommended_deadline": str(data.get("recommended_deadline") or (date.today() + timedelta(days=10)).strftime("%Y-%m-%d")),
         "status": "Drafted",
         "is_deleted": False,
-        "created_at": datetime.now().isoformat()
+        "created_at": _now()
     }
     
     if not payload["client_id"]:
@@ -496,7 +500,7 @@ def resolve_action_item(action_id: str, firm_id: str) -> Optional[Dict[str, Any]
     Scoped to firm_id to prevent cross-tenant mutations.
     Always Supabase — no in-memory fallback.
     """
-    now_str = datetime.now().isoformat()
+    now_str = _now()
     updates = {
         "status": "RESOLVED",
         "action_state": "RESOLVED",
@@ -518,7 +522,7 @@ def update_action_assignment(action_id: str, staff: str, firm_id: str) -> Option
     Scoped to firm_id to prevent cross-tenant mutations.
     Always Supabase — no in-memory fallback.
     """
-    now_str = datetime.now().isoformat()
+    now_str = _now()
     res = get_supabase_client().table("action_items") \
         .update({"assigned_to": staff, "updated_at": now_str}) \
         .eq("action_id", action_id) \
@@ -569,7 +573,7 @@ def create_job(job_type: str, status: str = "PENDING", firm_id: Optional[str] = 
         "status": status,
         "progress": 0.0,
         "retry_count": 0,
-        "created_at": datetime.now().isoformat(),
+        "created_at": _now(),
         "completed_at": None,
         "error_logs": None
     }
@@ -648,7 +652,7 @@ def create_user_notification(
         "message": message,
         "is_read": False,
         "action_url": action_url,
-        "created_at": datetime.now().isoformat()
+        "created_at": _now()
     }
 
     db_success = False
@@ -701,7 +705,7 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
         "subject": subject,
         "body": body,
         "status": status,
-        "sent_at": datetime.now().isoformat()
+        "sent_at": _now()
     }
     if is_supabase_active():
         try:
@@ -789,8 +793,8 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
         "file_path": notice_data.get("file_path"),
         "raw_ocr_text": notice_data.get("raw_ocr_text") or "",
         "gstin": notice_data.get("gstin") or "27AAACT1234A1Z5",
-        "created_at": datetime.now(),
-        "updated_at": datetime.now(),
+        "created_at": _now(),
+        "updated_at": _now(),
         "supporting_evidence": notice_data.get("supporting_evidence") or [
             "Purchase Register Matching GSTR-2B",
             "Original Purchase Tax Invoices",
@@ -856,7 +860,7 @@ def update_notice_status(notice_id: str, new_status: str) -> Optional[Dict[str, 
         print("[WARN] Supabase not active — notice status update unavailable.")
         return None
     try:
-        res = get_supabase_client().table("gst_notices").update({"status": new_status, "updated_at": datetime.now().isoformat()}).eq("id", notice_id).execute()
+        res = get_supabase_client().table("gst_notices").update({"status": new_status, "updated_at": _now()}).eq("id", notice_id).execute()
         if res.data:
             ret = cast(Dict[str, Any], res.data[0])
             sync_notice_to_action_engine(ret)
@@ -884,7 +888,7 @@ def sync_reconciliation_to_action_engine(client_id: str, run: Dict[str, Any]):
         firm_id = (client_info or {}).get("firm_id")
         client_name = (client_info or {}).get("business_name", "Unknown Client")
 
-        now_str = datetime.now().isoformat()
+        now_str = _now()
 
         if mismatches == 0 and risk_val == 0.0:
             # Reconciled — mark any existing action item as resolved
@@ -945,7 +949,7 @@ def sync_notice_to_action_engine(notice: Dict[str, Any]):
         notice_status = notice.get("status")
         act_id = f"act-notice-{notice['id']}"
         client_id = notice.get("client_id")
-        now_str = datetime.now().isoformat()
+        now_str = _now()
 
         # Resolve firm_id from client record (notice may not carry it directly)
         firm_id = notice.get("firm_id")
