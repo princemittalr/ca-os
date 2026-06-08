@@ -57,19 +57,35 @@ class Settings(BaseSettings):
     # Scheduler
     SCHEDULER_INTERVAL_SECONDS: int = Field(60, validation_alias="SCHEDULER_INTERVAL_SECONDS")
 
-    @field_validator("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", mode="after")
+    @field_validator("SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY", "SUPABASE_JWT_SECRET", mode="after")
     @classmethod
-    def warn_mock_values(cls, v: str, info) -> str:
-        """Warn at startup if critical Supabase fields still use mock defaults (non-test envs only)."""
-        _mock_defaults = {"mock_url", "mock_key"}
+    def reject_mock_in_production(cls, v: str, info) -> str:
+        """Hard-fail in production if critical credentials use mock defaults."""
+        _mock_defaults = {"mock_url", "mock_key", "mock_secret", ""}
         env = os.environ.get("ENV", "development")
-        if v in _mock_defaults and env not in ("test", "testing"):
-            import warnings
-            warnings.warn(
-                f"[WARN] {info.field_name} is using a mock default value. "
-                "Set it in your .env file before going to production.",
-                stacklevel=2,
-            )
+        if v in _mock_defaults:
+            if env == "production":
+                raise ValueError(
+                    f"[FATAL] {info.field_name} is set to a mock/default value in production. "
+                    "Set real credentials in environment before deployment."
+                )
+            elif env not in ("test", "testing"):
+                import warnings
+                warnings.warn(
+                    f"[WARN] {info.field_name} using mock default. "
+                    "Set real credentials before production deployment.",
+                    stacklevel=2,
+                )
+        return v
+
+    @field_validator("SECRET_KEY", mode="after")
+    @classmethod
+    def reject_empty_secret_key(cls, v: str, info) -> str:
+        """Ensure SECRET_KEY is never empty or mock in production."""
+        env = os.environ.get("ENV", "development")
+        if not v or v in {"", "mock_key"}:
+            if env == "production":
+                raise ValueError("[FATAL] SECRET_KEY must not be empty or mock in production.")
         return v
 
     class Config:
