@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
-from typing import Dict, Any
+from typing import Dict, Any, List
 import uuid
+import asyncio
 from io import BytesIO
 import logging
 
@@ -38,84 +39,58 @@ def _assert_client_ownership(client_id: str, firm_id: str) -> None:
         )
 
 
-# -------------------------------------------------------------------------
-# POST /gstr2b — Primary reconciliation endpoint
-# -------------------------------------------------------------------------
-@router.post("/gstr2b")
-async def reconcile_gstr2b(
-    file_pr: UploadFile = File(...),
-    file_2b: UploadFile = File(...),
-    client_id: str = Form(...),
-    period: str = Form(...),
-    current_user: dict = Depends(verify_token)
-):
+def _run_reconciliation_pipeline_sync(
+    file_pr_bytes: bytes,
+    file_pr_name: str,
+    file_2b_bytes: bytes,
+    file_2b_name: str,
+    client_id: str,
+    period: str,
+    firm_id: str,
+    sync_to_workspace: bool = True
+) -> Dict[str, Any]:
     """
-    Accepts two uploaded files (Purchase Register and GSTR-2B).
-    Parses them entirely in-memory, normalizes whitespace in column headers,
-    runs intelligent column mapping, and performs multi-variable automated reconciliation.
-    Results are persisted to Supabase recon_rows for durable export access.
-    Scopes the run history to the client workspace.
+    Shared reconciliation pipeline: parse → normalize → match → persist.
+    Raises ValueError on bad input, RuntimeError on DB failure.
     """
-    firm_id: str = current_user["firm_id"]
-
-    # Ownership check — client must belong to caller's firm
-    _assert_client_ownership(client_id, firm_id)
-
-    if not file_pr or not file_2b:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Both Purchase Register (Books) and GSTR-2B files are required for reconciliation."
-        )
-
-    for file in [file_pr, file_2b]:
-        filename = file.filename or ""
+    for content, name in [(file_pr_bytes, file_pr_name), (file_2b_bytes, file_2b_name)]:
+        if len(content) > MAX_FILE_SIZE:
+            raise ValueError(f"File '{name}' exceeds size limit of 20MB.")
+        
+        filename = name or ""
         fn_lower = filename.lower()
         if not fn_lower.endswith(('.xlsx', '.xls', '.csv')):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported file format for '{filename}'. Please upload a valid Excel (.xlsx, .xls) or CSV (.csv) file."
-            )
+            raise ValueError(f"Unsupported file format for '{filename}'. Please upload a valid Excel (.xlsx, .xls) or CSV (.csv) file.")
 
-    try:
-        contents_pr = await file_pr.read()
-        contents_2b = await file_2b.read()
+    # 1. Parse and Normalize
+    df_pr = parse_file_to_dataframe(file_pr_bytes, file_pr_name)
+    df_2b = parse_file_to_dataframe(file_2b_bytes, file_2b_name)
 
-        if len(contents_pr) > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Purchase Register file exceeds size limit of 20MB."
-            )
-        if len(contents_2b) > MAX_FILE_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="GSTR-2B file exceeds size limit of 20MB."
-            )
+    df_pr = normalize_columns(df_pr)
+    df_2b = normalize_columns(df_2b)
 
-        df_pr = parse_file_to_dataframe(contents_pr, file_pr.filename or "")
-        df_2b = parse_file_to_dataframe(contents_2b, file_2b.filename or "")
+    # 2. Field Detection and Mapping
+    mapping_pr = detect_gst_fields(list(df_pr.columns))
+    mapping_2b = detect_gst_fields(list(df_2b.columns))
 
-        df_pr = normalize_columns(df_pr)
-        df_2b = normalize_columns(df_2b)
+    mapping_pr_clean: Dict[str, str] = {k: v or "" for k, v in mapping_pr.items()}
+    mapping_2b_clean: Dict[str, str] = {k: v or "" for k, v in mapping_2b.items()}
 
-        mapping_pr = detect_gst_fields(list(df_pr.columns))
-        mapping_2b = detect_gst_fields(list(df_2b.columns))
+    # 3. Reconcile
+    results = reconcile_dataframes(
+        df_pr=df_pr,
+        df_2b=df_2b,
+        mapping_pr=mapping_pr_clean,
+        mapping_2b=mapping_2b_clean,
+        tolerance=1.0
+    )
 
-        mapping_pr_clean: Dict[str, str] = {k: v or "" for k, v in mapping_pr.items()}
-        mapping_2b_clean: Dict[str, str] = {k: v or "" for k, v in mapping_2b.items()}
+    # 4. Persistence
+    reconciliation_id = str(uuid.uuid4())
+    db_manager.save_recon_rows(reconciliation_id, results)
 
-        results = reconcile_dataframes(
-            df_pr=df_pr,
-            df_2b=df_2b,
-            mapping_pr=mapping_pr_clean,
-            mapping_2b=mapping_2b_clean,
-            tolerance=1.0
-        )
-
-        # Generate a stable reconciliation_id and persist rows to Supabase
-        reconciliation_id = str(uuid.uuid4())
-        db_manager.save_recon_rows(reconciliation_id, results)
-
-        # Scope run to client workspace and record metadata in history
+    # 5. Optional Workspace Sync (metadata history)
+    if sync_to_workspace:
         try:
             summary_stats = results.get("summary", {})
             total_invoices = sum(summary_stats.values())
@@ -146,10 +121,45 @@ async def reconcile_gstr2b(
                 }
             )
         except Exception as err:
-            print(f"Failed to record reconciliation metadata in client workspace: {err}")
+            logger.warning(f"Failed to record reconciliation metadata in client workspace (non-fatal): {err}")
 
-        # Return results including reconciliation_id so the frontend can use it for exports
-        return {**results, "reconciliation_id": reconciliation_id}
+    return {**results, "reconciliation_id": reconciliation_id}
+
+
+# -------------------------------------------------------------------------
+# POST /gstr2b — Primary reconciliation endpoint
+# -------------------------------------------------------------------------
+@router.post("/gstr2b")
+async def reconcile_gstr2b(
+    file_pr: UploadFile = File(...),
+    file_2b: UploadFile = File(...),
+    client_id: str = Form(...),
+    period: str = Form(...),
+    current_user: dict = Depends(verify_token)
+):
+    """
+    Accepts two uploaded files (Purchase Register and GSTR-2B).
+    Parses them entirely in-memory, normalizes whitespace in column headers,
+    runs intelligent column mapping, and performs multi-variable automated reconciliation.
+    Results are persisted to Supabase recon_rows for durable export access.
+    Scopes the run history to the client workspace.
+    """
+    firm_id: str = current_user["firm_id"]
+
+    # Ownership check — client must belong to caller's firm
+    _assert_client_ownership(client_id, firm_id)
+
+    try:
+        contents_pr = await file_pr.read()
+        contents_2b = await file_2b.read()
+
+        return await asyncio.to_thread(
+            _run_reconciliation_pipeline_sync,
+            contents_pr, file_pr.filename or "",
+            contents_2b, file_2b.filename or "",
+            client_id, period, firm_id,
+            sync_to_workspace=True
+        )
 
     except ValueError as ve:
         raise HTTPException(
@@ -190,66 +200,19 @@ async def upload_and_reconcile(
         content_2b = await file_2b.read()
         content_pr = await file_pr.read()
 
-        # Standardize uploads
-        df_pr = parse_file_to_dataframe(content_pr, file_pr.filename or "")
-        df_2b = parse_file_to_dataframe(content_2b, file_2b.filename or "")
-
-        df_pr = normalize_columns(df_pr)
-        df_2b = normalize_columns(df_2b)
-
-        mapping_pr = detect_gst_fields(list(df_pr.columns))
-        mapping_2b = detect_gst_fields(list(df_2b.columns))
-
-        mapping_pr_clean: Dict[str, str] = {k: v or "" for k, v in mapping_pr.items()}
-        mapping_2b_clean: Dict[str, str] = {k: v or "" for k, v in mapping_2b.items()}
-
-        results = reconcile_dataframes(
-            df_pr=df_pr,
-            df_2b=df_2b,
-            mapping_pr=mapping_pr_clean,
-            mapping_2b=mapping_2b_clean,
-            tolerance=1.0
+        return await asyncio.to_thread(
+            _run_reconciliation_pipeline_sync,
+            content_pr, file_pr.filename or "",
+            content_2b, file_2b.filename or "",
+            client_id, period, firm_id,
+            sync_to_workspace=True
         )
 
-        # Persist rows to Supabase
-        reconciliation_id = str(uuid.uuid4())
-        db_manager.save_recon_rows(reconciliation_id, results)
-
-        # Register in workspace
-        try:
-            summary_stats = results.get("summary", {})
-            total_invoices = sum(summary_stats.values())
-            matched_count = summary_stats.get("matched", 0)
-            mismatch_count = total_invoices - matched_count
-
-            mismatch_list = results.get("mismatches", [])
-            itc_at_risk = sum(
-                float(m.get("taxable_value", 0))
-                for m in mismatch_list
-                if m.get("issue") in ["MISSING_IN_2B", "VALUE_MISMATCH"]
-            ) * 0.18
-            itc_protected = sum(
-                float(m.get("taxable_value", 0)) for m in results.get("matches", [])
-            ) * 0.18
-
-            client_workspace.add_reconciliation_run(
-                client_id=client_id,
-                run_data={
-                    "filing_period": period,
-                    "total_invoices": total_invoices,
-                    "matched_count": matched_count,
-                    "mismatch_count": mismatch_count,
-                    "missing_in_2b_count": summary_stats.get("missing_in_2b", 0),
-                    "missing_in_books_count": summary_stats.get("missing_in_books", 0),
-                    "itc_at_risk": itc_at_risk,
-                    "itc_protected": itc_protected
-                }
-            )
-        except Exception as err:
-            print(f"Failed to record reconciliation metadata in client workspace: {err}")
-
-        return {**results, "reconciliation_id": reconciliation_id}
-
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve)
+        )
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -385,30 +348,18 @@ async def reconcile_import_boe(
         boe_content = await file_boe.read()
         b2b_content = await file_2b.read()
 
-        df_boe = parse_file_to_dataframe(boe_content, file_boe.filename or "")
-        df_2b = parse_file_to_dataframe(b2b_content, file_2b.filename or "")
-
-        df_boe = normalize_columns(df_boe)
-        df_2b = normalize_columns(df_2b)
-
-        mapping_boe = detect_gst_fields(list(df_boe.columns))
-        mapping_2b = detect_gst_fields(list(df_2b.columns))
-
-        mapping_boe_clean: Dict[str, str] = {k: v or "" for k, v in mapping_boe.items()}
-        mapping_2b_clean: Dict[str, str] = {k: v or "" for k, v in mapping_2b.items()}
-
-        results = reconcile_dataframes(
-            df_pr=df_boe,
-            df_2b=df_2b,
-            mapping_pr=mapping_boe_clean,
-            mapping_2b=mapping_2b_clean,
-            tolerance=1.0
+        return await asyncio.to_thread(
+            _run_reconciliation_pipeline_sync,
+            boe_content, file_boe.filename or "",
+            b2b_content, file_2b.filename or "",
+            client_id, period, firm_id,
+            sync_to_workspace=False
         )
-
-        reconciliation_id = str(uuid.uuid4())
-        db_manager.save_recon_rows(reconciliation_id, results)
-
-        return {**results, "reconciliation_id": reconciliation_id}
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(ve)
+        )
     except HTTPException as he:
         raise he
     except Exception as e:
