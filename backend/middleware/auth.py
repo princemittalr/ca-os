@@ -32,8 +32,13 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
                 audience="authenticated",  # Supabase default audience
             )
             user_id = payload.get("sub")
-            meta = payload.get("user_metadata") or {}
-            firm_id = meta.get("firm_id")
+            
+            # firm_id lives in user_metadata (signup via options.data) 
+            # or app_metadata (admin provisioned) — check both
+            user_meta = payload.get("user_metadata") or {}
+            app_meta = payload.get("app_metadata") or {}
+            firm_id = user_meta.get("firm_id") or app_meta.get("firm_id")
+
             if not user_id or not firm_id:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,8 +47,8 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
             return {
                 "user_id": user_id,
                 "firm_id": firm_id,
-                "role": meta.get("role", "ARTICLE"),
-                "full_name": meta.get("full_name", "CA Auditor"),
+                "role": user_meta.get("role") or app_meta.get("role", "ARTICLE"),
+                "full_name": user_meta.get("full_name") or app_meta.get("full_name", "CA Auditor"),
                 "email": payload.get("email", ""),
             }
         except pyjwt.ExpiredSignatureError:
@@ -51,9 +56,15 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has expired."
             )
-        except pyjwt.InvalidTokenError:
-            # Fall through to Supabase SDK verification for other errors
-            pass
+        except HTTPException:
+            raise
+        except pyjwt.InvalidTokenError as e:
+            # Hard 401 — do NOT fall through to Supabase SDK 
+            # Falling through allows malformed token spam to force SDK round-trips 
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token." if not settings.DEBUG else str(e)
+            )
 
     # 2. Slow path: Supabase SDK round-trip (fallback for dev/test without real secret)
     if not is_supabase_active():
@@ -71,9 +82,9 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
             )
 
         user = res.user
-        metadata = user.user_metadata or {}
-        role = metadata.get("role", "ARTICLE")
-        firm_id = metadata.get("firm_id")
+        user_metadata = user.user_metadata or {}
+        app_metadata = getattr(user, "app_metadata", {}) or {}
+        firm_id = user_metadata.get("firm_id") or app_metadata.get("firm_id")
 
         if not firm_id:
             raise HTTPException(
@@ -81,11 +92,14 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
                 detail="User missing firm association."
             )
 
+        role = user_metadata.get("role") or app_metadata.get("role", "ARTICLE")
+        full_name = user_metadata.get("full_name") or app_metadata.get("full_name", "CA Auditor")
+
         return {
             "user_id": user.id,
             "firm_id": firm_id,
             "role": role,
-            "full_name": metadata.get("full_name", "CA Auditor"),
+            "full_name": full_name,
             "email": user.email,
         }
 
