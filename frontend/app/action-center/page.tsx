@@ -580,8 +580,11 @@ export default function SmartActionCenter() {
             {/* Task/Action Cards List Feed */}
             {isLoading ? (
               <div className="space-y-3">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-16 bg-slate-50 border border-slate-100 rounded-[4px]"></div>
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white border border-[#E5E7EB] rounded-[4px] p-3 animate-pulse">
+                    <div className="h-3 bg-slate-100 rounded w-2/3 mb-2" />
+                    <div className="h-2.5 bg-slate-100 rounded w-1/2" />
+                  </div>
                 ))}
               </div>
             ) : filteredActions.length > 0 ? (

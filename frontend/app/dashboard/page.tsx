@@ -64,6 +64,7 @@ export default function DashboardPage() {
   // Tab control
   const [activeTab, setActiveTab] = React.useState<'parser' | 'reconciler'>('parser');
   const [expandedRow, setExpandedRow] = React.useState<number | null>(null);
+  const [dashStatsLoading, setDashStatsLoading] = React.useState(true);
   const [dashStats, setDashStats] = React.useState<any>({
     total_clients: 0,
     total_mismatches: 0,
@@ -125,6 +126,7 @@ export default function DashboardPage() {
   React.useEffect(() => {
     const fetchSummary = async () => {
       try {
+        setDashStatsLoading(true);
         const data = await api.get<any>('/api/clients/dashboard/summary');
         setDashStats(data);
         if (data.clients && data.clients.length > 0) {
@@ -163,6 +165,8 @@ export default function DashboardPage() {
           { name: 'May', protected: 18, risk: 48 },
           { name: 'Jun', protected: 23, risk: 38 },
         ]);
+      } finally {
+        setDashStatsLoading(false);
       }
     };
     fetchSummary();
@@ -394,67 +398,78 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Summary Row (Clean, flat cards, border 1px solid #E5E7EB, border-radius 4px, padding 16px, min-width 160px, max 4 per row) */}
-      <div className="flex flex-wrap gap-4 w-full">
-        {/* Card 1: Total ITC At Risk */}
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
-            Total ITC At Risk
-          </span>
-          <div className="flex items-baseline justify-between mt-2">
-            <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
-              ₹{(dashStats.blocked_itc / 100000).toFixed(1)}L
-            </span>
-            <span className="text-[11px] font-semibold text-[#B91C1C]">
-              High Risk
-            </span>
-          </div>
+      {dashStatsLoading ? (
+        <div className="flex flex-wrap gap-4 w-full">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px] animate-pulse">
+              <div className="h-2.5 bg-slate-100 rounded w-1/2 mb-3" />
+              <div className="h-5 bg-slate-100 rounded w-1/3" />
+            </div>
+          ))}
         </div>
+      ) : (
+        <div className="flex flex-wrap gap-4 w-full">
+          {/* Card 1: Total ITC At Risk */}
+          <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
+              Total ITC At Risk
+            </span>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
+                ₹{(dashStats.blocked_itc / 100000).toFixed(1)}L
+              </span>
+              <span className="text-[11px] font-semibold text-[#B91C1C]">
+                High Risk
+              </span>
+            </div>
+          </div>
 
-        {/* Card 2: Open GST Notices */}
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
-            Open GST Notices
-          </span>
-          <div className="flex items-baseline justify-between mt-2">
-            <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
-              {dashStats.high_risk_clients}
+          {/* Card 2: Open GST Notices */}
+          <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
+              Open GST Notices
             </span>
-            <span className="text-[11px] font-semibold text-[#B91C1C]">
-              Needs Review
-            </span>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
+                {dashStats.high_risk_clients}
+              </span>
+              <span className="text-[11px] font-semibold text-[#B91C1C]">
+                Needs Review
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* Card 3: Upcoming Deadlines */}
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
-            Upcoming Deadlines
-          </span>
-          <div className="flex items-baseline justify-between mt-2">
-            <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
-              {dashStats.pending_reconciliations}
+          {/* Card 3: Upcoming Deadlines */}
+          <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
+              Upcoming Deadlines
             </span>
-            <span className="text-[11px] font-semibold text-[#6B7280]">
-              Pending
-            </span>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
+                {dashStats.pending_reconciliations}
+              </span>
+              <span className="text-[11px] font-semibold text-[#6B7280]">
+                Pending
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* Card 4: Protected ITC (Mo) */}
-        <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
-            Protected ITC (Mo)
-          </span>
-          <div className="flex items-baseline justify-between mt-2">
-            <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
-              {formatCurrency(dashStats.blocked_itc || 0)}
+          {/* Card 4: Protected ITC (Mo) */}
+          <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 flex-1 min-w-[160px]">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[#6B7280] block">
+              Protected ITC (Mo)
             </span>
-            <span className="text-[11px] font-semibold text-[#15803D]">
-              +12.4%
-            </span>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-[20px] font-bold text-[#111827] font-mono leading-none">
+                {formatCurrency(dashStats.blocked_itc || 0)}
+              </span>
+              <span className="text-[11px] font-semibold text-[#15803D]">
+                +12.4%
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* AI Action Centre — Premium Operational Command Center */}
       <div className="bg-[#FFFFFF] border border-[#E5E7EB] rounded-[4px] p-4 relative overflow-hidden">

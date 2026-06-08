@@ -405,9 +405,9 @@ For ${selectedNotice?.client_name}`;
           {/* Notice list scroll area */}
           <div className="flex-1 overflow-y-auto min-h-0">
             {isLoading ? (
-              <div className="p-4 space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="h-10 bg-slate-100 rounded-[4px]"></div>
+              <div className="p-2 space-y-1">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-14 bg-slate-100 rounded-[3px] animate-pulse" />
                 ))}
               </div>
             ) : filteredNotices.length > 0 ? (

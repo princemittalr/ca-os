@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { api } from '@/lib/api';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 import { 
   Play, 
   CheckCircle2, 
@@ -303,73 +304,76 @@ export default function AutomationCenterPage() {
         
         <div className="data-table-shell p-4">
           <div className="overflow-x-auto hidden-scrollbar">
-            {!isJobsLoading && jobsHistory.length === 0 && (
+            {isJobsLoading ? (
+              <SkeletonTable rows={4} />
+            ) : jobsHistory.length === 0 ? (
               <div className="text-center py-8 text-xs text-slate-500 font-bold">
                 No automated jobs have run yet. Trigger a job below.
               </div>
-            )}
-            <table className="data-table data-table-striped-6plus">
-              <thead>
-                <tr>
-                  <th>Workflow Automation Subject</th>
-                  <th>Pipeline Trigger Event</th>
-                  <th>Last Success Run</th>
-                  <th>Next Scheduled Run</th>
-                  <th>Current State</th>
-                  <th className="text-right">Manual Override</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono">
-                {(isJobsLoading ? [] : jobsHistory.length > 0 ? jobsHistory : []).map((wf: any) => (
-                  <tr key={wf.job_id || wf.id} className="group">
-                    {/* Name */}
-                    <td className="font-sans font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">
-                      {formatJobType(wf.job_type)}
-                    </td>
-                    
-                    {/* Trigger */}
-                    <td className="font-sans data-table-secondary font-medium">
-                      {`Job Type: ${wf.job_type}`}
-                    </td>
-                    
-                    {/* Last Run */}
-                    <td className="data-table-secondary font-semibold text-[13px]">
-                      <span className="inline-flex items-center gap-1.5">
-                        <CalendarDays size={12} />
-                        {wf.completed_at ? new Date(wf.completed_at).toLocaleString('en-IN') : "—"}
-                      </span>
-                    </td>
-
-                    {/* Next Run */}
-                    <td className="data-table-secondary font-semibold text-[13px]">
-                      <span className="inline-flex items-center gap-1.5">
-                        <CalendarDays size={12} />
-                        {"Scheduled"}
-                      </span>
-                    </td>
-
-                    {/* State */}
-                    <td className="font-sans">
-                      <span className={`status-badge ${getUnifiedBadgeClass(wf.status || '')}`}>
-                        {(wf.status && wf.status.toUpperCase() === 'RUNNING') && renderBadgeDot(wf.status)}
-                        {wf.status && wf.status.toUpperCase() === 'COMPLETED' ? 'Idle Synced' : wf.status && wf.status.toUpperCase() === 'RUNNING' ? 'Running' : wf.status && wf.status.toUpperCase() === 'FAILED' ? 'Failed' : (wf.status || '')}
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="text-right font-sans">
-                      <button 
-                        onClick={() => handleRunWorkflow(wf.job_type)}
-                        className="btn btn-warning btn-sm flex items-center gap-1.5 ml-auto"
-                      >
-                        <Play size={10} fill="currentColor" />
-                        <span>Force Run</span>
-                      </button>
-                    </td>
+            ) : (
+              <table className="data-table data-table-striped-6plus">
+                <thead>
+                  <tr>
+                    <th>Workflow Automation Subject</th>
+                    <th>Pipeline Trigger Event</th>
+                    <th>Last Success Run</th>
+                    <th>Next Scheduled Run</th>
+                    <th>Current State</th>
+                    <th className="text-right">Manual Override</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="font-mono">
+                  {jobsHistory.map((wf: any) => (
+                    <tr key={wf.job_id || wf.id} className="group">
+                      {/* Name */}
+                      <td className="font-sans font-bold text-slate-800 group-hover:text-[#4F46E5] transition-colors">
+                        {formatJobType(wf.job_type)}
+                      </td>
+                      
+                      {/* Trigger */}
+                      <td className="font-sans data-table-secondary font-medium">
+                        {`Job Type: ${wf.job_type}`}
+                      </td>
+                      
+                      {/* Last Run */}
+                      <td className="data-table-secondary font-semibold text-[13px]">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CalendarDays size={12} />
+                          {wf.completed_at ? new Date(wf.completed_at).toLocaleString('en-IN') : "—"}
+                        </span>
+                      </td>
+
+                      {/* Next Run */}
+                      <td className="data-table-secondary font-semibold text-[13px]">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CalendarDays size={12} />
+                          {"Scheduled"}
+                        </span>
+                      </td>
+
+                      {/* State */}
+                      <td className="font-sans">
+                        <span className={`status-badge ${getUnifiedBadgeClass(wf.status || '')}`}>
+                          {(wf.status && wf.status.toUpperCase() === 'RUNNING') && renderBadgeDot(wf.status)}
+                          {wf.status && wf.status.toUpperCase() === 'COMPLETED' ? 'Idle Synced' : wf.status && wf.status.toUpperCase() === 'RUNNING' ? 'Running' : wf.status && wf.status.toUpperCase() === 'FAILED' ? 'Failed' : (wf.status || '')}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="text-right font-sans">
+                        <button 
+                          onClick={() => handleRunWorkflow(wf.job_type)}
+                          className="btn btn-warning btn-sm flex items-center gap-1.5 ml-auto"
+                        >
+                          <Play size={10} fill="currentColor" />
+                          <span>Force Run</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>

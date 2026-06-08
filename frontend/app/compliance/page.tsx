@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { SkeletonTable } from '@/components/ui/Skeleton';
 
 
 interface ComplianceRecord {
@@ -464,10 +465,7 @@ export default function ComplianceOperationsCenter() {
         {/* Dynamic View Mode Panel */}
         <div className="bg-white border border-[#E5E7EB] rounded shadow-sm">
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <RefreshCw size={24} className="animate-spin text-slate-400" />
-              <span className="text-xs text-[#6B7280] font-medium font-sans">Loading statutory filing details...</span>
-            </div>
+            <SkeletonTable rows={6} />
           ) : viewMode === 'table' ? (
             /* Table View */
             <div className="overflow-x-auto">
