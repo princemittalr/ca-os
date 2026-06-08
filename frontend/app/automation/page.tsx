@@ -138,33 +138,35 @@ export default function AutomationCenterPage() {
     setIsModalOpen(true);
   };
 
-  // TODO: wire to backend when /api/automation/agents/{key}/config endpoint exists.
-  // handleSaveConfig is intentionally local-only until that endpoint is implemented.
-  const handleSaveConfig = () => {
+  const handleSaveConfig = async () => {
     if (!selectedAgent) return;
     setIsSaving(true);
-    console.log("[Configure Agent] Configuration updated locally (not persisted to backend).");
-
+    
     try {
+      const config = {
+        trigger: modalTrigger,
+        ledger: modalLedger,
+        threshold: modalThreshold,
+        notify_channels: modalChannels,
+      };
+
+      await api.put(`/api/automation/agents/${selectedAgent.agent_key}/config`, config);
+
       setAgents(agents.map(a => {
         if (a.id === selectedAgent.id) {
           return {
             ...a,
-            config: {
-              trigger: modalTrigger,
-              ledger: modalLedger,
-              threshold: modalThreshold,
-              notify_channels: modalChannels
-            }
+            config
           };
         }
         return a;
       }));
 
       setIsModalOpen(false);
-      showToast("Agent configuration updated locally.", "success");
-    } catch (err) {
-      showToast("Failed to save config. Check connection.", "error");
+      showToast("Agent configuration saved and deployed.", "success");
+    } catch (err: any) {
+      console.error("Save agent config failed:", err);
+      showToast(`Failed to save config: ${err.message || 'Check connection'}`, "error");
     } finally {
       setIsSaving(false);
     }

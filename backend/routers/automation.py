@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 from typing import List, cast, Dict, Any
 from supabase import Client
+from datetime import datetime, timezone
 
 from middleware.auth import verify_token, RequireRoles
 from config.supabase import get_supabase_client, is_supabase_active
@@ -182,3 +183,60 @@ async def toggle_agent(
         "is_active": payload.is_active,
         "firm_id": firm_id,
     }
+
+
+# ---------------------------------------------------------------------------
+# UPDATE AGENT CONFIG — Persist configuration JSON to Supabase
+# ---------------------------------------------------------------------------
+@router.put("/agents/{agent_key}/config")
+async def update_agent_config(
+    agent_key: str,
+    payload: Dict[str, Any],
+    current_user: dict = Depends(verify_token),
+):
+    """
+    Persist agent config JSON to Supabase automation_agents table.
+    """
+    _require_supabase()
+
+    # Validate agent_key
+    if agent_key not in VALID_AGENT_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid agent key '{agent_key}'."
+        )
+
+    firm_id = current_user.get("firm_id")
+    if not firm_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="firm_id missing from user context.",
+        )
+
+    try:
+        res = (
+            get_supabase_client().table("automation_agents")
+            .update({
+                "config": payload,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            })
+            .eq("agent_key", agent_key)
+            .eq("firm_id", firm_id)
+            .execute()
+        )
+
+        if not res.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Agent '{agent_key}' not found for this firm."
+            )
+
+        return res.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Update config error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save agent config."
+        )
