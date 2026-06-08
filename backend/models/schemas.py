@@ -306,7 +306,8 @@ class VerifyPasswordRequest(BaseModel):
     password: str
 
 class PasswordUpdateRequest(BaseModel):
-    new_password: str
+    current_password: str = Field(..., min_length=1, description="Current password for verification")
+    new_password: str = Field(..., min_length=8, description="New password (min 8 chars)")
 
 class TokenResponse(BaseModel):
     access_token: str

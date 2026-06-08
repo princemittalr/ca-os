@@ -239,32 +239,53 @@ async def verify_password(payload: schemas.VerifyPasswordRequest, current_user: 
     return {"valid": False}
 
 @router.put("/password")
-async def update_password(payload: schemas.PasswordUpdateRequest, current_user: dict = Depends(verify_token)):
+async def update_password(
+    payload: schemas.PasswordUpdateRequest,
+    current_user: dict = Depends(verify_token)
+):
     """
     Update authenticated user's password through Supabase Auth.
+    Requires current password verification first.
     """
     user_id = current_user.get("user_id")
-    if not isinstance(user_id, str):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user context."
+    email = current_user.get("email")
+    if not user_id or not email:
+        raise HTTPException(status_code=400, detail="Invalid user context.")
+
+    if not is_supabase_active():
+        raise HTTPException(status_code=503, detail="Authentication service unavailable.")
+
+    # Step 1: Verify current password
+    try:
+        verify_res = get_supabase_client().auth.sign_in_with_password({
+            "email": email,
+            "password": payload.current_password,
+        })
+        if not verify_res.user:
+            raise HTTPException(status_code=401, detail="Current password is incorrect.")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Current password verification failed.")
+
+    # Step 2: Update to new password
+    try:
+        get_supabase_client().auth.admin.update_user_by_id(
+            user_id, {"password": payload.new_password}
         )
-    if is_supabase_active():
-        try:
-            get_supabase_client().auth.admin.update_user_by_id(user_id, {"password": payload.new_password})
-            return {"message": "Password updated successfully."}
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Failed to update password: {str(e)}", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to update password. Please try again."
-            )
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Authentication service unavailable. Supabase is not configured."
-    )
+        await log_audit_event(
+            action="PASSWORD_CHANGED",
+            entity_type="auth",
+            actor_id=user_id,
+            firm_id=current_user.get("firm_id"),
+            details={"email": email},
+        )
+        return {"message": "Password updated successfully."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password update failed: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to update password. Please try again.")
 
 @router.get("/sessions")
 async def get_active_sessions(current_user: dict = Depends(verify_token)):
