@@ -9,11 +9,11 @@ async def list_staff_members(current_user: dict = Depends(verify_token)):
     """
     Get all staff members from database.
     """
-    from config.supabase import supabase_client, is_supabase_active
-    if not is_supabase_active() or supabase_client is None:
+    from config.supabase import get_supabase_client, is_supabase_active
+    if not is_supabase_active():
         return []
     try:
-        res = supabase_client.table("users")\
+        res = get_supabase_client().table("users")\
             .select("full_name")\
             .eq("firm_id", current_user["firm_id"])\
             .execute()

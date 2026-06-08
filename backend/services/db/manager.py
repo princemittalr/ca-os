@@ -4,9 +4,7 @@ from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional, cast
 from supabase import Client
 
-from config.supabase import supabase_client as _raw_client, is_supabase_active
-
-supabase_client: Client = cast(Client, _raw_client)
+from config.supabase import get_supabase_client, is_supabase_active
 
 # -------------------------------------------------------------------------
 # CLIENTS CRUD ABSTRACTION
@@ -21,7 +19,7 @@ def get_clients(firm_id: str) -> List[Dict[str, Any]]:
         return []
     try:
         res = (
-            supabase_client.table("clients")
+            get_supabase_client().table("clients")
             .select("*")
             .eq("firm_id", firm_id)
             .eq("is_deleted", False)
@@ -42,7 +40,7 @@ def get_client_by_id(client_id: str, firm_id: Optional[str] = None) -> Optional[
         return None
     try:
         q = (
-            supabase_client.table("clients")
+            get_supabase_client().table("clients")
             .select("*")
             .eq("id", client_id)
             .eq("is_deleted", False)
@@ -79,7 +77,7 @@ def create_client(client_data: Dict[str, Any], firm_id: Optional[str] = None) ->
         "is_deleted": False
     }
     try:
-        res = supabase_client.table("clients").insert(payload).execute()
+        res = get_supabase_client().table("clients").insert(payload).execute()
         if res.data:
             return cast(Dict[str, Any], res.data[0])
         raise RuntimeError("Client insert returned no data.")
@@ -103,7 +101,7 @@ def update_client(client_id: str, client_data: Dict[str, Any]) -> Optional[Dict[
                 payload[field] = client_data[field]
         if "gstin" in payload:
             payload["gstin"] = payload["gstin"].upper()
-        res = supabase_client.table("clients").update(payload).eq("id", client_id).execute()
+        res = get_supabase_client().table("clients").update(payload).eq("id", client_id).execute()
         if res.data:
             return cast(Dict[str, Any], res.data[0])
     except Exception as e:
@@ -121,7 +119,7 @@ def soft_delete_client(client_id: str, firm_id: str) -> bool:
         return False
     try:
         res = (
-            supabase_client.table("clients")
+            get_supabase_client().table("clients")
             .update({"is_deleted": True})
             .eq("id", client_id)
             .eq("firm_id", firm_id)
@@ -137,7 +135,7 @@ def get_all_active_firm_ids() -> List[str]:
     if not is_supabase_active():
         return []
     try:
-        res = supabase_client.table("users").select("firm_id").execute()
+        res = get_supabase_client().table("users").select("firm_id").execute()
         seen = set()
         result = []
         for row in (res.data or []):
@@ -158,7 +156,7 @@ def get_reconciliations(client_id: str) -> List[Dict[str, Any]]:
         print("[WARN] Supabase not active — returning empty reconciliation list.")
         return []
     try:
-        res = supabase_client.table("reconciliation_runs").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
+        res = get_supabase_client().table("reconciliation_runs").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
         return cast(List[Dict[str, Any]], res.data)
     except Exception as e:
         print(f"[ERROR] Supabase get_reconciliations error: {str(e)}")
@@ -193,8 +191,8 @@ def add_reconciliation(client_id: str, run_data: Dict[str, Any]) -> Dict[str, An
             "is_deleted": False
         }
         # Soft-overwrite existing records for the same period
-        supabase_client.table("reconciliation_runs").update({"is_deleted": True}).eq("client_id", client_id).eq("filing_period", payload["filing_period"]).execute()
-        res = supabase_client.table("reconciliation_runs").insert(payload).execute()
+        get_supabase_client().table("reconciliation_runs").update({"is_deleted": True}).eq("client_id", client_id).eq("filing_period", payload["filing_period"]).execute()
+        res = get_supabase_client().table("reconciliation_runs").insert(payload).execute()
         if res.data:
             ret = cast(Dict[str, Any], res.data[0])
         else:
@@ -254,14 +252,14 @@ def get_compliance(
         if firm_id:
             # Firm-scoped: join through clients table to enforce tenant isolation
             q = (
-                supabase_client.table("compliance_tasks")
+                get_supabase_client().table("compliance_tasks")
                 .select("*, clients!inner(firm_id)")
                 .eq("clients.firm_id", firm_id)
                 .eq("is_deleted", False)
             )
         else:
             # Unscoped — used only by background scheduler tasks
-            q = supabase_client.table("compliance_tasks").select("*").eq("is_deleted", False)
+            q = get_supabase_client().table("compliance_tasks").select("*").eq("is_deleted", False)
 
         if client_id:
             q = q.eq("client_id", client_id)
@@ -312,7 +310,7 @@ def create_compliance(data: Dict[str, Any], firm_id: Optional[str] = None) -> Di
     }
 
     try:
-        res = supabase_client.table("compliance_tasks").insert(payload).execute()
+        res = get_supabase_client().table("compliance_tasks").insert(payload).execute()
         if res.data:
             created = cast(Dict[str, Any], res.data[0])
             evaluated = evaluate_status_and_risk(created)
@@ -343,9 +341,9 @@ def _update_compliance_evaluated_fields(row_pk: Optional[str], evaluated: Dict[s
             "escalation_level": evaluated.get("escalation_level"),
         }
         # Try `id` first (Supabase UUID PK), fall back to `compliance_id`
-        res = supabase_client.table("compliance_tasks").update(updates).eq("id", row_pk).execute()
+        res = get_supabase_client().table("compliance_tasks").update(updates).eq("id", row_pk).execute()
         if not res.data:
-            supabase_client.table("compliance_tasks").update(updates).eq("compliance_id", row_pk).execute()
+            get_supabase_client().table("compliance_tasks").update(updates).eq("compliance_id", row_pk).execute()
     except Exception as e:
         print(f"[WARN] Could not persist evaluated fields for task {row_pk}: {str(e)}")
 
@@ -368,9 +366,9 @@ def update_compliance_status(
             updates["filed_date"] = filed_date
 
         # Try `id` (UUID PK) first, then fall back to `compliance_id`
-        res = supabase_client.table("compliance_tasks").update(updates).eq("id", comp_id).execute()
+        res = get_supabase_client().table("compliance_tasks").update(updates).eq("id", comp_id).execute()
         if not res.data:
-            res = supabase_client.table("compliance_tasks").update(updates).eq("compliance_id", comp_id).execute()
+            res = get_supabase_client().table("compliance_tasks").update(updates).eq("compliance_id", comp_id).execute()
 
         if res.data:
             task = cast(Dict[str, Any], res.data[0])
@@ -397,9 +395,9 @@ def update_compliance_assignment(comp_id: str, staff: str) -> Optional[Dict[str,
         return None
     try:
         # Try `id` (UUID PK) first, then fall back to `compliance_id`
-        res = supabase_client.table("compliance_tasks").update({"assigned_to": staff}).eq("id", comp_id).execute()
+        res = get_supabase_client().table("compliance_tasks").update({"assigned_to": staff}).eq("id", comp_id).execute()
         if not res.data:
-            res = supabase_client.table("compliance_tasks").update({"assigned_to": staff}).eq("compliance_id", comp_id).execute()
+            res = get_supabase_client().table("compliance_tasks").update({"assigned_to": staff}).eq("compliance_id", comp_id).execute()
 
         if res.data:
             return cast(Optional[Dict[str, Any]], res.data[0])
@@ -413,7 +411,7 @@ def update_compliance_assignment(comp_id: str, staff: str) -> Optional[Dict[str,
 def get_communications(client_id: str) -> List[Dict[str, Any]]:
     if is_supabase_active():
         try:
-            res = supabase_client.table("communications").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
+            res = get_supabase_client().table("communications").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
             return cast(List[Dict[str, Any]], res.data)
         except Exception as e:
             print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
@@ -438,7 +436,7 @@ def create_communication(data: Dict[str, Any]) -> Dict[str, Any]:
                 "status": "Drafted",
                 "is_deleted": False
             }
-            res = supabase_client.table("communications").insert(payload).execute()
+            res = get_supabase_client().table("communications").insert(payload).execute()
             if res.data:
                 return cast(Dict[str, Any], res.data[0])
         except Exception as e:
@@ -451,7 +449,7 @@ def create_communication(data: Dict[str, Any]) -> Dict[str, Any]:
 def update_communication_status(comm_id: str, new_status: str) -> bool:
     if is_supabase_active():
         try:
-            res = supabase_client.table("communications").update({"status": new_status}).eq("id", comm_id).execute()
+            res = get_supabase_client().table("communications").update({"status": new_status}).eq("id", comm_id).execute()
             return len(res.data) > 0
         except Exception as e:
             print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
@@ -468,7 +466,7 @@ def get_action_items(firm_id: str) -> List[Dict[str, Any]]:
     Fetches all PENDING action items for the given firm from Supabase.
     Always Supabase — no in-memory fallback.
     """
-    res = supabase_client.table("action_items") \
+    res = get_supabase_client().table("action_items") \
         .select("*") \
         .eq("firm_id", firm_id) \
         .eq("status", "PENDING") \
@@ -490,7 +488,7 @@ def resolve_action_item(action_id: str, firm_id: str) -> Optional[Dict[str, Any]
         "resolved_at": now_str,
         "updated_at": now_str,
     }
-    res = supabase_client.table("action_items") \
+    res = get_supabase_client().table("action_items") \
         .update(updates) \
         .eq("action_id", action_id) \
         .eq("firm_id", firm_id) \
@@ -506,7 +504,7 @@ def update_action_assignment(action_id: str, staff: str, firm_id: str) -> Option
     Always Supabase — no in-memory fallback.
     """
     now_str = datetime.now().isoformat()
-    res = supabase_client.table("action_items") \
+    res = get_supabase_client().table("action_items") \
         .update({"assigned_to": staff, "updated_at": now_str}) \
         .eq("action_id", action_id) \
         .eq("firm_id", firm_id) \
@@ -523,7 +521,7 @@ def get_jobs(firm_id: Optional[str] = None) -> List[Dict[str, Any]]:
     if not is_supabase_active():
         raise RuntimeError("Database connection is inactive.")
     try:
-        q = supabase_client.table("jobs").select("*")
+        q = get_supabase_client().table("jobs").select("*")
         if firm_id:
             q = q.eq("firm_id", firm_id)
         res = q.order("created_at", desc=True).execute()
@@ -535,7 +533,7 @@ def get_job_by_id(job_id: str, firm_id: Optional[str] = None) -> Optional[Dict[s
     if not is_supabase_active():
         raise RuntimeError("Database connection is inactive.")
     try:
-        q = supabase_client.table("jobs").select("*").eq("job_id", job_id)
+        q = get_supabase_client().table("jobs").select("*").eq("job_id", job_id)
         if firm_id:
             q = q.eq("firm_id", firm_id)
         res = q.execute()
@@ -562,7 +560,7 @@ def create_job(job_type: str, status: str = "PENDING", firm_id: Optional[str] = 
     }
     
     try:
-        res = supabase_client.table("jobs").insert(cast(Any, new_job)).execute()
+        res = get_supabase_client().table("jobs").insert(cast(Any, new_job)).execute()
         if res.data:
             return cast(Dict[str, Any], res.data[0])
         raise RuntimeError("Failed to create job: No data returned from database")
@@ -579,7 +577,7 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                 formatted_updates[k] = v.isoformat()
             else:
                 formatted_updates[k] = v
-        res = supabase_client.table("jobs").update(formatted_updates).eq("job_id", job_id).execute()
+        res = get_supabase_client().table("jobs").update(formatted_updates).eq("job_id", job_id).execute()
         if res.data:
             return cast(Optional[Dict[str, Any]], res.data[0])
     except Exception as e:
@@ -597,7 +595,7 @@ def get_user_id_by_name(full_name: str) -> Optional[str]:
     if not is_supabase_active():
         return None
     try:
-        res = supabase_client.table("users").select("id").eq("full_name", full_name).execute()
+        res = get_supabase_client().table("users").select("id").eq("full_name", full_name).execute()
         if res.data:
             data_list = cast(List[Dict[str, Any]], res.data)
             return str(data_list[0]["id"])
@@ -619,7 +617,7 @@ def create_user_notification(
     firm_id = None
     if is_supabase_active():
         try:
-            res = supabase_client.table("users").select("firm_id").eq("id", user_id).execute()
+            res = get_supabase_client().table("users").select("firm_id").eq("id", user_id).execute()
             if res.data:
                 data_list = cast(List[Dict[str, Any]], res.data)
                 firm_id = str(data_list[0]["firm_id"])
@@ -641,7 +639,7 @@ def create_user_notification(
     db_success = False
     if is_supabase_active():
         try:
-            supabase_client.table("notifications").insert(payload).execute()
+            get_supabase_client().table("notifications").insert(payload).execute()
             db_success = True
         except Exception as e:
             print(f"[WARN] Failed to insert notification to DB: {e}")
@@ -655,7 +653,7 @@ def get_notifications_log(firm_id: Optional[str] = None) -> List[Dict[str, Any]]
     if not is_supabase_active():
         raise RuntimeError("Database connection is inactive.")
     try:
-        q = supabase_client.table("notifications_log").select("*")
+        q = get_supabase_client().table("notifications_log").select("*")
         if firm_id:
             q = q.eq("firm_id", firm_id)
         res = q.order("sent_at", desc=True).execute()
@@ -668,12 +666,12 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
     if is_supabase_active():
         try:
             # Resolve firm_id from recipient email by searching clients then users
-            res = supabase_client.table("clients").select("firm_id").eq("email", recipient).execute()
+            res = get_supabase_client().table("clients").select("firm_id").eq("email", recipient).execute()
             if res.data:
                 data_list = cast(List[Dict[str, Any]], res.data)
                 firm_id = str(data_list[0]["firm_id"])
             else:
-                res = supabase_client.table("users").select("firm_id").eq("email", recipient).execute()
+                res = get_supabase_client().table("users").select("firm_id").eq("email", recipient).execute()
                 if res.data:
                     data_list = cast(List[Dict[str, Any]], res.data)
                     firm_id = str(data_list[0]["firm_id"])
@@ -692,7 +690,7 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
     }
     if is_supabase_active():
         try:
-            supabase_client.table("notifications_log").insert(new_notif).execute()
+            get_supabase_client().table("notifications_log").insert(new_notif).execute()
         except Exception as e:
             print(f"[ERROR] Supabase write error for notifications_log: {str(e)}")
     return new_notif
@@ -715,7 +713,7 @@ def get_notices(
         print("[WARN] Supabase not active — returning empty notices list.")
         return []
     try:
-        q = supabase_client.table("gst_notices").select("*").eq("is_deleted", False)
+        q = get_supabase_client().table("gst_notices").select("*").eq("is_deleted", False)
         if firm_id:
             q = q.eq("firm_id", firm_id)
         if client_id:
@@ -731,7 +729,7 @@ def get_notice_by_id(notice_id: str) -> Optional[Dict[str, Any]]:
         print("[WARN] Supabase not active — notice lookup unavailable.")
         return None
     try:
-        res = supabase_client.table("gst_notices").select("*").eq("id", notice_id).eq("is_deleted", False).execute()
+        res = get_supabase_client().table("gst_notices").select("*").eq("id", notice_id).eq("is_deleted", False).execute()
         if res.data:
             return cast(Optional[Dict[str, Any]], res.data[0])
     except Exception as e:
@@ -806,7 +804,7 @@ def create_notice(notice_data: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(payload["updated_at"], (date, datetime)):
             payload["updated_at"] = payload["updated_at"].isoformat()
 
-        res = supabase_client.table("gst_notices").insert(cast(Any, payload)).execute()
+        res = get_supabase_client().table("gst_notices").insert(cast(Any, payload)).execute()
         if res.data:
             ret = cast(Dict[str, Any], res.data[0])
         else:
@@ -843,7 +841,7 @@ def update_notice_status(notice_id: str, new_status: str) -> Optional[Dict[str, 
         print("[WARN] Supabase not active — notice status update unavailable.")
         return None
     try:
-        res = supabase_client.table("gst_notices").update({"status": new_status, "updated_at": datetime.now().isoformat()}).eq("id", notice_id).execute()
+        res = get_supabase_client().table("gst_notices").update({"status": new_status, "updated_at": datetime.now().isoformat()}).eq("id", notice_id).execute()
         if res.data:
             ret = cast(Dict[str, Any], res.data[0])
             sync_notice_to_action_engine(ret)
@@ -876,7 +874,7 @@ def sync_reconciliation_to_action_engine(client_id: str, run: Dict[str, Any]):
         if mismatches == 0 and risk_val == 0.0:
             # Reconciled — mark any existing action item as resolved
             if is_supabase_active():
-                supabase_client.table("action_items") \
+                get_supabase_client().table("action_items") \
                     .update({"status": "RESOLVED", "action_state": "RESOLVED",
                              "resolved_at": now_str, "updated_at": now_str}) \
                     .eq("action_id", act_id) \
@@ -921,7 +919,7 @@ def sync_reconciliation_to_action_engine(client_id: str, run: Dict[str, Any]):
         }
 
         if is_supabase_active():
-            supabase_client.table("action_items") \
+            get_supabase_client().table("action_items") \
                 .upsert(payload, on_conflict="action_id") \
                 .execute()
     except Exception as e:
@@ -943,7 +941,7 @@ def sync_notice_to_action_engine(notice: Dict[str, Any]):
         if notice_status in ["RESOLVED", "CLOSED"]:
             # Mark existing action item as resolved
             if is_supabase_active():
-                supabase_client.table("action_items") \
+                get_supabase_client().table("action_items") \
                     .update({"status": "RESOLVED", "action_state": "RESOLVED",
                              "resolved_at": now_str, "updated_at": now_str}) \
                     .eq("action_id", act_id) \
@@ -997,7 +995,7 @@ def sync_notice_to_action_engine(notice: Dict[str, Any]):
         }
 
         if is_supabase_active():
-            supabase_client.table("action_items") \
+            get_supabase_client().table("action_items") \
                 .upsert(payload, on_conflict="action_id") \
                 .execute()
     except Exception as e:
@@ -1019,96 +1017,69 @@ def save_recon_rows(reconciliation_id: str, results: Dict[str, Any]) -> None:
         return
 
     try:
-        summary = results.get("summary", {})
-        matches = results.get("matches", [])
-        mismatches = results.get("mismatches", [])
-
-        rows: List[Dict[str, Any]] = []
-
-        for row in matches:
-            rows.append({
+        all_rows = []
+        
+        # Matches
+        for r in results.get("matches", []):
+            all_rows.append({
                 "id": str(uuid.uuid4()),
                 "reconciliation_id": reconciliation_id,
-                "row_type": "MATCH",
-                "gstin": row.get("gstin") or row.get("supplier_gstin") or "",
-                "invoice_number": row.get("invoice_number") or row.get("invoice_no") or "",
-                "invoice_date": str(row.get("invoice_date") or ""),
-                "taxable_value": float(row.get("taxable_value") or 0.0),
-                "tax_amount": float(row.get("tax_amount") or row.get("igst") or row.get("cgst") or 0.0),
-                "issue": None,
-                "row_data": json.dumps(row, default=str),
-                "summary_snapshot": json.dumps(summary, default=str),
-                "created_at": datetime.now().isoformat(),
+                "supplier_gstin": r.get("supplier_gstin"),
+                "invoice_number": r.get("invoice_number"),
+                "invoice_date": r.get("invoice_date"),
+                "taxable_value_2b": r.get("taxable_value"),
+                "taxable_value_pr": r.get("taxable_value"),
+                "igst_2b": r.get("igst"),
+                "igst_pr": r.get("igst"),
+                "difference": 0.0,
+                "status": "MATCHED",
+                "is_reviewed": False
             })
 
-        for row in mismatches:
-            rows.append({
+        # Mismatches
+        for r in results.get("mismatches", []):
+            all_rows.append({
                 "id": str(uuid.uuid4()),
                 "reconciliation_id": reconciliation_id,
-                "row_type": "MISMATCH",
-                "gstin": row.get("gstin") or row.get("supplier_gstin") or "",
-                "invoice_number": row.get("invoice_number") or row.get("invoice_no") or "",
-                "invoice_date": str(row.get("invoice_date") or ""),
-                "taxable_value": float(row.get("taxable_value") or 0.0),
-                "tax_amount": float(row.get("tax_amount") or row.get("igst") or row.get("cgst") or 0.0),
-                "issue": row.get("issue") or row.get("reason"),
-                "row_data": json.dumps(row, default=str),
-                "summary_snapshot": json.dumps(summary, default=str),
-                "created_at": datetime.now().isoformat(),
+                "supplier_gstin": r.get("supplier_gstin"),
+                "invoice_number": r.get("invoice_number"),
+                "invoice_date": r.get("invoice_date"),
+                "taxable_value_2b": r.get("taxable_value_2b"),
+                "taxable_value_pr": r.get("taxable_value_books"),
+                "igst_2b": r.get("igst_2b"),
+                "igst_pr": r.get("igst_books"),
+                "difference": r.get("difference"),
+                "status": r.get("issue") or "MISMATCH",
+                "suggested_action": r.get("recommended_action"),
+                "ai_insight": r.get("likely_cause"),
+                "is_reviewed": False
             })
 
-        if not rows:
-            return
+        # Batch insert in chunks of 500
+        for i in range(0, len(all_rows), 500):
+            chunk = all_rows[i:i+500]
+            get_supabase_client().table("recon_rows").insert(chunk).execute()
 
-        # Chunk into batches of 500 to avoid payload limits
-        CHUNK_SIZE = 500
-        for i in range(0, len(rows), CHUNK_SIZE):
-            chunk = rows[i : i + CHUNK_SIZE]
-            supabase_client.table("recon_rows").insert(chunk).execute()
+        print(f"[SUCCESS] Persisted {len(all_rows)} recon rows for run {reconciliation_id}.")
 
-        print(f"[INFO] Persisted {len(rows)} recon rows for reconciliation_id={reconciliation_id}")
     except Exception as e:
-        print(f"[WARN] Failed to persist recon_rows: {str(e)}")
+        print(f"[ERROR] Failed to save recon rows: {str(e)}")
 
 
-def get_recon_rows(reconciliation_id: str) -> Dict[str, Any]:
+def get_recon_rows(reconciliation_id: str) -> List[Dict[str, Any]]:
     """
-    Fetches all rows for a reconciliation_id from the recon_rows table.
-    Returns a dict with keys: summary, matches, mismatches — identical
-    structure to what reconcile_dataframes() returns, so export functions
-    can consume it without modification.
-    Raises ValueError if no rows are found (reconciliation_id unknown).
+    Fetches all individual match/mismatch rows for a specific reconciliation run.
     """
     if not is_supabase_active():
-        raise ValueError("Supabase is not active. Cannot retrieve persisted reconciliation rows.")
-
+        return []
     try:
-        res = supabase_client.table("recon_rows") \
+        res = get_supabase_client().table("recon_rows") \
             .select("*") \
             .eq("reconciliation_id", reconciliation_id) \
+            .order("status", desc=True) \
             .execute()
-
-        data: List[Dict[str, Any]] = cast(List[Dict[str, Any]], res.data or [])
-        if not data:
-            raise ValueError(f"No reconciliation rows found for id: {reconciliation_id}")
-
-        summary: Dict[str, Any] = {}
-        matches: List[Dict[str, Any]] = []
-        mismatches: List[Dict[str, Any]] = []
-
-        for row in data:
-            # Restore the full row payload from JSON
-            row_data = json.loads(row.get("row_data") or "{}")
-            if not summary and row.get("summary_snapshot"):
-                summary = json.loads(row["summary_snapshot"])
-            if row["row_type"] == "MATCH":
-                matches.append(row_data)
-            else:
-                mismatches.append(row_data)
-
-        return {"summary": summary, "matches": matches, "mismatches": mismatches}
-    except ValueError:
-        raise
+        return cast(List[Dict[str, Any]], res.data or [])
     except Exception as e:
-        raise ValueError(f"Failed to retrieve reconciliation rows: {str(e)}")
+        print(f"[ERROR] Failed to fetch recon rows: {str(e)}")
+        return []
 

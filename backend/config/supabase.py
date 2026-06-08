@@ -1,39 +1,56 @@
 import os
-from typing import Optional
+from typing import Optional, Any
 from dotenv import load_dotenv
-from supabase import create_client, Client
 
-# Load local environment variables if present
 load_dotenv()
 
-SUPABASE_URL: Optional[str] = os.getenv("SUPABASE_URL")
-SUPABASE_ANON_KEY: Optional[str] = os.getenv("SUPABASE_ANON_KEY")
-SUPABASE_SERVICE_ROLE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# Singleton client reference - starts as None to prevent import-time crashes
+supabase_client: Optional[Any] = None
 
-# Singleton client reference
-supabase_client: Optional[Client] = None
-
-# Enforce credentials existence on startup
-if (not SUPABASE_URL or SUPABASE_URL == "mock_url" or
-    not SUPABASE_ANON_KEY or SUPABASE_ANON_KEY == "mock_key" or
-    not SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_ROLE_KEY == "mock_key"):
+def _validate_credentials() -> tuple[str, str, str]:
+    """
+    Validate and return (url, anon_key, service_role_key).
+    Raises RuntimeError if credentials are missing or set to mock defaults.
+    """
+    url = os.getenv("SUPABASE_URL", "")
+    anon = os.getenv("SUPABASE_ANON_KEY", "")
+    service = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    
+    # Identify invalid/mock credentials
+    mock_vals = {"", "mock_url", "mock_key"}
     missing = []
-    if not SUPABASE_URL or SUPABASE_URL == "mock_url": missing.append("SUPABASE_URL")
-    if not SUPABASE_ANON_KEY or SUPABASE_ANON_KEY == "mock_key": missing.append("SUPABASE_ANON_KEY")
-    if not SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_ROLE_KEY == "mock_key": missing.append("SUPABASE_SERVICE_ROLE_KEY")
-    raise RuntimeError(
-        f"Required Supabase credentials missing or set to mock defaults: {', '.join(missing)}. "
-        f"Application startup failed."
-    )
+    if url in mock_vals: missing.append("SUPABASE_URL")
+    if anon in mock_vals: missing.append("SUPABASE_ANON_KEY")
+    if service in mock_vals: missing.append("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if missing:
+        raise RuntimeError(
+            f"Required Supabase credentials missing or set to mock defaults: {', '.join(missing)}"
+        )
+    return url, anon, service
 
-try:
-    supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    print("[SUCCESS] Supabase Persistent Infrastructure Client Singleton Initialized.")
-except Exception as e:
-    raise RuntimeError(f"Failed to initialize Supabase client: {str(e)}")
+def get_supabase_client():
+    """
+    Lazy singleton initializer.
+    Safe to import at module level; initialization only occurs on the first call.
+    Returns the initialized Supabase Client.
+    """
+    global supabase_client
+    if supabase_client is not None:
+        return supabase_client
+        
+    from supabase import create_client
+    url, anon, service = _validate_credentials()
+    
+    try:
+        supabase_client = create_client(url, service)
+        print("[SUPABASE] Persistent Infrastructure Client Singleton Initialized.")
+        return supabase_client
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize Supabase client: {str(e)}")
 
 def is_supabase_active() -> bool:
     """
-    Returns True if the persistent database client is active.
+    Returns True if the persistent database client has been initialized.
     """
     return supabase_client is not None

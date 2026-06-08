@@ -3,11 +3,10 @@ from typing import List, Optional, cast, Dict, Any
 from supabase import Client
 import logging
 from models import schemas
-from config.supabase import supabase_client as _raw_supabase, is_supabase_active
+from config.supabase import get_supabase_client, is_supabase_active
 
 logger = logging.getLogger(__name__)
 
-_db: Client = cast(Client, _raw_supabase)
 from middleware.auth import verify_token
 
 router = APIRouter()
@@ -34,7 +33,7 @@ async def get_audit_logs(
 
     try:
         q = (
-            _db.table("audit_logs")
+            get_supabase_client().table("audit_logs")
             .select("*")
             .order("created_at", desc=True)
             .limit(limit)

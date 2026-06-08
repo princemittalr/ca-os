@@ -12,10 +12,10 @@ async def list_tickets(current_user: dict = Depends(verify_token)):
     """List support tickets for the authenticated user.
     SUPER_ADMIN users can view all tickets across the firm.
     """
-    from config.supabase import supabase_client, is_supabase_active
-    if is_supabase_active() and supabase_client is not None:
+    from config.supabase import get_supabase_client, is_supabase_active
+    if is_supabase_active():
         try:
-            query = supabase_client.table("support_tickets").select("*")
+            query = get_supabase_client().table("support_tickets").select("*")
 
             # SUPER_ADMIN sees all tickets in the firm; others see only their own
             if current_user["role"] == "SUPER_ADMIN":
@@ -45,8 +45,8 @@ async def create_ticket(
     current_user: dict = Depends(verify_token),
 ):
     """Raise a new support ticket attributed to the authenticated user."""
-    from config.supabase import supabase_client, is_supabase_active
-    if not is_supabase_active() or supabase_client is None:
+    from config.supabase import get_supabase_client, is_supabase_active
+    if not is_supabase_active():
         raise HTTPException(status_code=503, detail="Support service unavailable.")
 
     import uuid as uuid_mod
@@ -63,7 +63,7 @@ async def create_ticket(
         "created_at": datetime.now().isoformat(),
     }
     try:
-        res = supabase_client.table("support_tickets").insert(payload).execute()
+        res = get_supabase_client().table("support_tickets").insert(payload).execute()
         if res.data:
             ret = cast(Dict[str, Any], res.data[0])
             ret["replies"] = ret.get("replies") or []
@@ -80,12 +80,12 @@ async def add_reply(
     current_user: dict = Depends(verify_token),
 ):
     """Add a reply to an existing support ticket owned by the authenticated user."""
-    from config.supabase import supabase_client, is_supabase_active
-    if not is_supabase_active() or supabase_client is None:
+    from config.supabase import get_supabase_client, is_supabase_active
+    if not is_supabase_active():
         raise HTTPException(status_code=503, detail="Support service unavailable.")
 
     try:
-        res = supabase_client.table("support_tickets").select("*").eq("id", ticket_id).execute()
+        res = get_supabase_client().table("support_tickets").select("*").eq("id", ticket_id).execute()
         if not res.data:
             raise HTTPException(status_code=404, detail="Ticket not found")
         db_t = cast(Dict[str, Any], res.data[0])
@@ -116,7 +116,7 @@ async def add_reply(
             }
             updated_replies = current_replies + [new_reply]
             update_res = (
-                supabase_client.table("support_tickets")
+                get_supabase_client().table("support_tickets")
                 .update({"replies": updated_replies})
                 .eq("id", ticket_id)
                 .execute()
@@ -136,7 +136,7 @@ async def add_reply(
             "text": payload.get("text"),
             "date": payload.get("date") or datetime.now().strftime("%d-%m-%Y %H:%M"),
         }
-        reply_res = supabase_client.table("support_replies").insert(reply_payload).execute()
+        reply_res = get_supabase_client().table("support_replies").insert(reply_payload).execute()
         if reply_res.data:
             db_t["replies"] = [cast(Dict[str, Any], r) for r in reply_res.data]
             return db_t

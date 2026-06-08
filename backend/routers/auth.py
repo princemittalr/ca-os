@@ -5,7 +5,7 @@ import logging
 
 from models import schemas
 from middleware.auth import verify_token
-from config.supabase import supabase_client, is_supabase_active
+from config.supabase import get_supabase_client, is_supabase_active
 
 
 from services.audit_logger import log_audit_event, get_client_ip
@@ -31,10 +31,10 @@ async def signup_firm_user(payload: schemas.UserRegister):
     # Provision dynamic tenant firm UUID — single source of truth for this firm
     firm_id = str(uuid.uuid4())
 
-    if supabase_client is not None:
+    if is_supabase_active():
         try:
             # Step 1: Register user in Supabase Auth with custom metadata
-            res = supabase_client.auth.sign_up({
+            res = get_supabase_client().auth.sign_up({
                 "email": email,
                 "password": password,
                 "options": {
@@ -58,7 +58,7 @@ async def signup_firm_user(payload: schemas.UserRegister):
             # Step 2: Insert user profile row — firm_id must match user_metadata exactly.
             # If this fails, rollback the auth user to prevent orphan records.
             try:
-                supabase_client.table("users").insert({
+                get_supabase_client().table("users").insert({
                     "id": user.id,
                     "full_name": full_name,
                     "firm_name": firm_name,
@@ -69,7 +69,7 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 # Rollback: delete the auth user so we don't leave orphan records
                 logger.error(f"User profile creation failed: {str(db_err)}", exc_info=True)
                 try:
-                    supabase_client.auth.admin.delete_user(user.id)
+                    get_supabase_client().auth.admin.delete_user(user.id)
                 except Exception:
                     pass  # Best-effort rollback; log but don't mask original error
                 raise HTTPException(
@@ -125,9 +125,9 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
     email = payload.email
     password = payload.password
 
-    if supabase_client is not None:
+    if is_supabase_active():
         try:
-            res = supabase_client.auth.sign_in_with_password({
+            res = get_supabase_client().auth.sign_in_with_password({
                 "email": email,
                 "password": password
             })
@@ -198,9 +198,9 @@ async def complete_onboarding(current_user: dict = Depends(verify_token)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid user context."
         )
-    if supabase_client is not None:
+    if is_supabase_active():
         try:
-            supabase_client.table("users").update({"onboarding_complete": True}).eq("id", user_id).execute()
+            get_supabase_client().table("users").update({"onboarding_complete": True}).eq("id", user_id).execute()
             return {"message": "Onboarding completed successfully.", "onboarding_complete": True}
         except Exception as e:
             logger.error(f"Failed to update onboarding status: {str(e)}", exc_info=True)
@@ -222,9 +222,9 @@ async def verify_password(payload: schemas.VerifyPasswordRequest, current_user: 
     email = current_user.get("email")
     if not isinstance(email, str):
         return {"valid": False}
-    if supabase_client is not None:
+    if is_supabase_active():
         try:
-            res = supabase_client.auth.sign_in_with_password({
+            res = get_supabase_client().auth.sign_in_with_password({
                 "email": email,
                 "password": payload.password
             })
@@ -245,9 +245,9 @@ async def update_password(payload: schemas.PasswordUpdateRequest, current_user: 
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid user context."
         )
-    if supabase_client is not None:
+    if is_supabase_active():
         try:
-            supabase_client.auth.admin.update_user_by_id(user_id, {"password": payload.new_password})
+            get_supabase_client().auth.admin.update_user_by_id(user_id, {"password": payload.new_password})
             return {"message": "Password updated successfully."}
         except Exception as e:
             logger.error(f"Failed to update password: {str(e)}", exc_info=True)
@@ -291,10 +291,10 @@ async def logout_other_sessions(request: Request, current_user: dict = Depends(v
     authorization = request.headers.get("Authorization")
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1]
-        if supabase_client is not None:
+        if is_supabase_active():
             try:
                 # Sign out other sessions using scope 'others'
-                supabase_client.auth.admin.sign_out(jwt=token, scope="others")
+                get_supabase_client().auth.admin.sign_out(jwt=token, scope="others")
                 return {"message": "Logged out of all other devices successfully."}
             except Exception as e:
                 logger.error(f"Failed to logout other sessions: {str(e)}", exc_info=True)
@@ -315,11 +315,11 @@ async def logout(request: Request, current_user: dict = Depends(verify_token)):
     The caller should also discard the access_token client-side.
     """
     authorization = request.headers.get("Authorization")
-    if supabase_client is not None and authorization and authorization.startswith("Bearer "):
+    if is_supabase_active() and authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ")[1]
         try:
             # Invalidate the session associated with this JWT on the server
-            supabase_client.auth.admin.sign_out(jwt=token, scope="global")
+            get_supabase_client().auth.admin.sign_out(jwt=token, scope="global")
         except Exception as e:
             # Non-fatal — the token will expire naturally; still return success
             print(f"[WARN] Server-side sign-out error: {str(e)}")
@@ -341,13 +341,13 @@ async def refresh_token(payload: schemas.TokenRefreshRequest):
     Accepts a Supabase refresh_token and returns a new access_token.
     Used by clients to silently renew sessions before expiry.
     """
-    if supabase_client is None:
+    if not is_supabase_active():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service unavailable. Supabase is not configured."
         )
     try:
-        res = supabase_client.auth.refresh_session(payload.refresh_token)
+        res = get_supabase_client().auth.refresh_session(payload.refresh_token)
         if not res.session or not res.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

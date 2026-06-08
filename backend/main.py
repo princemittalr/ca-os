@@ -9,13 +9,17 @@ from middleware.observability import ObservabilityMiddleware
 from middleware.security_headers import SecurityHeadersMiddleware
 from middleware.errors import http_exception_handler, validation_exception_handler
 from services.jobs.scheduler import cron_scheduler
-from config.supabase import is_supabase_active
+from config.supabase import get_supabase_client, is_supabase_active
 
 from config.env_validator import validate_environment
 validate_environment()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Force Supabase initialization at startup (not lazy-deferred)
+    # This will raise RuntimeError if credentials are missing or mock in production
+    get_supabase_client()
+
     # Startup checks
     if settings.ENV == "production":
         if not is_supabase_active():

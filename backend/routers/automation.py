@@ -4,9 +4,7 @@ from typing import List, cast, Dict, Any
 from supabase import Client
 
 from middleware.auth import verify_token, RequireRoles
-from config.supabase import supabase_client as _raw_supabase, is_supabase_active
-
-_db: Client = cast(Client, _raw_supabase)
+from config.supabase import get_supabase_client, is_supabase_active
 
 router = APIRouter()
 
@@ -61,7 +59,7 @@ class ToggleRequest(BaseModel):
 # HELPER: assert Supabase is live
 # ---------------------------------------------------------------------------
 def _require_supabase():
-    if not is_supabase_active() or _db is None:
+    if not is_supabase_active():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database service unavailable.",
@@ -87,7 +85,7 @@ async def get_agents(current_user: dict = Depends(verify_token)):
         )
 
     res = (
-        _db.table("automation_agents")
+        get_supabase_client().table("automation_agents")
         .select("*")
         .eq("firm_id", firm_id)
         .order("created_at")
@@ -103,7 +101,7 @@ async def get_agents(current_user: dict = Depends(verify_token)):
         for agent in DEFAULT_AGENTS
     ]
     insert_res = (
-        _db.table("automation_agents")
+        get_supabase_client().table("automation_agents")
         .insert(seeds)
         .execute()
     )
@@ -116,19 +114,16 @@ async def get_agents(current_user: dict = Depends(verify_token)):
 
 
 # ---------------------------------------------------------------------------
-# TOGGLE AGENT — PARTNER / SUPER_ADMIN only
-# Upserts the is_active flag for a given agent_key, firm-scoped.
+# TOGGLE AGENT — RequireRoles guard: PARTNER or MANAGER
 # ---------------------------------------------------------------------------
-@router.put("/agents/{agent_key}/toggle")
+@router.post("/{agent_key}/toggle")
 async def toggle_agent(
     agent_key: str,
     payload: ToggleRequest,
-    current_user: dict = Depends(RequireRoles(["SUPER_ADMIN", "PARTNER"])),
+    current_user: dict = Depends(RequireRoles(["PARTNER", "MANAGER"])),
 ):
     """
-    Toggle the active state of an automation agent.
-    Requires PARTNER or SUPER_ADMIN role.
-    Agent key must belong to the canonical whitelist.
+    Enable/disable an automation agent. Firm-scoped.
     """
     _require_supabase()
 
@@ -151,7 +146,7 @@ async def toggle_agent(
 
     # Verify the agent belongs to this firm before mutating
     existing = (
-        _db.table("automation_agents")
+        get_supabase_client().table("automation_agents")
         .select("id")
         .eq("firm_id", firm_id)
         .eq("agent_key", agent_key)
@@ -168,10 +163,10 @@ async def toggle_agent(
     agent_id = data_list[0]["id"]
 
     update_res = (
-        _db.table("automation_agents")
+        get_supabase_client().table("automation_agents")
         .update({"is_active": payload.is_active})
         .eq("id", agent_id)
-        .eq("firm_id", firm_id)          # double-check firm isolation on UPDATE
+        .eq("firm_id", firm_id)
         .execute()
     )
 

@@ -15,9 +15,9 @@ def get_client_ip(request: Request) -> str:
 
 def _write_audit_sync(log_entry: dict) -> None:
     """Blocking Supabase write — runs in thread pool via asyncio.to_thread."""
-    from config.supabase import supabase_client, is_supabase_active
-    if is_supabase_active() and supabase_client is not None:
-        supabase_client.table("audit_logs").insert(log_entry).execute()
+    from config.supabase import get_supabase_client, is_supabase_active
+    if is_supabase_active():
+        get_supabase_client().table("audit_logs").insert(log_entry).execute()
 
 
 async def log_audit_event(

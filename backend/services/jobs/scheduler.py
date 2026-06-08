@@ -30,11 +30,11 @@ class BackgroundScheduler:
 
         # Startup DB connectivity check
         try:
-            from config.supabase import supabase_client, is_supabase_active
-            if not is_supabase_active() or supabase_client is None:
+            from config.supabase import get_supabase_client, is_supabase_active
+            if not is_supabase_active():
                 print("[SCHEDULER] Supabase not active — scheduler disabled.")
                 return
-            client = supabase_client
+            client = get_supabase_client()
             # Verify scheduler_locks table exists
             client.table("scheduler_locks").select("lock_key").limit(1).execute()
             print("[SCHEDULER] DB connectivity check passed.")
@@ -58,12 +58,12 @@ class BackgroundScheduler:
     def _acquire_scheduler_lock(self) -> bool:
         """Use Supabase as distributed lock to prevent multi-worker scheduling."""
         try:
-            from config.supabase import supabase_client
+            from config.supabase import get_supabase_client, is_supabase_active
             from datetime import datetime, timedelta, timezone
-            if not supabase_client:
+            if not is_supabase_active():
                 return True  # single-worker fallback: run without lock
 
-            client = supabase_client
+            client = get_supabase_client()
             lock_key = "scheduler_lock"
             now_dt = datetime.now(timezone.utc)
             now = now_dt.isoformat()

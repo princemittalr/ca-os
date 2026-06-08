@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from typing import List, Dict, Any, cast
 from datetime import datetime, timezone
 from middleware.auth import verify_token
-from config.supabase import supabase_client, is_supabase_active
+from config.supabase import get_supabase_client, is_supabase_active
 
 router = APIRouter()
 
@@ -47,7 +47,7 @@ async def list_messages(current_user: dict = Depends(verify_token)):
     """
     Get recent communications from audit logs for the current user's firm.
     """
-    if not is_supabase_active() or supabase_client is None:
+    if not is_supabase_active():
         return []
 
     try:
@@ -56,7 +56,7 @@ async def list_messages(current_user: dict = Depends(verify_token)):
             return []
 
         res = (
-            supabase_client.table("audit_logs")
+            get_supabase_client().table("audit_logs")
             .select("*")
             .eq("firm_id", firm_id)
             .order("created_at", desc=True)

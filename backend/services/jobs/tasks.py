@@ -139,9 +139,9 @@ def nightly_reconciliation_summary_job(job_id: str):
     # Fetch all firms' reconciliation runs (unscoped background job)
     # Log count of high-risk runs for monitoring
     try:
-        from config.supabase import supabase_client, is_supabase_active
+        from config.supabase import get_supabase_client, is_supabase_active
         if is_supabase_active():
-            res = supabase_client.table("reconciliation_runs")\
+            res = get_supabase_client().table("reconciliation_runs")\
                 .select("risk_score")\
                 .eq("is_deleted", False)\
                 .execute()

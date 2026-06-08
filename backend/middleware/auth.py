@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status, Header
 from typing import List, Optional
-from config.supabase import supabase_client, is_supabase_active
+from config.supabase import get_supabase_client, is_supabase_active
 from config.settings import settings
 
 # -------------------------------------------------------------------------
@@ -26,7 +26,7 @@ async def verify_token(authorization: Optional[str] = Header(None)) -> dict:
     token = authorization.split(" ")[1]
 
     try:
-        res = supabase_client.auth.get_user(token)
+        res = get_supabase_client().auth.get_user(token)
         if not res or not res.user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

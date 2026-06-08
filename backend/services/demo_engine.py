@@ -453,9 +453,9 @@ def reset_demo_workspace():
     # DEMO_FIRM_ID is the designated isolation boundary for all demo data.
     # Deletions are scoped ONLY to this firm — real production firm data is never touched.
     DEMO_FIRM_ID = "demo-firm-uuid-12345"
-    from config.supabase import is_supabase_active, supabase_client
-    if is_supabase_active() and supabase_client is not None:
-        db = supabase_client
+    from config.supabase import is_supabase_active, get_supabase_client
+    if is_supabase_active():
+        db = get_supabase_client()
         try:
             logger.info("Supabase active. Seeding persistent database tables...")
             # Soft-wipe all demo data scoped to the designated demo firm only.

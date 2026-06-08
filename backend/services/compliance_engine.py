@@ -9,7 +9,8 @@ def sync_compliance_to_action_engine(task: Dict[str, Any], firm_id: Optional[str
     Resolves firm_id from the task's client record if not supplied.
     """
     try:
-        from services.db.manager import supabase_client, is_supabase_active, get_client_by_id
+        from config.supabase import get_supabase_client, is_supabase_active
+        from services.db.manager import get_client_by_id
 
         if not is_supabase_active():
             return
@@ -29,7 +30,7 @@ def sync_compliance_to_action_engine(task: Dict[str, Any], firm_id: Optional[str
 
         if status == "Filed":
             # Mark any existing action item as resolved
-            supabase_client.table("action_items") \
+            get_supabase_client().table("action_items") \
                 .update({
                     "status": "RESOLVED",
                     "action_state": "RESOLVED",
@@ -96,12 +97,11 @@ def sync_compliance_to_action_engine(task: Dict[str, Any], firm_id: Optional[str
             "is_deleted": False,
         }
 
-        supabase_client.table("action_items") \
+        get_supabase_client().table("action_items") \
             .upsert(payload, on_conflict="action_id") \
             .execute()
-
     except Exception as e:
-        print(f"[WARN] Failed to sync compliance task to action engine: {str(e)}")
+        print(f"[WARN] Failed to sync compliance task to action_items table: {str(e)}")
 
 
 def evaluate_status_and_risk(task: Dict[str, Any]) -> Dict[str, Any]:

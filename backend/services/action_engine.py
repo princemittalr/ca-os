@@ -11,10 +11,10 @@ class ActionEngineService:
     """
 
     def _get_supabase(self) -> Client:
-        from config.supabase import supabase_client as _raw_client, is_supabase_active
+        from config.supabase import get_supabase_client, is_supabase_active
         if not is_supabase_active():
             raise RuntimeError("Supabase is not active. Cannot persist action items.")
-        return cast(Client, _raw_client)
+        return cast(Client, get_supabase_client())
 
     def push_action_item(self, action_data: Dict[str, Any]) -> Dict[str, Any]:
         """
