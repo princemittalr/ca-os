@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import logging
+import uuid as _uuid
 
 from middleware.auth import verify_token, RequireRoles
 from middleware.rate_limit import limiter, UPLOAD_LIMIT
@@ -160,7 +161,7 @@ async def upload_gst_notice(
             "client_id": client_id,
             "firm_id": current_user["firm_id"],
             "client_name": client.get("business_name") or client.get("legal_name") or "Unknown Client",
-            "notice_number": det.get("notice_number") or ai_data.get("notice_number") or f"GST/REF/{int(datetime.now().timestamp())}",
+            "notice_number": det.get("notice_number") or ai_data.get("notice_number") or f"GST/REF/{_uuid.uuid4().hex[:8].upper()}",
             "issuing_authority": det.get("issuing_authority") or "State Tax Officer, GST Department",
             "section_references": ai_data.get("sections_referenced") or det.get("section_references") or ["Section 73"],
             "notice_type": notice_type,
