@@ -1,11 +1,22 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any, Optional, cast
 from models import schemas
-from datetime import datetime
+from datetime import datetime, timezone
+from pydantic import BaseModel
 from middleware.auth import verify_token
+from services.input_validator import sanitize_text
 
 router = APIRouter()
 
+def _now_utc() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+def _now_display() -> str:
+    """Human-readable UTC timestamp for display fields."""
+    return datetime.now(timezone.utc).strftime("%d-%m-%Y %H:%M")
+
+class ChatRequest(BaseModel):
+    message: str
 
 @router.get("/tickets", response_model=List[schemas.SupportTicketResponse])
 async def list_tickets(current_user: dict = Depends(verify_token)):
@@ -60,7 +71,7 @@ async def create_ticket(
         "description": ticket.description,
         "priority": ticket.priority,
         "status": "open",
-        "created_at": datetime.now().isoformat(),
+        "created_at": _now_utc(),
     }
     try:
         res = get_supabase_client().table("support_tickets").insert(payload).execute()
@@ -112,7 +123,7 @@ async def add_reply(
             new_reply = {
                 "sender": payload.get("sender", "user"),
                 "text": payload.get("text"),
-                "date": payload.get("date") or datetime.now().strftime("%d-%m-%Y %H:%M"),
+                "date": payload.get("date") or _now_display(),
             }
             updated_replies = current_replies + [new_reply]
             update_res = (
@@ -134,7 +145,7 @@ async def add_reply(
             "ticket_id": ticket_id,
             "sender": payload.get("sender", "user"),
             "text": payload.get("text"),
-            "date": payload.get("date") or datetime.now().strftime("%d-%m-%Y %H:%M"),
+            "date": payload.get("date") or _now_display(),
         }
         reply_res = get_supabase_client().table("support_replies").insert(reply_payload).execute()
         if reply_res.data:
@@ -151,8 +162,10 @@ async def add_reply(
 
 # NOTE: chat_bot is intentionally kept unauthenticated to allow pre-login support access.
 @router.post("/chat")
-async def chat_bot(payload: dict):
-    message = payload.get("message", "")
+async def chat_bot(payload: ChatRequest):
+    message = sanitize_text(payload.message, max_length=500)
+    if not message.strip():
+        return {"reply": "Please enter a message to get support."}
     normalized = message.lower()
 
     reply_text = (
