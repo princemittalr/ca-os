@@ -485,14 +485,19 @@ def get_action_items(firm_id: str) -> List[Dict[str, Any]]:
     Fetches all PENDING action items for the given firm from Supabase.
     Always Supabase — no in-memory fallback.
     """
-    res = get_supabase_client().table("action_items") \
-        .select("*") \
-        .eq("firm_id", firm_id) \
-        .eq("status", "PENDING") \
-        .eq("is_deleted", False) \
-        .order("risk_score", desc=True) \
-        .execute()
-    return cast(List[Dict[str, Any]], res.data or [])
+    if not is_supabase_active():
+        raise RuntimeError("Database connection is inactive.")
+    try:
+        res = get_supabase_client().table("action_items") \
+            .select("*") \
+            .eq("firm_id", firm_id) \
+            .eq("status", "PENDING") \
+            .eq("is_deleted", False) \
+            .order("risk_score", desc=True) \
+            .execute()
+        return cast(List[Dict[str, Any]], res.data or [])
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch action items: {str(e)}") from e
 
 def resolve_action_item(action_id: str, firm_id: str) -> Optional[Dict[str, Any]]:
     """
@@ -500,21 +505,26 @@ def resolve_action_item(action_id: str, firm_id: str) -> Optional[Dict[str, Any]
     Scoped to firm_id to prevent cross-tenant mutations.
     Always Supabase — no in-memory fallback.
     """
-    now_str = _now()
-    updates = {
-        "status": "RESOLVED",
-        "action_state": "RESOLVED",
-        "resolved_at": now_str,
-        "updated_at": now_str,
-    }
-    res = get_supabase_client().table("action_items") \
-        .update(updates) \
-        .eq("action_id", action_id) \
-        .eq("firm_id", firm_id) \
-        .execute()
-    if res.data:
-        return cast(Optional[Dict[str, Any]], res.data[0])
-    return None
+    if not is_supabase_active():
+        raise RuntimeError("Database connection is inactive.")
+    try:
+        now_str = _now()
+        updates = {
+            "status": "RESOLVED",
+            "action_state": "RESOLVED",
+            "resolved_at": now_str,
+            "updated_at": now_str,
+        }
+        res = get_supabase_client().table("action_items") \
+            .update(updates) \
+            .eq("action_id", action_id) \
+            .eq("firm_id", firm_id) \
+            .execute()
+        if res.data:
+            return cast(Optional[Dict[str, Any]], res.data[0])
+        return None
+    except Exception as e:
+        raise RuntimeError(f"Failed to resolve action item: {str(e)}") from e
 
 def update_action_assignment(action_id: str, staff: str, firm_id: str) -> Optional[Dict[str, Any]]:
     """
@@ -522,15 +532,20 @@ def update_action_assignment(action_id: str, staff: str, firm_id: str) -> Option
     Scoped to firm_id to prevent cross-tenant mutations.
     Always Supabase — no in-memory fallback.
     """
-    now_str = _now()
-    res = get_supabase_client().table("action_items") \
-        .update({"assigned_to": staff, "updated_at": now_str}) \
-        .eq("action_id", action_id) \
-        .eq("firm_id", firm_id) \
-        .execute()
-    if res.data:
-        return cast(Optional[Dict[str, Any]], res.data[0])
-    return None
+    if not is_supabase_active():
+        raise RuntimeError("Database connection is inactive.")
+    try:
+        now_str = _now()
+        res = get_supabase_client().table("action_items") \
+            .update({"assigned_to": staff, "updated_at": now_str}) \
+            .eq("action_id", action_id) \
+            .eq("firm_id", firm_id) \
+            .execute()
+        if res.data:
+            return cast(Optional[Dict[str, Any]], res.data[0])
+        return None
+    except Exception as e:
+        raise RuntimeError(f"Failed to update action assignment: {str(e)}") from e
 
 
 # -------------------------------------------------------------------------
@@ -1093,7 +1108,7 @@ def get_recon_rows(reconciliation_id: str) -> List[Dict[str, Any]]:
     Fetches all individual match/mismatch rows for a specific reconciliation run.
     """
     if not is_supabase_active():
-        return []
+        raise ValueError("Database unavailable. Cannot fetch reconciliation rows.")
     try:
         res = get_supabase_client().table("recon_rows") \
             .select("*") \
@@ -1102,8 +1117,7 @@ def get_recon_rows(reconciliation_id: str) -> List[Dict[str, Any]]:
             .execute()
         return cast(List[Dict[str, Any]], res.data or [])
     except Exception as e:
-        print(f"[ERROR] Failed to fetch recon rows: {str(e)}")
-        return []
+        raise ValueError(f"Failed to fetch recon rows for {reconciliation_id}: {str(e)}") from e
 
 
 def get_recon_rows_structured(reconciliation_id: str) -> Dict[str, Any]:
