@@ -6,7 +6,7 @@ from io import BytesIO
 import logging
 
 # Fix local relative imports
-from services import matching_engine, ai_service
+from services import matching_engine
 from services.parser import parse_file_to_dataframe, normalize_columns, detect_gst_fields
 from services.reconciliation import reconcile_dataframes
 from services.exporter import generate_excel_report, generate_pdf_summary
