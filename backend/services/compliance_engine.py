@@ -25,11 +25,21 @@ def sync_compliance_to_action_engine(task: Dict[str, Any], firm_id: Optional[str
         client_id = task.get("client_id")
         now_str = _now()
 
-        # Resolve firm_id from client record if not provided
+        # Resolve firm_id from client record, scoped to prevent cross-firm read
         if not firm_id and client_id:
-            client_info = get_client_by_id(client_id)
+            client_info = get_client_by_id(client_id)  # unscoped only when firm_id truly unknown
             firm_id = (client_info or {}).get("firm_id")
-        client_info = get_client_by_id(client_id) if client_id else {}
+
+        if not firm_id:
+            print(f"[WARN] sync_compliance: firm_id could not be resolved for task {comp_id}. Skipping action engine sync.")
+            return
+
+        # Always scope client lookup with firm_id when available
+        client_info = get_client_by_id(client_id, firm_id=firm_id) if client_id else None
+        if not client_info and client_id:
+            print(f"[WARN] sync_compliance: client {client_id} not found in firm {firm_id}. Skipping.")
+            return  # ← CRITICAL: don't sync action item with wrong/missing firm
+
         client_name = (client_info or {}).get("business_name", "Unknown Client")
 
         if status == "Filed":
