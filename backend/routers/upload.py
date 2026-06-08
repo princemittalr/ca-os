@@ -32,7 +32,7 @@ async def upload_gstr2b(
         detected = detect_gst_fields(columns_list)
 
         # Log audit event with user context
-        log_audit_event(
+        await log_audit_event(
             action="GSTR2B_UPLOAD",
             entity_type="upload",
             actor_id=current_user.get("user_id"),

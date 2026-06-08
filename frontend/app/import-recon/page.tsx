@@ -292,7 +292,6 @@ export default function BoeIntelligenceCenter() {
                   }))
                 ];
                 if (mapped.length > 0) setBoeRows(mapped);
-              }
             } catch (apiErr) {
               console.error("Import BOE API call failed:", apiErr);
             }

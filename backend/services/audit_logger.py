@@ -1,4 +1,5 @@
 import uuid
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 from fastapi import Request
@@ -12,7 +13,14 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def log_audit_event(
+def _write_audit_sync(log_entry: dict) -> None:
+    """Blocking Supabase write — runs in thread pool via asyncio.to_thread."""
+    from config.supabase import supabase_client, is_supabase_active
+    if is_supabase_active() and supabase_client is not None:
+        supabase_client.table("audit_logs").insert(log_entry).execute()
+
+
+async def log_audit_event(
     action: str,
     entity_type: str,
     actor_id: Optional[str] = None,
@@ -22,11 +30,8 @@ def log_audit_event(
     ip_address: Optional[str] = None,
 ) -> None:
     """
-    Canonical audit event writer.
-
-    Persists to the ``audit_logs`` Supabase table using the service-role
-    client so that writes bypass Row-Level Security (RLS) — audit records
-    must never be blocked by tenant policies.
+    Async audit writer. Offloads blocking Supabase insert to thread pool.
+    Never raises — fallback to console on failure.
 
     Schema written to DB:
         id          UUID (generated here)
@@ -38,12 +43,7 @@ def log_audit_event(
         details     jsonb
         ip_address  text | NULL
         created_at  ISO-8601 timestamp
-
-    Falls back to console logging if Supabase is unavailable so callers
-    never need to guard against exceptions from this function.
     """
-    from config.supabase import supabase_client, is_supabase_active
-
     log_entry = {
         "id": str(uuid.uuid4()),
         "firm_id": firm_id,
@@ -56,9 +56,10 @@ def log_audit_event(
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    if is_supabase_active() and supabase_client is not None:
+    from config.supabase import is_supabase_active
+    if is_supabase_active():
         try:
-            supabase_client.table("audit_logs").insert(log_entry).execute()
+            await asyncio.to_thread(_write_audit_sync, log_entry)
             return
         except Exception as e:
             print(f"[AUDIT] Supabase write failed: {e}")

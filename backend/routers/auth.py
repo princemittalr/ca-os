@@ -78,7 +78,7 @@ async def signup_firm_user(payload: schemas.UserRegister):
                 )
 
             # Step 3: Log audit trail
-            log_audit_event(
+            await log_audit_event(
                 action="SIGNUP_FIRM_USER",
                 entity_type="users",
                 actor_id=user.id,
@@ -150,7 +150,7 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
             full_name = metadata.get("full_name", "CA Partner")
             
             # Log audit
-            log_audit_event(
+            await log_audit_event(
                 action="LOGIN_SUCCESS",
                 entity_type="auth",
                 actor_id=user.id,
@@ -324,7 +324,7 @@ async def logout(request: Request, current_user: dict = Depends(verify_token)):
             # Non-fatal — the token will expire naturally; still return success
             print(f"[WARN] Server-side sign-out error: {str(e)}")
 
-    log_audit_event(
+    await log_audit_event(
         action="LOGOUT",
         entity_type="auth",
         actor_id=current_user.get("user_id"),
