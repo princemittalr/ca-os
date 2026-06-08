@@ -270,7 +270,7 @@ async def export_reconciliation_excel(
     Fetches rows from Supabase recon_rows by reconciliation_id — works across server restarts.
     """
     try:
-        results = db_manager.get_recon_rows(reconciliation_id)
+        results = db_manager.get_recon_rows_structured(reconciliation_id)
     except ValueError as ve:
         logger.warning(f"Excel export failed: {str(ve)}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation data not found.")
@@ -304,7 +304,7 @@ async def export_reconciliation_pdf(
     Fetches rows from Supabase recon_rows by reconciliation_id — works across server restarts.
     """
     try:
-        results = db_manager.get_recon_rows(reconciliation_id)
+        results = db_manager.get_recon_rows_structured(reconciliation_id)
     except ValueError as ve:
         logger.warning(f"PDF export failed: {str(ve)}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reconciliation data not found.")

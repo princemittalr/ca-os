@@ -1105,3 +1105,54 @@ def get_recon_rows(reconciliation_id: str) -> List[Dict[str, Any]]:
         print(f"[ERROR] Failed to fetch recon rows: {str(e)}")
         return []
 
+
+def get_recon_rows_structured(reconciliation_id: str) -> Dict[str, Any]:
+    """
+    Fetches recon rows and reconstructs the summary/matches/mismatches structure
+    expected by the export functions.
+    """
+    rows = get_recon_rows(reconciliation_id)
+    if not rows:
+        raise ValueError(f"No recon rows found for reconciliation_id={reconciliation_id}")
+
+    matches = []
+    mismatches = []
+
+    for row in rows:
+        status_val = (row.get("status") or "").upper()
+        # Normalize row keys for exporter compatibility
+        normalized = {
+            "supplier_gstin": row.get("supplier_gstin"),
+            "invoice_number": row.get("invoice_number"),
+            "invoice_date": row.get("invoice_date"),
+            "taxable_value": row.get("taxable_value_pr") or row.get("taxable_value_2b") or 0.0,
+            "taxable_value_2b": row.get("taxable_value_2b"),
+            "taxable_value_books": row.get("taxable_value_pr"),
+            "difference": row.get("difference") or 0.0,
+            "issue": status_val,
+            "likely_cause": row.get("ai_insight") or "",
+            "recommended_action": row.get("suggested_action") or "",
+            "risk_level": "LOW" if status_val == "MATCHED" else "HIGH" if status_val == "MISSING_IN_2B" else "MEDIUM",
+            "gstin": row.get("supplier_gstin"),
+        }
+        if status_val == "MATCHED":
+            matches.append(normalized)
+        else:
+            mismatches.append(normalized)
+
+    # Recompute summary from rows
+    status_counts: dict = {}
+    for row in rows:
+        s = (row.get("status") or "UNKNOWN").upper()
+        status_counts[s] = status_counts.get(s, 0) + 1
+
+    summary = {
+        "matched": status_counts.get("MATCHED", 0),
+        "missing_in_2b": status_counts.get("MISSING_IN_2B", 0),
+        "missing_in_books": status_counts.get("MISSING_IN_BOOKS", 0),
+        "value_mismatch": status_counts.get("VALUE_MISMATCH", 0),
+        "partial_match": status_counts.get("PARTIAL_MATCH", 0),
+    }
+
+    return {"summary": summary, "matches": matches, "mismatches": mismatches}
+

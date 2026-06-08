@@ -161,6 +161,8 @@ def reconcile_dataframes(
                 "invoice_number": raw_inv,
                 "gstin": raw_gstin,
                 "taxable_value": raw_val,
+                "taxable_value_books": raw_val,
+                "taxable_value_2b": None,
                 "issue": "MISSING_IN_2B",
                 "reason": "Invoice present in Books, but supplier GSTIN is entirely missing in GSTR-2B."
             })
@@ -196,6 +198,9 @@ def reconcile_dataframes(
                     "invoice_number": raw_inv,
                     "gstin": raw_gstin,
                     "taxable_value": raw_val,
+                    "taxable_value_books": raw_val,
+                    "taxable_value_2b": exact_match["taxable_value"],
+                    "difference": raw_val - exact_match["taxable_value"],
                     "issue": "VALUE_MISMATCH",
                     "reason": f"Invoice number matched strictly, but tax value differs: Books = ₹{raw_val:,.2f}, GSTR-2B = ₹{exact_match['taxable_value']:,.2f} (Diff: ₹{diff:,.2f})."
                 })
@@ -224,6 +229,8 @@ def reconcile_dataframes(
                     "invoice_number": raw_inv,
                     "gstin": raw_gstin,
                     "taxable_value": raw_val,
+                    "taxable_value_books": raw_val,
+                    "taxable_value_2b": best_cand["taxable_value"],
                     "issue": "PARTIAL_MATCH",
                     "reason": f"Fuzzy matched invoice number with '{best_cand['invoice_number']}' (Score: {best_score:.1f}%). Tax values match."
                 })
@@ -234,6 +241,9 @@ def reconcile_dataframes(
                     "invoice_number": raw_inv,
                     "gstin": raw_gstin,
                     "taxable_value": raw_val,
+                    "taxable_value_books": raw_val,
+                    "taxable_value_2b": best_cand["taxable_value"],
+                    "difference": raw_val - best_cand["taxable_value"],
                     "issue": "VALUE_MISMATCH",
                     "reason": f"Fuzzy matched with '{best_cand['invoice_number']}' (Score: {best_score:.1f}%), but value differs: Books = ₹{raw_val:,.2f}, GSTR-2B = ₹{best_cand['taxable_value']:,.2f}."
                 })
@@ -245,6 +255,8 @@ def reconcile_dataframes(
             "invoice_number": raw_inv,
             "gstin": raw_gstin,
             "taxable_value": raw_val,
+            "taxable_value_books": raw_val,
+            "taxable_value_2b": None,
             "issue": "MISSING_IN_2B",
             "reason": "Invoice present in Books, but absent in GSTR-2B under this supplier."
         })
@@ -258,6 +270,8 @@ def reconcile_dataframes(
                     "invoice_number": cand["invoice_number"],
                     "gstin": gstin,
                     "taxable_value": cand["taxable_value"],
+                    "taxable_value_books": None,
+                    "taxable_value_2b": cand["taxable_value"],
                     "issue": "MISSING_IN_BOOKS",
                     "reason": f"Invoice present in GSTR-2B, but entirely missing in Purchase Books (Value: ₹{cand['taxable_value']:,.2f})."
                 })
