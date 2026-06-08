@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/signup", response_model=schemas.TokenResponse)
-async def signup_firm_user(payload: schemas.UserRegister):
+@limiter.limit(AUTH_LIMIT)
+async def signup_firm_user(request: Request, payload: schemas.UserRegister):
     """
     Registers a new CA Firm user account using Supabase Auth.
     Automatically provisions firm tenant context, inserts the user profile
