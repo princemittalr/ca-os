@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, Field
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 
@@ -203,12 +203,13 @@ class AuditLogResponse(BaseModel):
 
 # --- Communication Schemas ---
 class CommunicationGenerateRequest(BaseModel):
-    client_id: Optional[str] = None  # Add client_id for firm scoping
-    vendor_name: str
-    gstin: str
-    issue: str
-    invoice_number: Optional[str] = None
-    taxable_value: Optional[float] = 0.0
+    client_id: Optional[str] = None
+    vendor_name: str = Field(..., min_length=1, description="Vendor/supplier name")
+    gstin: str = Field(..., min_length=15, max_length=15, description="15-char GSTIN")
+    issue: str = Field(..., description="Issue type e.g. MISSING_IN_2B")
+    subject: Optional[str] = None
+    email_body: Optional[str] = None
+    priority: Optional[str] = "HIGH"
     recommended_deadline: Optional[str] = None
 
 class CommunicationResponse(BaseModel):

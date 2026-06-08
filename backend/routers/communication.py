@@ -37,15 +37,20 @@ async def generate_outreach_draft(
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found.")
 
+    # Inject firm_id from token — never from payload
+    data = payload.model_dump()
+    data["firm_id"] = current_user["firm_id"]
+
     try:
-        data_dict = payload.model_dump()
-        draft = db_manager.create_communication(data_dict)
+        draft = db_manager.create_communication(data)
         return draft
+    except ValueError as ve:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
-        logger.error(f"An error occurred while compiling notice drafts: {str(e)}", exc_info=True)
+        logger.error(f"Communication creation failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An error occurred while compiling notice drafts. Please try again."
+            detail="Failed to create communication draft."
         )
 
 @router.put("/{comm_id}/status")
