@@ -10,12 +10,19 @@ from services.jobs import tasks
 # Globally protect the jobs command router with firm auditing RBAC guards
 router = APIRouter()
 
+def _safe_job(job: dict) -> dict:
+    """Strip error_logs from public response."""
+    if isinstance(job, dict):
+        job.pop("error_logs", None)
+    return job
+
 @router.get("", response_model=List[schemas.JobResponse])
 async def list_background_jobs(current_user: dict = Depends(verify_token)):
     """
     Retrieves history logs of all background processes and scheduled automated tasks.
     """
-    return db_manager.get_jobs(firm_id=current_user["firm_id"])
+    jobs = db_manager.get_jobs(firm_id=current_user["firm_id"])
+    return [_safe_job(job) for job in jobs]
 
 @router.get("/notifications", response_model=List[schemas.NotificationLogResponse])
 async def list_notifications_logs(current_user: dict = Depends(verify_token)):
@@ -35,7 +42,7 @@ async def get_job_details(job_id: str, current_user: dict = Depends(verify_token
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Job with ID '{job_id}' not found."
         )
-    return job
+    return _safe_job(job)
 
 @router.post("/{job_id}/retry", response_model=schemas.JobResponse)
 async def retry_failed_job(
@@ -82,7 +89,7 @@ async def retry_failed_job(
     # Update old job log to link to new execution run
     db_manager.update_job(job_id, {"error_logs": f"Manually retried as new job: {new_job['job_id']}"})
     
-    return new_job
+    return _safe_job(new_job)
 
 @router.post("/trigger", response_model=schemas.JobResponse)
 async def force_trigger_job(
@@ -109,5 +116,5 @@ async def force_trigger_job(
             detail=f"Invalid periodic automation job type: {job_type}"
         )
         
-    return job_queue.enqueue(job_type, task_func, firm_id=current_user["firm_id"])
+    return _safe_job(job_queue.enqueue(job_type, task_func, firm_id=current_user["firm_id"]))
 

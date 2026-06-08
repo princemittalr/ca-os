@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 import traceback
 import time
 from typing import Callable, Any, Dict, Optional
@@ -55,7 +55,7 @@ class ThreadPoolJobQueue(AbstractJobQueue):
                 update_job(job_id, {
                     "status": "COMPLETED",
                     "progress": 100.0,
-                    "completed_at": datetime.now(),
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
                     "error_logs": None
                 })
                 print(f"[JOB MANAGER] Job {job_id} ({job_type}) completed successfully.")
@@ -79,7 +79,7 @@ class ThreadPoolJobQueue(AbstractJobQueue):
                     update_job(job_id, {
                         "status": "FAILED",
                         "progress": 100.0,
-                        "completed_at": datetime.now(),
+                        "completed_at": datetime.now(timezone.utc).isoformat(),
                         "error_logs": err_msg
                     })
 
