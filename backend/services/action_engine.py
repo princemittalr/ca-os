@@ -1,7 +1,10 @@
 import uuid
+import logging
 from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Any, Optional, cast
 from supabase import Client
+
+logger = logging.getLogger(__name__)
 
 def _now() -> str:
     """UTC ISO-8601 timestamp string for Supabase timestamptz columns."""
@@ -20,7 +23,11 @@ class ActionEngineService:
             raise RuntimeError("Supabase is not active. Cannot persist action items.")
         return cast(Client, get_supabase_client())
 
-    def push_action_item(self, action_data: Dict[str, Any]) -> Dict[str, Any]:
+    def push_action_item(
+        self,
+        action_data: Dict[str, Any],
+        raise_on_failure: bool = False,
+    ) -> Dict[str, Any]:
         """
         Upserts a new or updated Action Item into the Supabase action_items table.
         Performs full schema enrichment (risk mapping, timeline, deep-link) before write.
@@ -56,7 +63,10 @@ class ActionEngineService:
                 priority = "LOW"
 
         # Lookup client name and firm_id if missing
-        client_id = action_data.get("client_id") or "client-generic"
+        client_id = action_data.get("client_id")
+        if not client_id:
+            raise ValueError("push_action_item requires client_id. Cannot create action item without client context.")
+
         client_name = action_data.get("client_name")
         firm_id = action_data.get("firm_id")
 
@@ -140,8 +150,12 @@ class ActionEngineService:
             ).execute()
             if res.data:
                 return dict(res.data[0])
+            
+            raise RuntimeError(f"Upsert returned no data for action_id={act_id}")
         except Exception as e:
-            print(f"[WARN] ActionEngine failed to upsert action item {act_id}: {str(e)}")
+            logger.warning(f"[ActionEngine] Failed to upsert action item {act_id}: {str(e)}")
+            if raise_on_failure:
+                raise
 
         # Return the enriched payload as best-effort even if DB write failed
         return dict(enriched_item)
@@ -161,7 +175,7 @@ class ActionEngineService:
                 .execute()
             return list(res.data or [])
         except Exception as e:
-            print(f"[WARN] ActionEngine failed to fetch action items: {str(e)}")
+            logger.warning(f"[ActionEngine] Failed to fetch action items: {str(e)}")
             return []
 
     def resolve_action_item(self, action_id: str) -> Optional[Dict[str, Any]]:
@@ -184,7 +198,7 @@ class ActionEngineService:
             if res.data:
                 return dict(res.data[0])
         except Exception as e:
-            print(f"[WARN] ActionEngine failed to resolve action item {action_id}: {str(e)}")
+            logger.warning(f"[ActionEngine] Failed to resolve action item {action_id}: {str(e)}")
         return None
 
     def update_action_assignment(self, action_id: str, staff: str) -> Optional[Dict[str, Any]]:
@@ -205,7 +219,7 @@ class ActionEngineService:
             if res.data:
                 return dict(res.data[0])
         except Exception as e:
-            print(f"[WARN] ActionEngine failed to update assignment for {action_id}: {str(e)}")
+            logger.warning(f"[ActionEngine] Failed to update assignment for {action_id}: {str(e)}")
         return None
 
 
