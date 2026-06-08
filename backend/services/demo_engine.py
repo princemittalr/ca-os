@@ -1,4 +1,5 @@
 import logging
+import uuid
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional
 
@@ -442,14 +443,7 @@ def reset_demo_workspace():
     # 1. Compliance tasks are persisted via Supabase only (no in-memory mock).
     #    The Supabase seeding block below handles demo compliance tasks.
     
-    # 2. Reset In-Memory Lists in services.communication
-    import services.communication as comm
-    comm.MOCK_COMMUNICATIONS = get_seeded_communications()
-    
-    # 3. Action items are persisted via Supabase only (no in-memory mock).
-    #    The Supabase seeding block below handles demo action items.
-
-    # 4. Database reset (if Supabase persistent connection is active)
+    # 2. Database reset (if Supabase persistent connection is active)
     # DEMO_FIRM_ID is the designated isolation boundary for all demo data.
     # Deletions are scoped ONLY to this firm — real production firm data is never touched.
     DEMO_FIRM_ID = "demo-firm-uuid-12345"
@@ -537,6 +531,7 @@ def reset_demo_workspace():
             for a in get_seeded_action_items():
                 payload = {
                     "action_id": a["action_id"],
+                    "firm_id": DEMO_FIRM_ID,
                     "client_id": a["client_id"],
                     "client_name": a["client_name"],
                     "category": a["category"],
@@ -550,6 +545,25 @@ def reset_demo_workspace():
                     "is_deleted": False
                 }
                 db.table("action_items").insert(payload).execute()
+
+            # Insert Communications
+            for c in get_seeded_communications():
+                payload = {
+                    "id": str(uuid.uuid4()),
+                    "firm_id": DEMO_FIRM_ID,
+                    "client_id": c["client_id"],
+                    "vendor_name": c["vendor_name"],
+                    "gstin": c["gstin"],
+                    "issue": c["issue"],
+                    "subject": c["subject"],
+                    "email_body": c["email_body"],
+                    "priority": c["priority"],
+                    "recommended_deadline": c["recommended_deadline"],
+                    "status": c["status"],
+                    "is_deleted": False,
+                    "created_at": datetime.now().isoformat()
+                }
+                db.table("communications").insert(payload).execute()
                 
             logger.info("✓ Persistent Database Tables Seeding: OK")
         except Exception as err:

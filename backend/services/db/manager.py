@@ -409,54 +409,69 @@ def update_compliance_assignment(comp_id: str, staff: str) -> Optional[Dict[str,
 # OUTREACH COMMUNICATIONS CRUD ABSTRACTION
 # -------------------------------------------------------------------------
 def get_communications(client_id: str) -> List[Dict[str, Any]]:
-    if is_supabase_active():
-        try:
-            res = get_supabase_client().table("communications").select("*").eq("client_id", client_id).eq("is_deleted", False).execute()
-            return cast(List[Dict[str, Any]], res.data)
-        except Exception as e:
-            print(f"Supabase query error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback
-    from services.communication import get_communications_by_client
-    return get_communications_by_client(client_id)
+    """Fetch client communications from Supabase. No in-memory fallback."""
+    if not is_supabase_active():
+        raise RuntimeError("Database unavailable. Cannot fetch communications.")
+    try:
+        res = (
+            get_supabase_client().table("communications")
+            .select("*")
+            .eq("client_id", client_id)
+            .eq("is_deleted", False)
+            .execute()
+        )
+        return cast(List[Dict[str, Any]], res.data or [])
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch communications: {str(e)}") from e
 
 def create_communication(data: Dict[str, Any]) -> Dict[str, Any]:
-    if is_supabase_active():
-        try:
-            payload = {
-                "id": str(uuid.uuid4()),
-                "client_id": data.get("client_id") or "client-1",
-                "vendor_name": data["vendor_name"],
-                "gstin": data["gstin"],
-                "issue": data["issue"],
-                "subject": data["subject"],
-                "email_body": data["email_body"],
-                "priority": data.get("priority") or "HIGH",
-                "recommended_deadline": str(data["recommended_deadline"]),
-                "status": "Drafted",
-                "is_deleted": False
-            }
-            res = get_supabase_client().table("communications").insert(payload).execute()
-            if res.data:
-                return cast(Dict[str, Any], res.data[0])
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback
-    from services.communication import generate_draft
-    return generate_draft(data)
+    """Persist communication draft to Supabase. No in-memory fallback."""
+    if not is_supabase_active():
+        raise RuntimeError("Database unavailable. Cannot create communication.")
+    
+    # Building payload directly to avoid dual-state in services/communication.py
+    payload = {
+        "id": str(uuid.uuid4()),
+        "client_id": data.get("client_id") or "",
+        "vendor_name": data.get("vendor_name") or "Supplier Firm",
+        "gstin": data.get("gstin") or "—",
+        "issue": data.get("issue", "MISSING_IN_2B").upper(),
+        "subject": data.get("subject", "GST Compliance Mismatch Notice"),
+        "email_body": data.get("email_body", ""),
+        "priority": data.get("priority") or "HIGH",
+        "recommended_deadline": str(data.get("recommended_deadline") or (date.today() + timedelta(days=10)).strftime("%Y-%m-%d")),
+        "status": "Drafted",
+        "is_deleted": False,
+        "created_at": datetime.now().isoformat()
+    }
+    
+    if not payload["client_id"]:
+        raise ValueError("client_id required for communication.")
+        
+    try:
+        res = get_supabase_client().table("communications").insert(payload).execute()
+        if res.data:
+            return cast(Dict[str, Any], res.data[0])
+        raise RuntimeError("Communication insert returned no data.")
+    except RuntimeError:
+        raise
+    except Exception as e:
+        raise RuntimeError(f"Failed to create communication: {str(e)}") from e
 
 def update_communication_status(comm_id: str, new_status: str) -> bool:
-    if is_supabase_active():
-        try:
-            res = get_supabase_client().table("communications").update({"status": new_status}).eq("id", comm_id).execute()
-            return len(res.data) > 0
-        except Exception as e:
-            print(f"Supabase write error: {str(e)}. Falling back to in-memory store.")
-
-    # Fallback
-    from services.communication import update_communication_status as comm_status
-    return comm_status(comm_id, new_status)
+    """Update communication status in Supabase. No in-memory fallback."""
+    if not is_supabase_active():
+        raise RuntimeError("Database unavailable. Cannot update communication.")
+    try:
+        res = (
+            get_supabase_client().table("communications")
+            .update({"status": new_status})
+            .eq("id", comm_id)
+            .execute()
+        )
+        return bool(res.data)
+    except Exception as e:
+        raise RuntimeError(f"Failed to update communication status: {str(e)}") from e
 
 # -------------------------------------------------------------------------
 # ACTION CENTER CRUD ABSTRACTION

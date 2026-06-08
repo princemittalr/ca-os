@@ -9,6 +9,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfgen import canvas
 
+import uuid
+
 # Predefined professional communication templates conforming to CGST rules
 TEMPLATES = {
     "MISSING_IN_2B": {
@@ -122,76 +124,6 @@ TEMPLATES = {
     }
 }
 
-# In-memory communication store pre-populated with detailed CA follow-up workflows
-MOCK_COMMUNICATIONS = [
-    {
-        "id": "comm-1",
-        "client_id": "client-1",
-        "vendor_name": "Sharma Traders",
-        "gstin": "09AABCS7890E1Z9",
-        "issue": "MISSING_IN_2B",
-        "subject": "URGENT: GSTR-2B Invoice Mismatch - Action Required for ITC Claim - Sharma Traders",
-        "email_body": (
-            "Dear Accounts Team at Sharma Traders,\n\n"
-            "We are writing on behalf of our client to notify you of a discrepancy identified during our monthly "
-            "automated GST reconciliation for the filing period March 2024.\n\n"
-            "RECONCILIATION OBSERVATIONS:\n"
-            "Invoice Number: SH/2024/77\n"
-            "Taxable Value: ₹185,000\n"
-            "Observation: This invoice is recorded in our purchase register but is entirely MISSING in our GSTR-2B "
-            "portal records, indicating that it has not been uploaded in your GSTR-1 return yet.\n\n"
-            "COMPLIANCE & ITC IMPLICATIONS:\n"
-            "Under Section 16(2)(aa) of the CGST Act 2017, we are legally barred from claiming Input Tax Credit (ITC) "
-            "on this invoice until you upload it in your GSTR-1. This is causing significant working capital blockage "
-            "and potential tax interest liabilities for our firm.\n\n"
-            "REQUIRED ACTION:\n"
-            "Kindly upload this invoice in your upcoming GSTR-1 return immediately, or file an amendment if required, "
-            "so that it reflects in our GSTR-2B. We request you to resolve this on priority before 2026-06-10.\n\n"
-            "Please confirm once uploaded with the filing ARN.\n\n"
-            "Regards,\n"
-            "Audit & Compliance Team\n"
-            "Reckon CA Operating Workspace Partner"
-        ),
-        "priority": "HIGH",
-        "recommended_deadline": "2026-06-10",
-        "status": "Drafted",
-        "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    },
-    {
-        "id": "comm-2",
-        "client_id": "client-1",
-        "vendor_name": "Vertex Solutions Pvt Ltd",
-        "gstin": "29AABCA5678B1Z3",
-        "issue": "VALUE_MISMATCH",
-        "subject": "NOTICE: GST Taxable Value Discrepancy - Action Required - Vertex Solutions Pvt Ltd",
-        "email_body": (
-            "Dear Accounts Team at Vertex Solutions Pvt Ltd,\n\n"
-            "We are writing on behalf of our client to report a taxable value mismatch detected during our GST portal "
-            "reconciliation for the filing period March 2024.\n\n"
-            "RECONCILIATION OBSERVATIONS:\n"
-            "Invoice Number: IN-34305\n"
-            "Our Books Value: ₹215,500\n"
-            "Observation: There is a discrepancy between the invoice amount recorded in our purchase register and the "
-            "corresponding value reported by you in the GSTR-1 portal.\n\n"
-            "COMPLIANCE & ITC IMPLICATIONS:\n"
-            "Mismatches in taxable values trigger system warnings under GSTR-3B matching, risking credit reversals and "
-            "GST audit notices from the tax department.\n\n"
-            "REQUIRED ACTION:\n"
-            "Please verify this transaction against your physical invoice copies and accounting records. If there has been "
-            "a booking error on your side, kindly amend the invoice in your GSTR-1 or issue an appropriate Debit/Credit "
-            "Note by 2026-06-12.\n\n"
-            "Thank you for your prompt cooperation.\n\n"
-            "Regards,\n"
-            "Audit & Compliance Team\n"
-            "Reckon CA Operating Workspace Partner"
-        ),
-        "priority": "MEDIUM",
-        "recommended_deadline": "2026-06-12",
-        "status": "Sent",
-        "created_at": (datetime.datetime.now() - datetime.timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
-    }
-]
-
 def generate_draft(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Core outreach drafting compiler. Compiles templates professionally based on input mismatch rows.
@@ -220,7 +152,7 @@ def generate_draft(data: Dict[str, Any]) -> Dict[str, Any]:
     )
     
     new_draft = {
-        "id": f"comm-{len(MOCK_COMMUNICATIONS) + 1}",
+        "id": str(uuid.uuid4()),
         "client_id": data.get("client_id") or "client-1",
         "vendor_name": vendor_name,
         "gstin": gstin,
@@ -233,20 +165,7 @@ def generate_draft(data: Dict[str, Any]) -> Dict[str, Any]:
         "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     }
     
-    MOCK_COMMUNICATIONS.append(new_draft)
     return new_draft
-
-def get_communications_by_client(client_id: str) -> List[Dict[str, Any]]:
-    """Retrieve all outreach communication drafts scoped to a specific client."""
-    return [c for c in MOCK_COMMUNICATIONS if c["client_id"] == client_id]
-
-def update_communication_status(comm_id: str, new_status: str) -> bool:
-    """Updates the status workflow indicator for a communication draft."""
-    for c in MOCK_COMMUNICATIONS:
-        if c["id"] == comm_id:
-            c["status"] = new_status
-            return True
-    return False
 
 
 # ----------------------------------------------------
