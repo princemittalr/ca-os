@@ -28,6 +28,7 @@ import {
 import Link from 'next/link';
 import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
 import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 interface ActionItem {
   action_id: string;
@@ -56,6 +57,7 @@ interface ActionSummary {
 }
 
 export default function SmartActionCenter() {
+  const { showToast, ToastComponent } = useToast();
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [summary, setSummary] = useState<ActionSummary>({
     total_actions: 0,
@@ -65,7 +67,6 @@ export default function SmartActionCenter() {
   });
   
   const [isLoading, setIsLoading] = useState(true);
-  const [toastMessage, setToastMessage] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string>('PRIORITY');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -75,11 +76,6 @@ export default function SmartActionCenter() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
   const [staffMembers, setStaffMembers] = useState<string[]>([]);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 4000);
-  };
 
   const fetchActionCenter = async () => {
     try {
@@ -147,11 +143,11 @@ export default function SmartActionCenter() {
         setResolvedActions(prev => [...prev, { ...itemToResolve, status: 'RESOLVED' }]);
       }
       await api.put(`/api/action-center/${actionId}/resolve`, {});
-      showToast("✓ Action resolved!");
+      showToast("Action resolved!", "success");
       await fetchActionCenter();
     } catch (err) {
       console.error("Resolve failed:", err);
-      showToast("⚠ Failed to resolve action. Check API connection.");
+      showToast("Failed to resolve action. Check API connection.", "error");
     }
   };
 
@@ -161,10 +157,10 @@ export default function SmartActionCenter() {
       setActions(prev => prev.map(a => a.action_id === actionId ? { ...a, assigned_to: staff } : a));
 
       await api.put(`/api/action-center/${actionId}/assign`, { assigned_to: staff });
-      showToast(`✓ Staff member ${staff} assigned to execute this action.`);
+      showToast(`Staff member ${staff} assigned to execute this action.`, "success");
     } catch (err) {
       console.error(err);
-      showToast("⚠ Failed to save staff assignment. Check API connection.");
+      showToast("Failed to save staff assignment. Check API connection.", "error");
     }
   };
 
@@ -178,7 +174,7 @@ export default function SmartActionCenter() {
       `Regards,\nReckon CA Partner`;
       
     navigator.clipboard.writeText(emailBody);
-    showToast(`✓ Copilot outreach warning compiled & copied to clipboard!`);
+    showToast(`Copilot outreach warning compiled & copied to clipboard!`, "success");
   };
 
   // Categorization filter helpers for organization folders
@@ -287,15 +283,7 @@ export default function SmartActionCenter() {
     <div className="pb-16 relative font-sans text-slate-800 bg-[#F8FAFC] min-h-screen">
       
       {/* Toast Notification */}
-      {toastMessage && (
-        <div 
-          className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-5 py-3.5 rounded-2xl shadow-fintech-lg z-[100] max-w-sm flex items-center gap-3"
-          style={{ borderLeft: '4px solid #1B4F8A' }}
-        >
-          <CheckCircle2 className="text-[#1B4F8A] flex-shrink-0" size={18} />
-          <span className="text-[12px] font-bold leading-normal">{toastMessage}</span>
-        </div>
-      )}
+      {ToastComponent}
 
       {/* Header: same pattern as Dashboard (48px, white, border-bottom) */}
       <div 
@@ -313,7 +301,7 @@ export default function SmartActionCenter() {
           <button 
             onClick={() => {
               fetchActionCenter();
-              showToast("✓ AI Copilot successfully re-synchronized operational streams.");
+              showToast("AI Copilot successfully re-synchronized operational streams.", "success");
             }}
             className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 transition-all px-3 py-1.5 border border-[#E5E7EB] rounded-[4px] text-[11px] text-[#6B7280] font-medium h-8"
           >

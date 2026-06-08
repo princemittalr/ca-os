@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
 
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
+import { useToast } from '@/components/ui/Toast';
 import { 
   User, 
   Shield, 
@@ -51,11 +52,11 @@ const initialMembers = [
 ];
 
 function SettingsContent() {
+  const { showToast, ToastComponent } = useToast();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get('tab');
   
   const [activeTab, setActiveTab] = useState('profile'); // profile / security / notifications / firm / billing / data
-  const [toastMsg, setToastMsg] = useState('');
   
   // Bind tabParam from URL query to state
   useEffect(() => {
@@ -200,7 +201,7 @@ function SettingsContent() {
     // Validate size (5MB cap)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      triggerToast("Image exceeds 5MB limit");
+      showToast("Image exceeds 5MB limit", "error");
       e.target.value = '';
       return;
     }
@@ -208,7 +209,7 @@ function SettingsContent() {
     // Validate file type
     const acceptedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
     if (!acceptedTypes.includes(file.type)) {
-      triggerToast("Unsupported file format");
+      showToast("Unsupported file format", "error");
       e.target.value = '';
       return;
     }
@@ -227,9 +228,9 @@ function SettingsContent() {
       });
 
       updateProfileImage(dataUrl);
-      triggerToast("✓ Profile photo updated successfully.");
+      showToast("Profile photo updated successfully.", "success");
     } catch (err) {
-      triggerToast("❌ Error uploading profile photo.");
+      showToast("Error uploading profile photo.", "error");
     } finally {
       setIsUploading(false);
       e.target.value = '';
@@ -266,30 +267,16 @@ function SettingsContent() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('Junior Accountant');
 
-  const [toastType, setToastType] = useState<'success' | 'error' | 'warning'>('success');
-
-  const triggerToast = (msg: string) => {
-    let type: 'success' | 'error' | 'warning' = 'success';
-    if (msg.includes('❌') || msg.toLowerCase().includes('error') || msg.toLowerCase().includes('unsupported') || msg.toLowerCase().includes('exceeds') || msg.toLowerCase().includes('limit')) {
-      type = 'error';
-    } else if (msg.includes('⚠️')) {
-      type = 'warning';
-    }
-    setToastType(type);
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 4000);
-  };
-
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     // Note: backend profile update (PATCH /api/auth/me/profile) is currently out of scope.
     // Keeping changes local for now.
-    triggerToast("✓ Personal Profile changes saved.");
+    showToast("Personal Profile changes saved.", "success");
   };
 
   const handleSaveFirm = (e: React.FormEvent) => {
     e.preventDefault();
-    triggerToast("✓ Firm Settings & Business ledger updated.");
+    showToast("Firm Settings & Business ledger updated.", "success");
   };
 
   // Secure password update handled via multi-step workflow modal
@@ -298,9 +285,9 @@ function SettingsContent() {
     try {
       await api.delete(`/api/auth/sessions/${id}`);
       setSessions(sessions.filter(s => s.id !== id));
-      triggerToast(`✓ Session revoked on ${name}`);
+      showToast(`Session revoked on ${name}`, "success");
     } catch (err) {
-      triggerToast("❌ Revocation Failed: Unable to revoke session.");
+      showToast("Revocation Failed: Unable to revoke session.", "error");
     }
   };
 
@@ -318,12 +305,12 @@ function SettingsContent() {
 
     setMembers([...members, newMember]);
     setInviteEmail('');
-    triggerToast(`✉ Invite dispatched to ${inviteEmail}`);
+    showToast(`Invite dispatched to ${inviteEmail}`, "success");
   };
 
   const handleRevokeMember = (id: string, name: string) => {
     setMembers(members.filter(m => m.id !== id));
-    triggerToast(`✓ Access revoked for ${name}`);
+    showToast(`Access revoked for ${name}`, "success");
   };
 
   // Real-time password strength indicator computed locally inside modal
@@ -332,20 +319,7 @@ function SettingsContent() {
     <div className="space-y-10 pb-16 relative">
       
       {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 text-slate-800 px-6 py-4 rounded-[3px] shadow-sm z-[100] max-w-sm flex items-center gap-3">
-          {toastType === 'success' && (
-            <CheckCircle2 className="text-[#10B981] flex-shrink-0" size={18} />
-          )}
-          {toastType === 'error' && (
-            <AlertTriangle className="text-[#EF4444] flex-shrink-0" size={18} />
-          )}
-          {toastType === 'warning' && (
-            <AlertTriangle className="text-[#F59E0B] flex-shrink-0" size={18} />
-          )}
-          <span className="text-[13.5px] font-semibold">{toastMsg}</span>
-        </div>
-      )}
+      {ToastComponent}
 
       {/* Remove Confirmation Modal */}
       {showConfirmRemove && (
@@ -378,7 +352,7 @@ function SettingsContent() {
                 onClick={() => {
                   updateProfileImage(null);
                   setShowConfirmRemove(false);
-                  triggerToast("✓ Profile photo removed successfully.");
+                  showToast("Profile photo removed successfully.", "success");
                 }}
                 className="px-4 py-2.5 rounded-[3px] bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-bold text-[12.5px] cursor-pointer shadow-sm"
               >
@@ -817,7 +791,7 @@ function SettingsContent() {
                                   await api.post('/api/auth/verify-password', { password: verifyPasswordInput });
                                   setModalStep(2);
                                 } catch (err: any) {
-                                  triggerToast(`❌ Verification Failed: ${err.message || "Invalid current master password!"}`);
+                                  showToast(`Verification Failed: ${err.message || "Invalid current master password!"}`, "error");
                                 } finally {
                                   setModalLoading(false);
                                 }

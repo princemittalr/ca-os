@@ -22,6 +22,7 @@ import {
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 
 
 interface ComplianceRecord {
@@ -41,9 +42,9 @@ interface ComplianceRecord {
 
 
 export default function ComplianceOperationsCenter() {
+  const { showToast, ToastComponent } = useToast();
   const [tasks, setTasks] = useState<ComplianceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [toastMessage, setToastMessage] = useState('');
   const [clientsMap, setClientsMap] = useState<Record<string, string>>({});
   const [staffList, setStaffList] = useState<string[]>([]);
 
@@ -69,11 +70,6 @@ export default function ComplianceOperationsCenter() {
   const [formPeriod, setFormPeriod] = useState('March 2024');
   const [formDueDate, setFormDueDate] = useState('2026-06-05');
   const [formAssignedTo, setFormAssignedTo] = useState('');
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3500);
-  };
 
   useEffect(() => {
     api.get<any[]>('/api/clients/')
@@ -130,14 +126,14 @@ export default function ComplianceOperationsCenter() {
         `/api/compliance/${compId}/status?new_status=Filed&filed_date=${todayStr}`,
         {}
       );
-      showToast("✓ Compliance successfully marked as FILED!");
+      showToast("Compliance successfully marked as FILED!", "success");
       setTasks(prev => prev.map(t => t.compliance_id === compId ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
       await loadCompliance();
     } catch (err) {
       console.error(err);
       // fallback local update
       setTasks(prev => prev.map(t => t.compliance_id === compId ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
-      showToast("✓ Return marked as FILED locally.");
+      showToast("Return marked as FILED locally.", "success");
     }
   };
 
@@ -151,14 +147,14 @@ export default function ComplianceOperationsCenter() {
           api.put(`/api/compliance/${id}/status?new_status=Filed&filed_date=${todayStr}`, {})
         )
       );
-      showToast(`✓ Marked ${selectedRowIds.length} returns as FILED!`);
+      showToast(`Marked ${selectedRowIds.length} returns as FILED!`, "success");
       setTasks(prev => prev.map(t => selectedRowIds.includes(t.compliance_id) ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
       setSelectedRowIds([]);
       await loadCompliance();
     } catch (err) {
       console.error(err);
       setTasks(prev => prev.map(t => selectedRowIds.includes(t.compliance_id) ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
-      showToast("✓ Selected returns marked as FILED locally.");
+      showToast("Selected returns marked as FILED locally.", "success");
       setSelectedRowIds([]);
     } finally {
       setIsLoading(false);
@@ -179,7 +175,7 @@ export default function ComplianceOperationsCenter() {
         due_date: formDueDate,
         assigned_to: formAssignedTo
       });
-      showToast("✓ Compliance filing task generated successfully!");
+      showToast("Compliance filing task generated successfully!", "success");
       setIsCreateModalOpen(false);
       await loadCompliance();
     } catch (err: any) {
@@ -295,12 +291,7 @@ export default function ComplianceOperationsCenter() {
   return (
     <div className="flex flex-col h-screen bg-[#F8FAFC] font-sans relative overflow-hidden">
       {/* Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded shadow-xl z-[100] flex items-center gap-3">
-          <CheckCircle2 className="text-emerald-400 flex-shrink-0" size={16} />
-          <span className="text-[12px] font-semibold">{toastMessage}</span>
-        </div>
-      )}
+      {ToastComponent}
 
       {/* Header: 48px border-bottom, title + subtitle */}
       <div className="h-12 border-b border-[#E5E7EB] bg-white px-6 flex items-center justify-between shrink-0">

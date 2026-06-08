@@ -13,6 +13,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 
 interface NoticeDossier {
   id: string;
@@ -47,6 +48,7 @@ interface NoticeDossier {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function NoticeIntelligenceCenter() {
+  const { showToast, ToastComponent } = useToast();
   const [notices, setNotices] = useState<NoticeDossier[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<NoticeDossier | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -68,7 +70,6 @@ export default function NoticeIntelligenceCenter() {
   // Filtration states
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
-  const [toastMessage, setToastMessage] = useState("");
 
   // AI assistant tab switcher: 'reply' | 'evidence' | 'missing' | 'questions'
   const [activeAssistantTab, setActiveAssistantTab] = useState<'reply' | 'evidence' | 'missing' | 'questions'>('reply');
@@ -117,11 +118,6 @@ export default function NoticeIntelligenceCenter() {
     }
   }, [selectedNotice]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3000);
-  };
-
   const fetchNotices = async () => {
     try {
       setIsLoading(true);
@@ -167,7 +163,7 @@ export default function NoticeIntelligenceCenter() {
         }
       }, 5);
 
-      showToast("✓ Response compiled successfully!");
+      showToast("Response compiled successfully!", "success");
       
       // Update local state status
       setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: "DRAFTED" } : n));
@@ -201,7 +197,7 @@ For ${selectedNotice?.client_name}`;
       }, 5);
       
       setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: "DRAFTED" } : n));
-      showToast("✓ Draft reply generated using statutory template.");
+      showToast("Draft reply generated using statutory template.", "success");
     } finally {
       setIsDrafting(false);
     }
@@ -231,7 +227,7 @@ For ${selectedNotice?.client_name}`;
       clearInterval(progTimer);
       setUploadProgress(100);
 
-      showToast("✓ Notice parsed & analyzed in 12 seconds!");
+      showToast("Notice parsed & analyzed in 12 seconds!", "success");
 
       setNotices(prev => [newNotice, ...prev]);
       setShowUploadModal(false);
@@ -258,7 +254,7 @@ For ${selectedNotice?.client_name}`;
   const handleUpdateStatus = (noticeId: string, newStatus: string) => {
     setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: newStatus } : n));
     setSelectedNotice(prev => prev && prev.id === noticeId ? { ...prev, status: newStatus } : prev);
-    showToast(`✓ Notice status updated to ${newStatus}`);
+    showToast(`Notice status updated to ${newStatus}`, "success");
   };
 
   const handleToggleEvidence = (doc: string) => {
@@ -278,14 +274,14 @@ For ${selectedNotice?.client_name}`;
   const handleCopyReply = () => {
     const text = typedReply || responseDraft;
     navigator.clipboard.writeText(text);
-    showToast("✓ Legal response draft copied to clipboard!");
+    showToast("Legal response draft copied to clipboard!", "success");
   };
 
   const handleCopyQuestions = () => {
     if (!selectedNotice) return;
     const text = `Hi ${selectedNotice.client_name},\n\nWe are preparing the reply for GST notice ${selectedNotice.notice_number}. Please clarify the following questions:\n\n${(selectedNotice.questions_for_client || []).map((q, i) => `${i+1}. ${q}`).join("\n")}\n\nWe also require these documents:\n${(selectedNotice.missing_documents || []).map(d => `- ${d}`).join("\n")}\n\nThanks,\nAudit Team`;
     navigator.clipboard.writeText(text);
-    showToast("✓ Client outreach questions copied to clipboard!");
+    showToast("Client outreach questions copied to clipboard!", "success");
   };
 
   const formatCurrency = (val: number) => {
@@ -332,12 +328,7 @@ For ${selectedNotice?.client_name}`;
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-white font-sans">
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#2563EB] text-slate-800 px-6 py-4 rounded shadow-xl z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3">
-          <CheckCircle className="text-[#2563EB] flex-shrink-0" size={16} />
-          <span className="text-[13px] font-semibold text-slate-700">{toastMessage}</span>
-        </div>
-      )}
+      {ToastComponent}
 
       {/* Header: 48px white border-bottom pattern */}
       <div className="h-[48px] border-b border-[#E5E7EB] bg-white px-4 flex items-center justify-between shrink-0">
@@ -821,7 +812,7 @@ For ${selectedNotice?.client_name}`;
                         handleDraftResponse(selectedNotice.id);
                       } else {
                         setActiveAssistantTab('reply');
-                        showToast("Draft reply already prepared.");
+                        showToast("Draft reply already prepared.", "warning");
                       }
                     }}
                     className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold rounded transition-colors cursor-pointer"
@@ -829,7 +820,7 @@ For ${selectedNotice?.client_name}`;
                     Draft Reply
                   </button>
                   <button
-                    onClick={() => showToast("✓ Exporting statutory summary report PDF...")}
+                    onClick={() => showToast("Exporting statutory summary report PDF...", "success")}
                     className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[11px] font-semibold rounded transition-colors cursor-pointer"
                   >
                     Export Summary

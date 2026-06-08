@@ -5,6 +5,7 @@ import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { api } from '@/lib/api';
 import { SkeletonTable } from '@/components/ui/Skeleton';
+import { useToast } from '@/components/ui/Toast';
 import { 
   Play, 
   CheckCircle2, 
@@ -66,10 +67,10 @@ const AGENT_DISPLAY_CONFIG: Record<string, {
 };
 
 export default function AutomationCenterPage() {
+  const { showToast, ToastComponent } = useToast();
   const [agents, setAgents] = useState<any[]>([]);
   const [jobsHistory, setJobsHistory] = useState<any[]>([]);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
-  const [toastMsg, setToastMsg] = useState('');
 
   const fetchAgents = async () => {
     try {
@@ -127,11 +128,6 @@ export default function AutomationCenterPage() {
   const [modalThreshold, setModalThreshold] = useState(95);
   const [modalChannels, setModalChannels] = useState<string[]>([]);
 
-  const triggerToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
-  };
-
   const handleOpenConfigure = (agent: any) => {
     console.log("[Configure Agent] Initializing configuration flow for:", agent.name);
     setSelectedAgent(agent);
@@ -166,9 +162,9 @@ export default function AutomationCenterPage() {
       }));
 
       setIsModalOpen(false);
-      triggerToast("Agent configuration updated locally.");
+      showToast("Agent configuration updated locally.", "success");
     } catch (err) {
-      triggerToast("⚠ Failed to save config. Check connection.");
+      showToast("Failed to save config. Check connection.", "error");
     } finally {
       setIsSaving(false);
     }
@@ -186,10 +182,10 @@ export default function AutomationCenterPage() {
     try {
       await api.put(`/api/automation/agents/${agentKey}/toggle`, { is_active: !currentState });
       await fetchAgents(); // refresh from DB
-      triggerToast(`✓ Agent updated.`);
+      showToast(`Agent updated.`, "success");
     } catch (err) {
       console.error("Toggle agent failed:", err);
-      triggerToast("⚠ Failed to update agent. Check connection.");
+      showToast("Failed to update agent. Check connection.", "error");
     }
   };
 
@@ -202,11 +198,11 @@ export default function AutomationCenterPage() {
     const job_type = typeMap[workflowName] || workflowName || 'action_center_refresh';
     try {
       await api.post<any>('/api/jobs/trigger', { job_type });
-      triggerToast(`✓ Job "${job_type}" triggered.`);
+      showToast(`Job "${job_type}" triggered.`, "success");
       await fetchJobs();
     } catch (err) {
       console.error("Workflow trigger failed:", err);
-      triggerToast(`⚠ Failed to trigger "${workflowName}". Check connection.`);
+      showToast(`Failed to trigger "${workflowName}". Check connection.`, "error");
     }
   };
 
@@ -214,12 +210,7 @@ export default function AutomationCenterPage() {
     <div className="space-y-12 pb-16 animate-in fade-in duration-500 relative">
       
       {/* Toast Alert */}
-      {toastMsg && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-2xl shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3.5">
-          <CheckCircle2 className="text-[#10B981] flex-shrink-0 animate-bounce" size={20} />
-          <span className="text-[13px] font-bold tracking-wide">{toastMsg}</span>
-        </div>
-      )}
+      {ToastComponent}
 
       <PageHeader
         sectionLabel="Autopilot Hub"

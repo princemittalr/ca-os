@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { api } from '@/lib/api';
+import { useToast } from '@/components/ui/Toast';
 import {
   Building,
   Calendar as CalendarIcon,
@@ -70,6 +71,7 @@ interface ReconRow {
 }
 
 function GSTReconciliationPageContent() {
+  const { showToast, ToastComponent } = useToast();
   const searchParams = useSearchParams();
 
   // 5-Step Workflow Tracker: 1, 2, 3, 4, 5
@@ -105,7 +107,6 @@ function GSTReconciliationPageContent() {
   const [activeFindingFilter, setActiveFindingFilter] = useState<string | null>(null);
   const [vendorFilter, setVendorFilter] = useState('all');
   const [selectedRow, setSelectedRow] = useState<ReconRow | null>(null);
-  const [toastMessage, setToastMessage] = useState('');
   
   // AI Explainer Panel States
   const [aiExplanation, setAiExplanation] = useState<any>(null);
@@ -246,9 +247,9 @@ function GSTReconciliationPageContent() {
             clearInterval(interval);
             setTimeout(() => {
               setIsProcessing(false);
-              setStep(5); // Go to step 5 (Review Findings)
-              showToast("✓ AI Match Engine completed analysis successfully!");
-            }, 700);
+            setStep(5); // Go to step 5 (Review Findings)
+            showToast("AI Match Engine completed analysis successfully!", "success");
+          }, 700);
             return prev;
           }
         });
@@ -259,24 +260,16 @@ function GSTReconciliationPageContent() {
 
   const clientInfo = clients.find(c => c.id === selectedClient);
 
-  // Helper for mock toast
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 3500);
-  };
-
-
-
   // Reusable report downloader mapping API stream downloads
   const handleExport = async (type: 'excel' | 'pdf') => {
     if (!lastReconId) {
-      showToast("⚠ Run reconciliation first before exporting.");
+      showToast("Run reconciliation first before exporting.", "warning");
       return;
     }
 
     const setLoader = type === 'excel' ? setIsExportingExcel : setIsExportingPdf;
     setLoader(true);
-    showToast(`Generating ${type.toUpperCase()} report...`);
+    showToast(`Generating ${type.toUpperCase()} report...`, "success");
 
     try {
       const blob = await api.getBlob(
@@ -292,9 +285,9 @@ function GSTReconciliationPageContent() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      showToast(`✓ ${type.toUpperCase()} report downloaded successfully!`);
+      showToast(`${type.toUpperCase()} report downloaded successfully!`, "success");
     } catch (err: any) {
-      showToast(`⚠ Export failed: ${err.message}`);
+      showToast(`Export failed: ${err.message}`, "error");
     } finally {
       setLoader(false);
     }
@@ -303,7 +296,7 @@ function GSTReconciliationPageContent() {
   // Triggering the reconciliation pipeline calling active backend python engine
   const handleRunReconciliation = async () => {
     if (!selectedClient) {
-      showToast("⚠ Please select a client first.");
+      showToast("Please select a client first.", "warning");
       return;
     }
     if (isProcessing) return;
@@ -421,7 +414,7 @@ Accounts Team,
 ${clientInfo?.business_name || 'Our Company'}`;
 
     navigator.clipboard.writeText(emailBody);
-    showToast(`✓ Supplier follow-up email copied to clipboard!`);
+    showToast(`Supplier follow-up email copied to clipboard!`, "success");
   };
 
   // Filter lists in table (Step 5)
@@ -602,12 +595,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
     <div className="flex flex-col h-screen bg-[#F8FAFC] font-sans relative overflow-hidden">
       
       {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-slate-900 border border-slate-800 text-white px-5 py-3 rounded shadow-xl z-[100] flex items-center gap-3">
-          <CheckCircle className="text-emerald-400 flex-shrink-0" size={16} />
-          <span className="text-[12px] font-semibold">{toastMessage}</span>
-        </div>
-      )}
+      {ToastComponent}
 
       {/* Header: 48px white border-bottom, title 16px weight 600, subtitle period/GSTIN 12px #6B7280 */}
       <div className="h-12 bg-white border-b border-[#E5E7EB] px-6 flex items-center justify-between shrink-0">
@@ -743,7 +731,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setFile2B(e.target.files[0]);
-                      showToast("✓ GSTR-2B portal JSON loaded successfully!");
+                      showToast("GSTR-2B portal JSON loaded successfully!", "success");
                     }
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -779,7 +767,7 @@ ${clientInfo?.business_name || 'Our Company'}`;
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setFilePR(e.target.files[0]);
-                      showToast("✓ Purchase Register Books sheet loaded!");
+                      showToast("Purchase Register Books sheet loaded!", "success");
                     }
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
