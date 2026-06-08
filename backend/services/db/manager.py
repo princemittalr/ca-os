@@ -648,44 +648,37 @@ def create_user_notification(
     message: str,
     action_url: Optional[str] = None
 ) -> Dict[str, Any]:
-    """
-    Creates a user inbox notification in the notifications table.
-    Bypasses RLS using the service role client. Non-blocking.
-    """
+    if not is_supabase_active():
+        raise RuntimeError("Database unavailable. Cannot create notification.")
+
+    # Resolve firm_id from user record
     firm_id = None
-    if is_supabase_active():
-        try:
-            res = get_supabase_client().table("users").select("firm_id").eq("id", user_id).execute()
-            if res.data:
-                data_list = cast(List[Dict[str, Any]], res.data)
-                firm_id = str(data_list[0]["firm_id"])
-        except Exception as e:
-            print(f"[ERROR] Could not fetch firm_id for user {user_id}: {e}")
+    try:
+        res = get_supabase_client().table("users").select("firm_id").eq("id", user_id).execute()
+        if res.data:
+            firm_id = res.data[0].get("firm_id")
+    except Exception as e:
+        print(f"[WARN] Could not resolve firm_id for user {user_id}: {e}")
+
+    if not firm_id:
+        raise ValueError(f"Cannot create notification: firm_id not found for user {user_id}")
 
     payload = {
         "id": str(uuid.uuid4()),
         "user_id": user_id,
-        "firm_id": firm_id or "00000000-0000-0000-0000-000000000001",
+        "firm_id": firm_id,
         "type": type,
         "title": title,
         "message": message,
         "is_read": False,
         "action_url": action_url,
-        "created_at": _now()
+        "created_at": _now(),
     }
-
-    db_success = False
-    if is_supabase_active():
-        try:
-            get_supabase_client().table("notifications").insert(payload).execute()
-            db_success = True
-        except Exception as e:
-            print(f"[WARN] Failed to insert notification to DB: {e}")
-
-    if not db_success:
-        raise RuntimeError("Failed to persist notification.")
-
-    return payload
+    try:
+        get_supabase_client().table("notifications").insert(payload).execute()
+        return payload
+    except Exception as e:
+        raise RuntimeError(f"Failed to persist notification: {e}") from e
 
 def get_notifications_log(firm_id: Optional[str] = None) -> List[Dict[str, Any]]:
     if not is_supabase_active():
@@ -703,35 +696,44 @@ def create_notification_log(channel: str, recipient: str, body: str, status: str
     firm_id = None
     if is_supabase_active():
         try:
-            # Resolve firm_id from recipient email by searching clients then users
-            res = get_supabase_client().table("clients").select("firm_id").eq("email", recipient).execute()
-            if res.data:
-                data_list = cast(List[Dict[str, Any]], res.data)
-                firm_id = str(data_list[0]["firm_id"])
-            else:
-                res = get_supabase_client().table("users").select("firm_id").eq("email", recipient).execute()
+            # Try clients first, then users
+            for table, field in [("clients", "email"), ("users", "email")]:
+                res = get_supabase_client().table(table).select("firm_id").eq(field, recipient).execute()
                 if res.data:
-                    data_list = cast(List[Dict[str, Any]], res.data)
-                    firm_id = str(data_list[0]["firm_id"])
+                    firm_id = res.data[0].get("firm_id")
+                    break
         except Exception as e:
-            print(f"[WARN] Failed to resolve firm_id for notification log: {e}")
+            print(f"[WARN] Could not resolve firm_id for notification log: {e}")
 
-    new_notif = {
+    if not firm_id:
+        print(f"[WARN] create_notification_log: no firm_id for recipient '{recipient}'. Skipping persist.")
+        return {
+            "id": str(uuid.uuid4()),
+            "firm_id": None,
+            "channel": channel,
+            "recipient": recipient,
+            "subject": subject,
+            "body": body,
+            "status": status,
+            "sent_at": _now(),
+        }
+
+    payload = {
         "id": str(uuid.uuid4()),
-        "firm_id": firm_id or "00000000-0000-0000-0000-000000000001",
+        "firm_id": firm_id,
         "channel": channel,
         "recipient": recipient,
         "subject": subject,
         "body": body,
         "status": status,
-        "sent_at": _now()
+        "sent_at": _now(),
     }
-    if is_supabase_active():
-        try:
-            get_supabase_client().table("notifications_log").insert(new_notif).execute()
-        except Exception as e:
-            print(f"[ERROR] Supabase write error for notifications_log: {str(e)}")
-    return new_notif
+    try:
+        if is_supabase_active():
+            get_supabase_client().table("notifications_log").insert(payload).execute()
+    except Exception as e:
+        print(f"[WARN] notifications_log insert failed: {e}")
+    return payload
 
 
 

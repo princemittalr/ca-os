@@ -2,7 +2,13 @@ from database import supabase
 from datetime import date, timedelta
 import uuid
 
-FIRM_ID = "00000000-0000-0000-0000-000000000001"
+# Fetch the first firm to use as tenant context
+firms_res = supabase.table("firms").select("id").limit(1).execute()
+if not firms_res.data:
+    print("❌ No firms found. Run seed.py first.")
+    exit()
+
+FIRM_ID = firms_res.data[0]["id"]
 
 # Get client IDs from DB
 clients_res = supabase.table("clients").select("id, business_name").execute()

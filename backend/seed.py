@@ -2,7 +2,13 @@ from database import supabase
 from datetime import date
 import uuid
 
-FIRM_ID = "00000000-0000-0000-0000-000000000001"
+# Fetch the first firm to use as tenant context
+firms_res = supabase.table("firms").select("id").limit(1).execute()
+if not firms_res.data:
+    # Create a default firm if none exists
+    firms_res = supabase.table("firms").insert({"name": "Default CA Firm"}).execute()
+
+FIRM_ID = firms_res.data[0]["id"]
 
 clients = [
     {"firm_id": FIRM_ID, "business_name": "TechNova Solutions Pvt Ltd", "gstin": "27AABCT1332L1ZX", "email": "contact@technova.com", "state": "Maharashtra", "state_code": "27", "contact_person": "Rahul Mehta", "phone": "9876543210", "assigned_manager": "Aditya Rao"},
