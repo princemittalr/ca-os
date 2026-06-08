@@ -131,6 +131,13 @@ async def update_deadline_status(
     Update filing status or staff assignment on any compliance record.
     Scoped to the authenticated firm — cross-tenant mutations are rejected by DB isolation.
     """
+    # Guard: at least one update field required
+    if not new_status and not assigned_to:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No update fields provided. Supply 'new_status' or 'assigned_to'.",
+        )
+
     task = None
     if new_status:
         task = db_manager.update_compliance_status(compliance_id, new_status, filed_date)
