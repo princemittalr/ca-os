@@ -168,6 +168,8 @@ async def login_firm_user(request: Request, payload: schemas.UserLogin):
                 "role": role,
                 "full_name": full_name
             }
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Authentication failed: {str(e)}", exc_info=True)
             raise HTTPException(
@@ -230,6 +232,8 @@ async def verify_password(payload: schemas.VerifyPasswordRequest, current_user: 
             })
             if res.user:
                 return {"valid": True}
+        except HTTPException:
+            raise
         except Exception:
             return {"valid": False}
     return {"valid": False}
@@ -249,6 +253,8 @@ async def update_password(payload: schemas.PasswordUpdateRequest, current_user: 
         try:
             get_supabase_client().auth.admin.update_user_by_id(user_id, {"password": payload.new_password})
             return {"message": "Password updated successfully."}
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Failed to update password: {str(e)}", exc_info=True)
             raise HTTPException(
