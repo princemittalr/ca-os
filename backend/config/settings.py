@@ -53,6 +53,7 @@ class Settings(BaseSettings):
 
     # File upload limits
     MAX_UPLOAD_SIZE_MB: int = Field(10, validation_alias="MAX_UPLOAD_SIZE_MB")
+    UPLOAD_DIR: str = Field("/tmp/caos_uploads", validation_alias="UPLOAD_DIR")
 
     # Scheduler
     SCHEDULER_INTERVAL_SECONDS: int = Field(60, validation_alias="SCHEDULER_INTERVAL_SECONDS")

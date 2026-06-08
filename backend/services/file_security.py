@@ -1,7 +1,8 @@
 import uuid
 import os
 import magic
-from fastapi import HTTPException, UploadFile
+from fastapi import HTTPException
+from config.settings import settings
 
 # Allowed file types
 ALLOWED_EXTENSIONS = {'.csv', '.xlsx', '.xls', '.pdf'}
@@ -19,11 +20,19 @@ BLOCKED_EXTENSIONS = {
     '.zip', '.tar', '.gz', '.rar', '.cmd', '.ps1'
 }
 
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
-# Secure upload directory
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), '..', 'uploads', 'secure')
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+def _get_max_file_size() -> int:
+    return settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+
+def _get_upload_dir() -> str:
+    """
+    Returns UPLOAD_DIR from env var UPLOAD_DIR, falling back to /tmp/caos_uploads.
+    Never uses __file__-relative path (breaks Docker non-root).
+    """
+    path = os.environ.get("UPLOAD_DIR", os.path.join(settings.UPLOAD_DIR, "secure"))
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 def validate_and_secure_upload(contents: bytes, filename: str) -> dict:
@@ -32,10 +41,12 @@ def validate_and_secure_upload(contents: bytes, filename: str) -> dict:
     Returns secure filename and metadata.
     """
     # 1. Size check
-    if len(contents) > MAX_FILE_SIZE:
+    max_size = _get_max_file_size()
+    if len(contents) > max_size:
         raise HTTPException(
             status_code=400,
-            detail=f"File exceeds 10MB limit. Size: {len(contents)/(1024*1024):.2f}MB"
+            detail=f"File exceeds {settings.MAX_UPLOAD_SIZE_MB}MB limit. "
+                   f"Size: {len(contents)/(1024*1024):.2f}MB"
         )
 
     # 2. Extension check
@@ -79,7 +90,7 @@ def validate_and_secure_upload(contents: bytes, filename: str) -> dict:
 
 def save_secure_file(contents: bytes, secure_filename: str) -> str:
     """Save file to secure isolated directory."""
-    filepath = os.path.join(UPLOAD_DIR, secure_filename)
+    filepath = os.path.join(_get_upload_dir(), secure_filename)
     with open(filepath, 'wb') as f:
         f.write(contents)
     return filepath

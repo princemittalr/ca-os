@@ -14,13 +14,14 @@ from services.exporter import generate_excel_report, generate_pdf_summary
 from services import client_workspace
 from services.db import manager as db_manager
 from middleware.auth import verify_token, RequireRoles
+from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Max file size limit of 20MB
-MAX_FILE_SIZE = 20 * 1024 * 1024
+# Max file size limit from settings
+MAX_FILE_SIZE = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
 
 
 # -------------------------------------------------------------------------
@@ -55,7 +56,7 @@ def _run_reconciliation_pipeline_sync(
     """
     for content, name in [(file_pr_bytes, file_pr_name), (file_2b_bytes, file_2b_name)]:
         if len(content) > MAX_FILE_SIZE:
-            raise ValueError(f"File '{name}' exceeds size limit of 20MB.")
+            raise ValueError(f"File '{name}' exceeds size limit of {settings.MAX_UPLOAD_SIZE_MB}MB.")
         
         filename = name or ""
         fn_lower = filename.lower()
