@@ -1,29 +1,66 @@
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status, Header, Request
 from typing import List, Optional
+import jwt as pyjwt
 from config.supabase import get_supabase_client, is_supabase_active
 from config.settings import settings
 
 # -------------------------------------------------------------------------
 # JWT SESSION VERIFICATION DEPENDENCY
 # -------------------------------------------------------------------------
-async def verify_token(authorization: Optional[str] = Header(None)) -> dict:
+async def verify_token(request: Request, authorization: Optional[str] = Header(None)) -> dict:
     """
     HTTP Bearer JWT Token verification middleware.
     Decodes Supabase Auth session JWTs, injecting user context.
+    Uses offline HS256 verification when SUPABASE_JWT_SECRET is available.
     """
-    if not is_supabase_active():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication service unavailable."
-        )
-
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or malformed Authorization header."
         )
 
-    token = authorization.split(" ")[1]
+    token = authorization.split(" ", 1)[1]
+    jwt_secret = settings.SUPABASE_JWT_SECRET
+
+    # 1. Fast path: offline verification using JWT secret (no Supabase round-trip)
+    if jwt_secret and jwt_secret not in ("mock_secret", ""):
+        try:
+            payload = pyjwt.decode(
+                token,
+                jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",  # Supabase default audience
+            )
+            user_id = payload.get("sub")
+            meta = payload.get("user_metadata") or {}
+            firm_id = meta.get("firm_id")
+            if not user_id or not firm_id:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token claims: missing sub or firm_id."
+                )
+            return {
+                "user_id": user_id,
+                "firm_id": firm_id,
+                "role": meta.get("role", "ARTICLE"),
+                "full_name": meta.get("full_name", "CA Auditor"),
+                "email": payload.get("email", ""),
+            }
+        except pyjwt.ExpiredSignatureError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired."
+            )
+        except pyjwt.InvalidTokenError:
+            # Fall through to Supabase SDK verification for other errors
+            pass
+
+    # 2. Slow path: Supabase SDK round-trip (fallback for dev/test without real secret)
+    if not is_supabase_active():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable."
+        )
 
     try:
         res = get_supabase_client().auth.get_user(token)
