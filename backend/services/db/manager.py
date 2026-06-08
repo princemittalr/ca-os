@@ -743,12 +743,15 @@ def get_notices(
         print(f"[ERROR] Supabase get_notices error: {str(e)}")
         return []
 
-def get_notice_by_id(notice_id: str) -> Optional[Dict[str, Any]]:
+def get_notice_by_id(notice_id: str, firm_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     if not is_supabase_active():
         print("[WARN] Supabase not active — notice lookup unavailable.")
         return None
     try:
-        res = get_supabase_client().table("gst_notices").select("*").eq("id", notice_id).eq("is_deleted", False).execute()
+        q = get_supabase_client().table("gst_notices").select("*").eq("id", notice_id).eq("is_deleted", False)
+        if firm_id:
+            q = q.eq("firm_id", firm_id)
+        res = q.execute()
         if res.data:
             return cast(Optional[Dict[str, Any]], res.data[0])
     except Exception as e:

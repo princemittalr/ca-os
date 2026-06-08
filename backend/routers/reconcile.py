@@ -28,18 +28,13 @@ MAX_FILE_SIZE = 20 * 1024 * 1024
 def _assert_client_ownership(client_id: str, firm_id: str) -> None:
     """
     Fetches the client record and confirms it belongs to the caller's firm.
-    Raises HTTP 403 if the client is not found or belongs to another firm.
+    Raises HTTP 404 if the client is not found or belongs to another firm.
     """
-    client = db_manager.get_client_by_id(client_id)
+    client = db_manager.get_client_by_id(client_id, firm_id=firm_id)
     if not client:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Client '{client_id}' not found."
-        )
-    if str(client.get("firm_id")) != firm_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: client does not belong to your firm."
         )
 
 

@@ -27,17 +27,11 @@ async def upload_gst_notice(
     authenticated user's firm before processing.
     """
     # 1. Fetch Client Profile Context and enforce firm ownership
-    client = db_manager.get_client_by_id(client_id)
+    client = db_manager.get_client_by_id(client_id, firm_id=current_user.get("firm_id"))
     if not client:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Client with ID '{client_id}' not found."
-        )
-
-    if client.get("firm_id") != current_user.get("firm_id"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Client does not belong to your firm."
         )
 
     # 2. Extract Text (PyMuPDF or Fallback Scrutiny OCR)
@@ -248,7 +242,7 @@ async def get_gst_notice_details(
     Validates firm ownership before returning.
     """
     try:
-        notice = db_manager.get_notice_by_id(id)
+        notice = db_manager.get_notice_by_id(id, firm_id=current_user.get("firm_id"))
     except Exception as err:
         logger.error(f"Failed to fetch notice details: {str(err)}", exc_info=True)
         raise HTTPException(
@@ -259,12 +253,6 @@ async def get_gst_notice_details(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Notice Dossier with ID '{id}' not found."
-        )
-
-    if notice.get("firm_id") != current_user.get("firm_id"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Notice does not belong to your firm."
         )
 
     return notice
@@ -280,7 +268,7 @@ async def compile_statutory_outreach_reply(
     Validates firm ownership before generating draft.
     """
     try:
-        notice = db_manager.get_notice_by_id(id)
+        notice = db_manager.get_notice_by_id(id, firm_id=current_user.get("firm_id"))
     except Exception as err:
         logger.error(f"Failed to fetch notice details for draft: {str(err)}", exc_info=True)
         raise HTTPException(
@@ -291,12 +279,6 @@ async def compile_statutory_outreach_reply(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Notice Dossier with ID '{id}' not found."
-        )
-
-    if notice.get("firm_id") != current_user.get("firm_id"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. Notice does not belong to your firm."
         )
 
     try:
