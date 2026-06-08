@@ -289,10 +289,10 @@ def create_compliance(data: Dict[str, Any], firm_id: Optional[str] = None) -> Di
     if not is_supabase_active():
         raise RuntimeError("Supabase is not active. Cannot create compliance task.")
 
-    # Validate client ownership when firm_id is known
+    # Firm-scoped ownership check (same pattern as P69)
     if firm_id:
-        client = get_client_by_id(data["client_id"])
-        if not client or client.get("firm_id") != firm_id:
+        client = get_client_by_id(data["client_id"], firm_id=firm_id)
+        if not client:
             raise ValueError(
                 f"client_id '{data['client_id']}' does not belong to the authenticated firm."
             )
