@@ -3,7 +3,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import PageHeader from '@/components/layout/PageHeader';
 import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
-import { getAuthToken } from '@/lib/auth';
 import { api } from '@/lib/api';
 import {
   Building,
@@ -36,10 +35,6 @@ import {
   Plus
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-
 
 const PROCESSING_STEPS = [
   "📂 Establishing connection to GST portal API...",
@@ -283,32 +278,22 @@ function GSTReconciliationPageContent() {
     showToast(`Generating ${type.toUpperCase()} report...`);
 
     try {
-      const token = await getAuthToken();
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      const response = await fetch(`${API_BASE}/api/reconcile/export/reconciliation/${type}?reconciliation_id=${lastReconId}`, {
-        headers
-      });
-      if (!response.ok) throw new Error();
-
-      const blob = await response.blob();
+      const blob = await api.getBlob(
+        `/api/reconcile/export/reconciliation/${type}?reconciliation_id=${lastReconId}`
+      );
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = type === 'excel' ? 'GST_Reconciliation_Working_Papers.xlsx' : 'GST_Reconciliation_Executive_Summary.pdf';
+      a.download = type === 'excel'
+        ? 'GST_Reconciliation_Working_Papers.xlsx'
+        : 'GST_Reconciliation_Executive_Summary.pdf';
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-
       showToast(`✓ ${type.toUpperCase()} report downloaded successfully!`);
-    } catch (err) {
-      // Offline fallback
-      setTimeout(() => {
-        showToast(`✓ Mock ${type.toUpperCase()} report generated & downloaded!`);
-      }, 1000);
+    } catch (err: any) {
+      showToast(`⚠ Export failed: ${err.message}`);
     } finally {
       setLoader(false);
     }

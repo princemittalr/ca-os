@@ -6,7 +6,6 @@ import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { api } from '@/lib/api';
-import { getAuthHeaders } from '@/lib/auth';
 import {
   FileText,
   CheckCircle,
@@ -39,9 +38,6 @@ import {
   Cell,
   Legend,
 } from 'recharts';
-
-// URL base for direct download links (window.open / <a href>). Not used for fetch.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Recharts colors palette matching exact brand guidelines
 const BRAND_COLORS = ['#1B4F8A', '#2563AB', '#3B82F6', '#93C5FD', '#DBEAFE'];
@@ -322,22 +318,15 @@ export default function DashboardPage() {
     setToast({ message: `Generating ${type.toUpperCase()} report...`, type: "success" });
 
     try {
-      // Blob download — use centralized auth headers, raw fetch needed for binary response
-      const headers = await getAuthHeaders();
-      const response = await fetch(
-        `${API_BASE}/api/reconcile/export/reconciliation/${type}?reconciliation_id=${lastReconId}`,
-        { headers }
+      const blob = await api.getBlob(
+        `/api/reconcile/export/reconciliation/${type}?reconciliation_id=${lastReconId}`
       );
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(errText || `HTTP ${response.status}`);
-      }
-
-      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = type === 'excel' ? 'GST_Reconciliation_Working_Papers.xlsx' : 'GST_Reconciliation_Executive_Summary.pdf';
+      a.download = type === 'excel'
+        ? 'GST_Reconciliation_Working_Papers.xlsx'
+        : 'GST_Reconciliation_Executive_Summary.pdf';
       document.body.appendChild(a);
       a.click();
       a.remove();

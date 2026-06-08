@@ -140,4 +140,28 @@ export const api = {
     }
     return res.json() as Promise<T>;
   },
+
+  /**
+   * GET request returning raw Blob (for file downloads).
+   * Handles 401 auto-signout same as other methods.
+   */
+  async getBlob(path: string): Promise<Blob> {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.status === 401) {
+      await supabase.auth.signOut();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new Error('Unauthorized — session expired');
+    }
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+    return res.blob();
+  },
 };
