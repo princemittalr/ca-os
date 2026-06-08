@@ -132,6 +132,24 @@ def soft_delete_client(client_id: str, firm_id: str) -> bool:
         print(f"[ERROR] Supabase soft_delete_client error: {str(e)}")
     return False
 
+def get_all_active_firm_ids() -> List[str]:
+    """Returns distinct firm_ids from users table. For background job iteration only."""
+    if not is_supabase_active():
+        return []
+    try:
+        res = supabase_client.table("users").select("firm_id").execute()
+        seen = set()
+        result = []
+        for row in (res.data or []):
+            fid = row.get("firm_id")
+            if fid and fid not in seen:
+                seen.add(fid)
+                result.append(fid)
+        return result
+    except Exception as e:
+        print(f"[ERROR] get_all_active_firm_ids error: {str(e)}")
+        return []
+
 # -------------------------------------------------------------------------
 # RECONCILIATIONS CRUD ABSTRACTION
 # -------------------------------------------------------------------------
