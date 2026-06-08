@@ -1,6 +1,7 @@
+import json
 from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel
-from typing import List, cast, Dict, Any
+from pydantic import BaseModel, Field, field_validator
+from typing import List, cast, Dict, Any, Optional
 from supabase import Client
 from datetime import datetime, timezone
 
@@ -8,6 +9,28 @@ from middleware.auth import verify_token, RequireRoles
 from config.supabase import get_supabase_client, is_supabase_active
 
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# AGENT CONFIG SCHEMA — Pydantic validation + size guard
+# ---------------------------------------------------------------------------
+class AgentConfigPayload(BaseModel):
+    """Validated agent configuration. All fields optional — partial updates allowed."""
+    reminder_days_before: Optional[int] = Field(None, ge=1, le=90)
+    escalation_threshold_days: Optional[int] = Field(None, ge=1, le=180)
+    notify_email: Optional[bool] = None
+    notify_whatsapp: Optional[bool] = None
+    custom_message: Optional[str] = Field(None, max_length=500)
+    extra: Optional[Dict[str, Any]] = Field(None)
+
+    @field_validator("extra", mode="before")
+    @classmethod
+    def limit_extra_size(cls, v: Any) -> Any:
+        if v is not None:
+            serialized = json.dumps(v)
+            if len(serialized) > 65_536:  # 64 KB
+                raise ValueError("Config payload exceeds 64KB limit.")
+        return v
+
 
 # ---------------------------------------------------------------------------
 # AGENT KEY WHITELIST — only these keys are valid
@@ -191,15 +214,15 @@ async def toggle_agent(
 @router.put("/agents/{agent_key}/config")
 async def update_agent_config(
     agent_key: str,
-    payload: Dict[str, Any],
-    current_user: dict = Depends(verify_token),
+    payload: AgentConfigPayload,
+    current_user: dict = Depends(RequireRoles(["PARTNER", "MANAGER"])),
 ):
     """
-    Persist agent config JSON to Supabase automation_agents table.
+    Persist validated agent config to Supabase automation_agents table.
+    Requires PARTNER or MANAGER role.
     """
     _require_supabase()
 
-    # Validate agent_key
     if agent_key not in VALID_AGENT_KEYS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -208,16 +231,16 @@ async def update_agent_config(
 
     firm_id = current_user.get("firm_id")
     if not firm_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="firm_id missing from user context.",
-        )
+        raise HTTPException(status_code=400, detail="firm_id missing from user context.")
+
+    # Exclude unset fields — partial update
+    config_data = payload.model_dump(exclude_none=True)
 
     try:
         res = (
             get_supabase_client().table("automation_agents")
             .update({
-                "config": payload,
+                "config": config_data,
                 "updated_at": datetime.now(timezone.utc).isoformat()
             })
             .eq("agent_key", agent_key)
@@ -235,7 +258,6 @@ async def update_agent_config(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Update config error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save agent config."
