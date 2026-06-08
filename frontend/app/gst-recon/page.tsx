@@ -95,6 +95,7 @@ function GSTReconciliationPageContent() {
 
   // Processing animation
   const [isProcessing, setIsProcessing] = useState(false);
+  const [formError, setFormError] = useState('');
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [processingProgress, setProcessingProgress] = useState(0);
 
@@ -305,8 +306,10 @@ function GSTReconciliationPageContent() {
       showToast("⚠ Please select a client first.");
       return;
     }
+    if (isProcessing) return;
 
     setIsProcessing(true);
+    setFormError('');
     setCurrentStepIndex(0);
     setProcessingProgress(0);
 
@@ -379,10 +382,10 @@ function GSTReconciliationPageContent() {
       }
 
       setReconRows(apiRows);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Reconciliation API failed:", err);
       setReconRows([]);
-      showToast("⚠ Reconciliation failed. Please check your files and try again.");
+      setFormError(err.message || "Reconciliation failed. Please check your files and try again.");
       setIsProcessing(false);
       setStep(3);
       return;
@@ -668,13 +671,16 @@ ${clientInfo?.business_name || 'Our Company'}`;
         <button
           onClick={handleRunReconciliation}
           disabled={!selectedClient || !file2B || !filePR || isProcessing}
-          className="h-8 px-4 bg-[#1B4F8A] hover:bg-[#163F6E] disabled:bg-slate-200 disabled:text-slate-400 text-white text-[12px] font-semibold rounded-[4px] flex items-center gap-1.5 transition-colors cursor-pointer ml-auto"
+          className="h-8 px-4 bg-[#1B4F8A] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[12px] font-semibold rounded-[4px] flex items-center gap-1.5 transition-colors cursor-pointer ml-auto min-w-[150px]"
         >
           {isProcessing ? (
-            <>
-              <Loader2 size={12} className="animate-spin" />
+            <span className="flex items-center gap-2 justify-center">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
               <span>Processing...</span>
-            </>
+            </span>
           ) : (
             <>
               <Zap size={12} fill="currentColor" />
@@ -683,6 +689,15 @@ ${clientInfo?.business_name || 'Our Company'}`;
           )}
         </button>
       </div>
+
+      {formError && (
+        <div className="px-6 py-2">
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px]">
+            <AlertCircle size={14} />
+            <span>{formError}</span>
+          </div>
+        </div>
+      )}
 
       {/* Main content body */}
       <div className="flex-1 overflow-hidden flex">

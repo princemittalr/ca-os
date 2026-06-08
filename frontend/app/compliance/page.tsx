@@ -62,6 +62,8 @@ export default function ComplianceOperationsCenter() {
 
   // Create Modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
   const [formClientId, setFormClientId] = useState('');
   const [formType, setFormType] = useState('GSTR-1');
   const [formPeriod, setFormPeriod] = useState('March 2024');
@@ -165,6 +167,10 @@ export default function ComplianceOperationsCenter() {
 
   const handleCreateDeadline = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setFormError('');
+
     try {
       await api.post('/api/compliance/create', {
         client_id: formClientId,
@@ -176,10 +182,11 @@ export default function ComplianceOperationsCenter() {
       showToast("✓ Compliance filing task generated successfully!");
       setIsCreateModalOpen(false);
       await loadCompliance();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Create deadline failed:", err);
-      showToast("⚠ Failed to create filing task.");
-      setIsCreateModalOpen(false);
+      setFormError(err.message || 'Failed to create filing task. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -778,17 +785,34 @@ export default function ComplianceOperationsCenter() {
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="px-4 py-2 rounded text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 cursor-pointer font-bold transition-all"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-bold transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#1B4F8A] hover:bg-[#163F6E] text-white px-5 py-2 rounded font-bold border border-[#1B4F8A] cursor-pointer transition-all"
+                  disabled={isSubmitting || !formClientId}
+                  className="bg-[#1B4F8A] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded font-bold border border-[#1B4F8A] cursor-pointer transition-all min-w-[140px]"
                 >
-                  Schedule Filing
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2 justify-center">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Saving...
+                    </span>
+                  ) : 'Schedule Filing'}
                 </button>
               </div>
+
+              {formError && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px] mt-4">
+                  <AlertCircle size={14} />
+                  <span>{formError}</span>
+                </div>
+              )}
             </form>
           </div>
         </div>

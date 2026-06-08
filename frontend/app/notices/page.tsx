@@ -57,7 +57,8 @@ export default function NoticeIntelligenceCenter() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [uploadClients, setUploadClients] = useState<{id: string; business_name: string; gstin: string}[]>([]);
-  const [uploadError, setUploadError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
 
   // Response drafting states
   const [isDrafting, setIsDrafting] = useState(false);
@@ -209,10 +210,11 @@ For ${selectedNotice?.client_name}`;
   // Ingest uploaded files
   const handleFileUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadFile || !uploadClientId) return;
+    if (!uploadFile || !uploadClientId || isSubmitting) return;
 
+    setIsSubmitting(true);
     setIsUploading(true);
-    setUploadError("");
+    setFormError("");
     setUploadProgress(10);
 
     const progTimer = setInterval(() => {
@@ -235,18 +237,19 @@ For ${selectedNotice?.client_name}`;
       setShowUploadModal(false);
       setFile(null);
       setUploadClientId("");
-      setUploadError("");
+      setFormError("");
       setSelectedNotice(newNotice);
     } catch (err: any) {
       clearInterval(progTimer);
       setUploadProgress(0);
       const msg = err.message || '';
       if (msg.includes('403') || msg.includes('firm')) {
-        setUploadError("Client not in your firm");
+        setFormError("Client not in your firm");
       } else {
-        showToast("⚠ Notice parsing failed.");
+        setFormError(err.message || "Notice parsing failed. Please try again.");
       }
     } finally {
+      setIsSubmitting(false);
       setIsUploading(false);
       setUploadProgress(0);
     }
@@ -348,7 +351,7 @@ For ${selectedNotice?.client_name}`;
           <button
             onClick={() => {
               setShowUploadModal(true);
-              setUploadError("");
+              setFormError("");
             }}
             className="px-3 py-1 bg-[#111827] hover:bg-slate-800 text-white text-[11px] font-medium rounded flex items-center gap-1.5 transition-colors cursor-pointer"
           >
@@ -872,7 +875,7 @@ For ${selectedNotice?.client_name}`;
                   setShowUploadModal(false);
                   setFile(null);
                   setUploadClientId("");
-                  setUploadError("");
+                  setFormError("");
                 }}
                 className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors"
               >
@@ -881,9 +884,10 @@ For ${selectedNotice?.client_name}`;
             </div>
 
             <form onSubmit={handleFileUploadSubmit} className="space-y-4">
-              {uploadError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[11px] font-semibold animate-in fade-in duration-200">
-                  {uploadError}
+              {formError && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px] animate-in fade-in duration-200">
+                  <AlertCircle size={14} />
+                  <span>{formError}</span>
                 </div>
               )}
               <div className="space-y-1">
@@ -969,7 +973,7 @@ For ${selectedNotice?.client_name}`;
                     setShowUploadModal(false);
                     setFile(null);
                     setUploadClientId("");
-                    setUploadError("");
+                    setFormError("");
                   }}
                   className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold rounded hover:bg-slate-50"
                 >
@@ -977,10 +981,18 @@ For ${selectedNotice?.client_name}`;
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploading || !uploadFile || !uploadClientId}
-                  className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isSubmitting || !uploadFile || !uploadClientId}
+                  className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold rounded disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
                 >
-                  Process & Analyze
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2 justify-center">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Saving...
+                    </span>
+                  ) : 'Process & Analyze'}
                 </button>
               </div>
             </form>

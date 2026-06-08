@@ -89,9 +89,9 @@ export default function DashboardPage() {
 
   // Single file GSTR-2B parser state
   const [file, setFile] = React.useState<File | null>(null);
-  const [uploading, setUploading] = React.useState<boolean>(false);
+  const [isSubmittingParser, setIsSubmittingParser] = React.useState<boolean>(false);
   const [result, setResult] = React.useState<any | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [parserError, setParserError] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Sandbox banner visibility state
@@ -175,7 +175,7 @@ export default function DashboardPage() {
   // Dual file reconciliation engine state
   const [filePR, setFilePR] = React.useState<File | null>(null);
   const [file2B, setFile2B] = React.useState<File | null>(null);
-  const [reconUploading, setReconUploading] = React.useState<boolean>(false);
+  const [isSubmittingRecon, setIsSubmittingRecon] = React.useState<boolean>(false);
   const [reconResult, setReconResult] = React.useState<any | null>(null);
   const [reconError, setReconError] = React.useState<string | null>(null);
 
@@ -191,7 +191,7 @@ export default function DashboardPage() {
   const onDrop = React.useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles && acceptedFiles.length > 0) {
       setFile(acceptedFiles[0]);
-      setError(null);
+      setParserError(null);
       setResult(null);
     }
   }, []);
@@ -247,10 +247,10 @@ export default function DashboardPage() {
   });
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || isSubmittingParser) return;
 
-    setUploading(true);
-    setError(null);
+    setIsSubmittingParser(true);
+    setParserError(null);
     setResult(null);
 
     const formData = new FormData();
@@ -262,23 +262,23 @@ export default function DashboardPage() {
       setToast({ message: "GST File processed and validated successfully!", type: 'success' });
     } catch (err: any) {
       const errMsg = err.message || "An error occurred while uploading the file.";
-      setError(errMsg);
+      setParserError(errMsg);
       setToast({ message: errMsg, type: 'error' });
     } finally {
-      setUploading(false);
+      setIsSubmittingParser(false);
     }
   };
 
   const handleReset = () => {
     setFile(null);
     setResult(null);
-    setError(null);
+    setParserError(null);
   };
 
   const handleReconcile = async () => {
-    if (!filePR || !file2B) return;
+    if (!filePR || !file2B || isSubmittingRecon) return;
 
-    setReconUploading(true);
+    setIsSubmittingRecon(true);
     setReconError(null);
     setReconResult(null);
     setExpandedRow(null);
@@ -299,7 +299,7 @@ export default function DashboardPage() {
       setReconError(errMsg);
       setToast({ message: errMsg, type: 'error' });
     } finally {
-      setReconUploading(false);
+      setIsSubmittingRecon(false);
     }
   };
 
@@ -652,8 +652,14 @@ export default function DashboardPage() {
           {/* TAB A: SINGLE FILE PARSER */}
           {activeTab === 'parser' && (
             <div className="space-y-6">
+              {parserError && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px] animate-in fade-in duration-200">
+                  <ShieldAlert size={14} />
+                  <span>{parserError}</span>
+                </div>
+              )}
               {/* State 1: Pristine State */}
-              {!file && !uploading && !result && (
+              {!file && !isSubmittingParser && !result && (
                 <div
                   {...getRootProps()}
                   className="flex flex-col items-center justify-center cursor-pointer transition-all duration-200 border-2 border-dashed border-[#E5E7EB] rounded-[4px] p-10 bg-slate-50/30 hover:bg-slate-50"
@@ -672,7 +678,7 @@ export default function DashboardPage() {
               )}
 
               {/* State 2: File Selected */}
-              {file && !uploading && !result && (
+              {file && !isSubmittingParser && !result && (
                 <div className="border border-[#E5E7EB] rounded-[4px] p-5 flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-50/50">
                   <div className="flex items-center gap-3 w-full md:w-auto">
                     <div className="w-10 h-10 rounded-[4px] flex items-center justify-center flex-shrink-0 bg-slate-100 border border-[#E5E7EB] text-[#1B4F8A]">
@@ -688,22 +694,32 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                     <button
                       onClick={handleReset}
-                      className="px-3.5 py-2 rounded-[4px] text-xs font-semibold text-[#6B7280] hover:text-slate-600 transition-colors cursor-pointer"
+                      disabled={isSubmittingParser}
+                      className="px-3.5 py-2 rounded-[4px] text-xs font-semibold text-[#6B7280] hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleUpload}
-                      className="px-4 py-2 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-xs font-semibold rounded-[4px] transition-all cursor-pointer"
+                      disabled={isSubmittingParser || !file}
+                      className="px-4 py-2 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-xs font-semibold rounded-[4px] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
                     >
-                      Process & Validate
+                      {isSubmittingParser ? (
+                        <span className="flex items-center gap-2 justify-center">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Processing...
+                        </span>
+                      ) : 'Process & Validate'}
                     </button>
                   </div>
                 </div>
               )}
 
               {/* State 3: Uploading State */}
-              {uploading && (
+              {isSubmittingParser && (
                 <div className="border border-[#E5E7EB] rounded-[4px] p-10 flex flex-col items-center justify-center text-center bg-slate-50/30">
                   <RefreshCw size={22} className="text-[#1B4F8A] animate-spin mb-3" />
                   <p className="text-xs font-semibold text-slate-800">Parsing & extracting GST data...</p>
@@ -816,8 +832,14 @@ export default function DashboardPage() {
           {/* TAB B: DUAL-FILE RECONCILIATION ENGINE */}
           {activeTab === 'reconciler' && (
             <div className="space-y-6">
+              {reconError && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px] animate-in fade-in duration-200">
+                  <ShieldAlert size={14} />
+                  <span>{reconError}</span>
+                </div>
+              )}
               {/* Client Selector Dropdown */}
-              {!reconUploading && !reconResult && (
+              {!isSubmittingRecon && !reconResult && (
                 <div className="flex flex-col gap-1.5 max-w-xs">
                   <label htmlFor="client-select" className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                     Select Client
@@ -847,7 +869,7 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {!filePR && !file2B && !reconUploading && !reconResult && (
+              {!filePR && !file2B && !isSubmittingRecon && !reconResult && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Slot 1: Purchase Register */}
                   <div
@@ -877,7 +899,7 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {(filePR || file2B) && !reconUploading && !reconResult && (
+              {(filePR || file2B) && !isSubmittingRecon && !reconResult && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Books Card */}
@@ -896,14 +918,16 @@ export default function DashboardPage() {
                       {filePR ? (
                         <button
                           onClick={() => setFilePR(null)}
-                          className="w-7 h-7 rounded-[4px] flex items-center justify-center text-[#6B7280] hover:text-[#B91C1C] hover:bg-red-50 border border-transparent transition-colors cursor-pointer"
+                          disabled={isSubmittingRecon}
+                          className="w-7 h-7 rounded-[4px] flex items-center justify-center text-[#6B7280] hover:text-[#B91C1C] hover:bg-red-50 border border-transparent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <X size={12} />
                         </button>
                       ) : (
                         <button
                           {...dropzonePR.getRootProps()}
-                          className="px-3 py-1.5 rounded-[4px] bg-white border border-[#E5E7EB] text-[9px] font-bold text-slate-600 cursor-pointer shadow-sm"
+                          disabled={isSubmittingRecon}
+                          className="px-3 py-1.5 rounded-[4px] bg-white border border-[#E5E7EB] text-[9px] font-bold text-slate-600 cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <input {...dropzonePR.getInputProps()} />
                           Browse
@@ -927,14 +951,16 @@ export default function DashboardPage() {
                       {file2B ? (
                         <button
                           onClick={() => setFile2B(null)}
-                          className="w-7 h-7 rounded-[4px] flex items-center justify-center text-[#6B7280] hover:text-[#B91C1C] hover:bg-red-50 border border-transparent transition-colors cursor-pointer"
+                          disabled={isSubmittingRecon}
+                          className="w-7 h-7 rounded-[4px] flex items-center justify-center text-[#6B7280] hover:text-[#B91C1C] hover:bg-red-50 border border-transparent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <X size={12} />
                         </button>
                       ) : (
                         <button
                           {...dropzone2B.getRootProps()}
-                          className="px-3 py-1.5 rounded-[4px] bg-white border border-[#E5E7EB] text-[9px] font-bold text-slate-600 cursor-pointer shadow-sm"
+                          disabled={isSubmittingRecon}
+                          className="px-3 py-1.5 rounded-[4px] bg-white border border-[#E5E7EB] text-[9px] font-bold text-slate-600 cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <input {...dropzone2B.getInputProps()} />
                           Browse
@@ -946,26 +972,35 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                     <button
                       onClick={handleReconReset}
-                      className="text-xs font-semibold text-[#6B7280] hover:text-slate-600 transition-colors cursor-pointer"
+                      disabled={isSubmittingRecon}
+                      className="text-xs font-semibold text-[#6B7280] hover:text-slate-600 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Clear All
                     </button>
                     <button
                       onClick={handleReconcile}
-                      disabled={!filePR || !file2B}
-                      className={`px-4 py-2 text-xs font-semibold rounded-[4px] text-white transition-all cursor-pointer ${(!filePR || !file2B)
+                      disabled={!filePR || !file2B || isSubmittingRecon}
+                      className={`px-4 py-2 text-xs font-semibold rounded-[4px] text-white transition-all cursor-pointer min-w-[180px] ${(!filePR || !file2B || isSubmittingRecon)
                         ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
                         : 'bg-[#1B4F8A] hover:bg-[#163F6E]'
                         }`}
                     >
-                      Run Automated Reconciliation
+                      {isSubmittingRecon ? (
+                        <span className="flex items-center gap-2 justify-center">
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Processing...
+                        </span>
+                      ) : 'Run Automated Reconciliation'}
                     </button>
                   </div>
                 </div>
               )}
 
               {/* State 3: Reconciling Progress */}
-              {reconUploading && (
+              {isSubmittingRecon && (
                 <div className="border border-[#E5E7EB] rounded-[4px] p-10 flex flex-col items-center justify-center text-center bg-slate-50/30">
                   <RefreshCw size={24} className="text-[#1B4F8A] animate-spin mb-3" />
                   <h4 className="text-xs font-semibold text-slate-800">Reconciling GST data...</h4>
