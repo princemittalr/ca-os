@@ -1,20 +1,13 @@
 import os
-from supabase import create_client, Client
+from config.supabase import get_supabase_client
 from dotenv import load_dotenv
 
 # Load local environment variables from parent directory if present, or backend directory
 load_dotenv()
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL == "mock_url" or SUPABASE_SERVICE_ROLE_KEY == "mock_key":
-    print("Supabase credentials not set or set to mock defaults. Skipping DB migration.")
-    exit(0)
-
 try:
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    supabase = get_supabase_client()
     print("Connected to Supabase.")
 except Exception as e:
     print(f"Failed to connect to Supabase: {e}")

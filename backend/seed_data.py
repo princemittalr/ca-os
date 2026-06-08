@@ -1,6 +1,8 @@
-from database import supabase
+from config.supabase import get_supabase_client
 from datetime import date, timedelta
 import uuid
+
+supabase = get_supabase_client()
 
 # Fetch the first firm to use as tenant context
 firms_res = supabase.table("firms").select("id").limit(1).execute()
