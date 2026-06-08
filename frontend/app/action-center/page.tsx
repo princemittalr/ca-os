@@ -71,7 +71,6 @@ export default function SmartActionCenter() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Status and filter chip states
-  const [resolvedActions, setResolvedActions] = useState<ActionItem[]>([]);
   const [statusTab, setStatusTab] = useState<'PENDING' | 'RESOLVED'>('PENDING');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedPriority, setSelectedPriority] = useState<string | null>(null);
@@ -90,7 +89,8 @@ export default function SmartActionCenter() {
       };
 
       try {
-        listData = await api.get<ActionItem[]>('/api/action-center');
+        // Fetch all action items (including resolved)
+        listData = await api.get<ActionItem[]>('/api/action-center?include_resolved=true');
         summaryData = await api.get<ActionSummary>('/api/action-center/summary');
       } catch (err) {
         console.error("Backend offline:", err);
@@ -137,16 +137,21 @@ export default function SmartActionCenter() {
   }, []);
 
   const handleResolveAction = async (actionId: string) => {
+    // Optimistic update
+    setActions(prev => prev.map(a => 
+      a.action_id === actionId ? { ...a, status: 'RESOLVED' } : a
+    ));
+
     try {
-      const itemToResolve = actions.find(a => a.action_id === actionId);
-      if (itemToResolve) {
-        setResolvedActions(prev => [...prev, { ...itemToResolve, status: 'RESOLVED' }]);
-      }
       await api.put(`/api/action-center/${actionId}/resolve`, {});
       showToast("Action resolved!", "success");
-      await fetchActionCenter();
+      await fetchActionCenter(); // Full refresh to ensure sync with server
     } catch (err) {
       console.error("Resolve failed:", err);
+      // Revert optimistic update
+      setActions(prev => prev.map(a => 
+        a.action_id === actionId ? { ...a, status: 'PENDING' } : a
+      ));
       showToast("Failed to resolve action. Check API connection.", "error");
     }
   };
@@ -216,23 +221,17 @@ export default function SmartActionCenter() {
 
   // Folders dynamic lists & sizes
   const folderCounts = {
-    PRIORITY: actions.filter(a => a.priority === 'HIGH' && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
-    GST_RISKS: actions.filter(a => isGstRisk(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
-    BOE_ISSUES: actions.filter(a => isBoeIssue(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
-    COMPLIANCE_DEADLINES: actions.filter(a => isComplianceDeadline(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
-    NOTICES: actions.filter(a => isNotice(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
-    HIGH_PRIORITY_CLIENTS: actions.filter(a => isHighPriorityClient(a) && !resolvedActions.some(ra => ra.action_id === a.action_id)).length,
-    ALL: actions.filter(a => !resolvedActions.some(ra => ra.action_id === a.action_id)).length
+    PRIORITY: actions.filter(a => a.priority === 'HIGH' && a.status === 'PENDING').length,
+    GST_RISKS: actions.filter(a => isGstRisk(a) && a.status === 'PENDING').length,
+    BOE_ISSUES: actions.filter(a => isBoeIssue(a) && a.status === 'PENDING').length,
+    COMPLIANCE_DEADLINES: actions.filter(a => isComplianceDeadline(a) && a.status === 'PENDING').length,
+    NOTICES: actions.filter(a => isNotice(a) && a.status === 'PENDING').length,
+    HIGH_PRIORITY_CLIENTS: actions.filter(a => isHighPriorityClient(a) && a.status === 'PENDING').length,
+    ALL: actions.filter(a => a.status === 'PENDING').length
   };
 
-  // 1. Merge active actions and resolved actions
-  const allAvailableActions = [
-    ...actions.map(a => resolvedActions.some(ra => ra.action_id === a.action_id) ? { ...a, status: 'RESOLVED' } : { ...a, status: 'PENDING' }),
-    ...resolvedActions.filter(ra => !actions.some(a => a.action_id === ra.action_id))
-  ];
-
-  // 2. Filter by selected Folder first
-  const folderFiltered = allAvailableActions.filter(action => {
+  // Filter by selected Folder first
+  const folderFiltered = actions.filter(action => {
     if (selectedFolder === 'PRIORITY') return action.priority === 'HIGH';
     if (selectedFolder === 'GST_RISKS') return isGstRisk(action);
     if (selectedFolder === 'BOE_ISSUES') return isBoeIssue(action);

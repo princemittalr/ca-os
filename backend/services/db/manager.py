@@ -480,21 +480,25 @@ def update_communication_status(comm_id: str, new_status: str) -> bool:
 # -------------------------------------------------------------------------
 # ACTION CENTER CRUD ABSTRACTION
 # -------------------------------------------------------------------------
-def get_action_items(firm_id: str) -> List[Dict[str, Any]]:
+def get_action_items(firm_id: str, include_resolved: bool = False) -> List[Dict[str, Any]]:
     """
-    Fetches all PENDING action items for the given firm from Supabase.
+    Fetches action items for the given firm from Supabase.
+    By default only returns PENDING items.
     Always Supabase — no in-memory fallback.
     """
     if not is_supabase_active():
         raise RuntimeError("Database connection is inactive.")
     try:
-        res = get_supabase_client().table("action_items") \
+        query = get_supabase_client().table("action_items") \
             .select("*") \
             .eq("firm_id", firm_id) \
-            .eq("status", "PENDING") \
             .eq("is_deleted", False) \
-            .order("risk_score", desc=True) \
-            .execute()
+            .order("risk_score", desc=True)
+            
+        if not include_resolved:
+            query = query.eq("status", "PENDING")
+            
+        res = query.execute()
         return cast(List[Dict[str, Any]], res.data or [])
     except Exception as e:
         raise RuntimeError(f"Failed to fetch action items: {str(e)}") from e

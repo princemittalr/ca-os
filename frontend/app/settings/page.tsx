@@ -282,12 +282,15 @@ function SettingsContent() {
   // Secure password update handled via multi-step workflow modal
 
   const handleRevokeSession = async (id: string, name: string) => {
+    // GoTrue doesn't support individual session revocation
+    // Only option: logout all other sessions
+    if (!confirm(`This will log out ALL other devices, not just "${name}". Continue?`)) return;
     try {
-      await api.delete(`/api/auth/sessions/${id}`);
-      setSessions(sessions.filter(s => s.id !== id));
-      showToast(`Session revoked on ${name}`, "success");
-    } catch (err) {
-      showToast("Revocation Failed: Unable to revoke session.", "error");
+      await api.delete('/api/auth/sessions'); // logout others endpoint
+      setSessions(sessions.slice(0, 1)); // keep current session only
+      showToast("Logged out of all other devices.", "success");
+    } catch (err: any) {
+      showToast("Failed to revoke sessions.", "error");
     }
   };
 
@@ -1004,9 +1007,9 @@ function SettingsContent() {
                                     // Invalidate sessions except current Windows one
                                     setSessions(sessions.filter(s => s.last_active === 'Active now'));
                                     setModalStep(4);
-                                    triggerToast("✓ Password updated. Dispatched security notification to rahul.sharma@reckon.ai.");
+                                    showToast("Password updated. Dispatched security notification to rahul.sharma@reckon.ai.", "success");
                                   } catch (err: any) {
-                                    triggerToast(`❌ Update Failed: ${err.message || "Unable to update password."}`);
+                                    showToast(`Update Failed: ${err.message || "Unable to update password."}`, "error");
                                   } finally {
                                     setModalLoading(false);
                                   }
@@ -1178,7 +1181,7 @@ function SettingsContent() {
                       type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(backupRecoveryCodes.join('\n'));
-                        triggerToast("✓ Recovery codes copied to clipboard.");
+                        showToast("Recovery codes copied to clipboard.", "success");
                       }}
                       className="text-[12px] font-bold text-[#7C3AED] hover:underline px-3 py-1.5 bg-[#7C3AED]/5 hover:bg-[#7C3AED]/10 rounded-lg border border-[#7C3AED]/20 transition-all"
                     >
@@ -1260,13 +1263,13 @@ function SettingsContent() {
                               onClick={async () => {
                                 setModalLoading(true);
                                 try {
-                                  await api.post('/api/auth/verify-password', { password: twoFactorPasswordInput });
-                                  setTwoFactorStep(2);
-                                } catch (err: any) {
-                                  triggerToast(`❌ Verification Failed: ${err.message || "Invalid current master password!"}`);
-                                } finally {
-                                  setModalLoading(false);
-                                }
+                                    await api.post('/api/auth/verify-password', { password: twoFactorPasswordInput });
+                                    setTwoFactorStep(2);
+                                  } catch (err: any) {
+                                    showToast(`Verification Failed: ${err.message || "Invalid current master password!"}`, "error");
+                                  } finally {
+                                    setModalLoading(false);
+                                  }
                               }}
                               className="w-full h-11 rounded-xl bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#F59E0B]/20 disabled:opacity-40 disabled:cursor-not-allowed"
                             >
@@ -1417,7 +1420,7 @@ function SettingsContent() {
                                   type="button"
                                   onClick={() => {
                                     navigator.clipboard.writeText("RCK-RECON-MFA-SHARMA-VAULT");
-                                    triggerToast("✓ Secret key copied to clipboard.");
+                                    showToast("Secret key copied to clipboard.", "success");
                                   }}
                                   className="text-[11px] font-bold text-[#F59E0B] hover:underline"
                                 >
@@ -1469,7 +1472,7 @@ function SettingsContent() {
                               type="button"
                               onClick={() => {
                                 setTwoFactorStep(4);
-                                triggerToast("✉ Transmitted mock Setup verification code factor.");
+                                showToast("Transmitted mock Setup verification code factor.", "success");
                               }}
                               className="flex-2 h-11 rounded-[3px] bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] shadow-sm"
                             >
@@ -1541,9 +1544,9 @@ function SettingsContent() {
                                   setModalLoading(false);
                                   if (twoFactorCode.join('') === '489012') {
                                     setTwoFactorStep(5);
-                                    triggerToast("✓ Connection Verified! 2FA fully enabled.");
+                                    showToast("Connection Verified! 2FA fully enabled.", "success");
                                   } else {
-                                    triggerToast("❌ Onboarding Mismatch: Invalid dynamic authentication token code!");
+                                    showToast("Onboarding Mismatch: Invalid dynamic authentication token code!", "error");
                                   }
                                 }}
                                 className="flex-2 h-11 rounded-[3px] bg-[#F59E0B] hover:bg-[#F59E0B]/90 text-white font-bold text-[13px] flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1586,7 +1589,7 @@ function SettingsContent() {
                                 type="button"
                                 onClick={() => {
                                   navigator.clipboard.writeText(backupRecoveryCodes.join('\n'));
-                                  triggerToast("✓ Recovery codes copied.");
+                                  showToast("Recovery codes copied.", "success");
                                 }}
                                 className="text-[#7C3AED] hover:underline font-bold"
                               >
@@ -1608,7 +1611,7 @@ function SettingsContent() {
                                   link.download = 'reckon_backup_recovery_codes.txt';
                                   link.click();
                                   URL.revokeObjectURL(url);
-                                  triggerToast("✓ Backup codes text file downloaded.");
+                                  showToast("Backup codes text file downloaded.", "success");
                                 }}
                                 className="text-[#F59E0B] hover:underline font-bold"
                               >
@@ -1694,9 +1697,9 @@ function SettingsContent() {
                               await api.post('/api/auth/verify-password', { password: disablePasswordInput });
                               setIs2FAEnabled(false);
                               setShowDisable2FAModal(false);
-                              triggerToast("✓ Two-Factor Authentication disabled. Account status set to unprotected.");
+                              showToast("Two-Factor Authentication disabled. Account status set to unprotected.", "success");
                             } catch (err: any) {
-                              triggerToast(`❌ Verification Failed: ${err.message || "Invalid current master password!"}`);
+                              showToast(`Verification Failed: ${err.message || "Invalid current master password!"}`, "error");
                             } finally {
                               setDisableLoading(false);
                             }
@@ -1726,12 +1729,13 @@ function SettingsContent() {
                   {sessions.length > 1 && (
                     <button
                       onClick={async () => {
+                        if (!confirm("This will log out ALL other devices. Continue?")) return;
                         try {
                           await api.delete('/api/auth/sessions');
                           setSessions(sessions.slice(0,1));
-                          triggerToast("Logged out of all other devices successfully.");
+                          showToast("Logged out of all other devices successfully.", "success");
                         } catch (err) {
-                          triggerToast("❌ Action Failed: Unable to revoke all sessions.");
+                          showToast("Action Failed: Unable to revoke all sessions.", "error");
                         }
                       }}
                       className="btn btn-sm btn-destructive"
@@ -1744,6 +1748,11 @@ function SettingsContent() {
 
                 {/* Session rows */}
                 <div>
+                  <div className="px-5 py-2 bg-slate-50 border-b border-slate-100">
+                    <p className="text-[11px] text-slate-500 font-medium italic">
+                      Note: Supabase GoTrue does not expose a session list API. Sessions displayed here are illustrative; the "Logout All Others" action is real.
+                    </p>
+                  </div>
                   {sessions.map((s, idx) => (
                     <div
                       key={s.id}
@@ -2157,7 +2166,7 @@ function SettingsContent() {
                     <button
                       type="button"
                       onClick={() => {
-                        triggerToast("✓ Initializing payment gateway for Reckon Pro CA plan. Secure connection active...");
+                        showToast("Initializing payment gateway for Reckon Pro CA plan. Secure connection active...", "success");
                       }}
                       className="w-full py-4 rounded-[3px] bg-[#1B4F8A] text-white font-black text-[13.5px] text-center shadow-sm cursor-pointer"
                     >
@@ -2234,7 +2243,7 @@ function SettingsContent() {
                     <button
                       type="button"
                       onClick={() => {
-                        triggerToast("✉ Transmitting custom Enterprise quote requests to Reckon partnership nodes...");
+                        showToast("Transmitting custom Enterprise quote requests to Reckon partnership nodes...", "success");
                       }}
                       className="w-full py-4 rounded-[3px] bg-[#F8FAFC] hover:bg-slate-50 text-[#1B4F8A] border border-[#1B4F8A]/30 font-black text-[13.5px] text-center cursor-pointer shadow-sm"
                     >
@@ -2264,7 +2273,7 @@ function SettingsContent() {
                   Generate and download a comprehensive, password-protected ZIP archive enclosing client profile schemas, GSTR verification logs, ledger mismatches, and comprehensive action histories.
                 </p>
                 <button 
-                  onClick={() => triggerToast("✓ Gathering CSV databases. ZIP download starting shortly...")}
+                  onClick={() => showToast("Gathering CSV databases. ZIP download starting shortly...", "success")}
                   className="bg-white hover:bg-slate-50 text-white border border-slate-200 hover:border-white/20 px-5 py-2.5 rounded-xl text-[12.5px] font-bold transition-all cursor-pointer shadow-sm"
                 >
                   Request Archive ZIP
@@ -2291,7 +2300,7 @@ function SettingsContent() {
                 </p>
                 
                 <button 
-                  onClick={() => triggerToast("⚠️ Please contact senior accounts representative to complete deletion.")}
+                  onClick={() => showToast("Please contact senior accounts representative to complete deletion.", "warning")}
                   className="bg-[#EF4444] hover:bg-[#EF4444]/90 text-white font-bold text-[12.5px] px-5 py-2.5 rounded-xl transition-all border border-slate-200 shadow-lg cursor-pointer"
                 >
                   Request Account Deletion

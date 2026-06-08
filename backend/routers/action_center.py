@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 from models import schemas
 from services.db import manager as db_manager
@@ -10,13 +10,16 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[schemas.ActionItemResponse])
-async def get_ranked_action_items(current_user: dict = Depends(verify_token)):
+async def get_ranked_action_items(
+    include_resolved: bool = Query(False),
+    current_user: dict = Depends(verify_token)
+):
     """
     Get unified CA operational action items ranked by risk score, scoped to the firm.
     Requires a valid Bearer session token.
     """
     firm_id = current_user["firm_id"]
-    return db_manager.get_action_items(firm_id=firm_id)
+    return db_manager.get_action_items(firm_id=firm_id, include_resolved=include_resolved)
 
 
 @router.get("/summary", response_model=schemas.ActionCenterSummaryResponse)
