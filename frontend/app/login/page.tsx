@@ -3,20 +3,16 @@
 import React, { useState } from 'react';
 import {
   Building,
-  Zap,
   CheckCircle2,
-  AlertCircle,
-  MailWarning,
   ShieldAlert,
-  ExternalLink,
-  ChevronRight,
-  Clock,
   ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -28,10 +24,19 @@ export default function LoginPage() {
     setTimeout(() => setToastMessage(''), 3000);
   };
 
+  const validate = (): string | null => {
+    if (!email.trim()) return "Email is required.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "Enter a valid email address.";
+    if (!password) return "Password is required.";
+    if (password.length < 8) return "Password must be at least 8 characters.";
+    return null;
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setErrorMessage("Please enter both email and password.");
+    const validationError = validate();
+    if (validationError) {
+      setErrorMessage(validationError);
       return;
     }
 
@@ -39,7 +44,6 @@ export default function LoginPage() {
       setIsLoading(true);
       setErrorMessage('');
 
-      // Use the singleton — no inline createClient()
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -47,16 +51,10 @@ export default function LoginPage() {
 
       if (error) throw error;
 
-      // Supabase SDK auto-persists the session (access + refresh tokens) in its
-      // own namespaced localStorage key and refreshes before expiry.
-      // Sidebar and TopBar now read full_name/role from supabase.auth.getUser()
-      // directly — no manual localStorage writes needed.
-
-      showToast("✓ Authentication successful! Redirecting...");
-      setTimeout(() => { window.location.href = "/action-center"; }, 1500);
+      showToast("Authentication successful! Redirecting...");
+      setTimeout(() => { router.push("/action-center"); }, 1200);
 
     } catch (err: any) {
-      console.error(err);
       const message = err?.message || "Authentication failed. Please check your credentials.";
       setErrorMessage(message);
     } finally {
@@ -65,10 +63,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex items-center justify-center p-4 font-sans relative overflow-hidden">
-      {/* Background decorative blurs removed */}
-
-      {/* Toast */}
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex items-center justify-center p-4 font-sans">
       {toastMessage && (
         <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-[3px] shadow-sm z-[100] max-w-sm flex items-center gap-3.5">
           <CheckCircle2 className="text-[#10B981] flex-shrink-0" size={20} />
@@ -76,10 +71,7 @@ export default function LoginPage() {
         </div>
       )}
 
-      {/* Main Panel */}
-      <div className="bg-white border border-slate-200 rounded-[3px] max-w-[640px] w-full p-10 shadow-sm relative z-10 space-y-8">
-
-        {/* Brand identity */}
+      <div className="bg-white border border-slate-200 rounded-[3px] max-w-[640px] w-full p-10 shadow-sm space-y-8">
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-[3px] bg-[#1B4F8A] text-white flex items-center justify-center mx-auto shadow-sm">
             <Building size={20} />
@@ -90,18 +82,14 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Info card */}
         <div className="bg-slate-50 border border-slate-100 p-4 rounded-[3px] text-[11px] text-slate-500 leading-relaxed flex items-start gap-2.5">
           <ShieldAlert size={16} className="text-[#1B4F8A] flex-shrink-0" />
-          <p>
-            Secure, encrypted workspace portal authorized for Chartered Accountants. Row-level security partitions enabled across all corporate client registers.
-          </p>
+          <p>Secure, encrypted workspace portal authorized for Chartered Accountants. Row-level security enabled across all client registers.</p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4 font-sans">
+        <form onSubmit={handleLogin} className="space-y-4">
           {errorMessage && (
-            <div className="text-[11px] text-[#B91C1C] mt-[3px]">
+            <div className="text-[11px] text-[#B91C1C] bg-red-50 border border-red-100 px-3 py-2 rounded-[3px]">
               {errorMessage}
             </div>
           )}
@@ -111,52 +99,45 @@ export default function LoginPage() {
             <input
               type="email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => { setEmail(e.target.value); setErrorMessage(''); }}
               placeholder="e.g. aditya@firm.com"
-              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
+              disabled={isLoading}
+              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
             />
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-[4px]">
               <label className="block text-[12px] font-medium text-[#374151]">Access Password</label>
-              <Link href="/forgot-password">
-                <span className="text-[12px] text-[#1B4F8A] hover:underline cursor-pointer">Forgot?</span>
-              </Link>
+              <Link href="/forgot-password" title="Forgot Password" className="text-[12px] text-[#1B4F8A] hover:underline">Forgot?</Link>
             </div>
             <input
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••••••"
-              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
+              onChange={e => { setPassword(e.target.value); setErrorMessage(''); }}
+              placeholder="Minimum 8 characters"
+              disabled={isLoading}
+              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
             />
           </div>
 
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full h-[32px] bg-[#1B4F8A] text-[#FFFFFF] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isLoading || !email || !password}
+            className="w-full h-[32px] bg-[#1B4F8A] text-white text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (
-              <div className="w-[12px] h-[12px] border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              <div className="w-[12px] h-[12px] border-2 border-white/20 border-t-white rounded-full animate-spin" />
             ) : (
-              <>
-                <span>Authenticate Session</span>
-                <ArrowRight size={12} />
-              </>
+              <><span>Authenticate Session</span><ArrowRight size={12} /></>
             )}
           </button>
         </form>
 
-        {/* Footer links */}
         <div className="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
-          <span>Need to register your CA Firm? </span>
-          <Link href="/signup">
-            <span className="text-[#4F46E5] font-bold hover:underline cursor-pointer">Sign Up</span>
-          </Link>
+          Need to register your CA Firm?{' '}
+          <Link href="/signup" className="text-[#4F46E5] font-bold hover:underline">Sign Up</Link>
         </div>
-
       </div>
     </div>
   );
