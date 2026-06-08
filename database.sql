@@ -551,6 +551,44 @@ CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_id   ON automation_agents(
 CREATE INDEX IF NOT EXISTS idx_automation_agents_firm_key  ON automation_agents(firm_id, agent_key);
 
 
+-- ───────────────────────────────────────────────────────────────── 
+-- PRODUCTION INDEXES 
+-- ───────────────────────────────────────────────────────────────── 
+
+-- reconciliation_runs: client_id filter (GST recon history) 
+CREATE INDEX IF NOT EXISTS idx_reconciliation_runs_client_id 
+  ON reconciliation_runs(client_id) 
+  WHERE is_deleted = FALSE; 
+
+-- compliance_tasks: client_id + due_date (deadline queries + calendar) 
+CREATE INDEX IF NOT EXISTS idx_compliance_tasks_client_due 
+  ON compliance_tasks(client_id, due_date) 
+  WHERE is_deleted = FALSE; 
+
+-- action_items: firm_id + status (action center feed) 
+CREATE INDEX IF NOT EXISTS idx_action_items_firm_status 
+  ON action_items(firm_id, status) 
+  WHERE is_deleted = FALSE; 
+
+-- notifications: user_id + is_read (inbox unread count) 
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread 
+  ON notifications(user_id, is_read) 
+  WHERE is_read = FALSE; 
+
+-- recon_rows: reconciliation_id (export fetch) 
+CREATE INDEX IF NOT EXISTS idx_recon_rows_reconciliation_id 
+  ON recon_rows(reconciliation_id); 
+
+-- gst_notices: firm_id + status (notice list) 
+CREATE INDEX IF NOT EXISTS idx_gst_notices_firm_status 
+  ON gst_notices(firm_id, status) 
+  WHERE is_deleted = FALSE; 
+
+-- audit_logs: firm_id + created_at (audit trail pagination) 
+CREATE INDEX IF NOT EXISTS idx_audit_logs_firm_created 
+  ON audit_logs(firm_id, created_at DESC); 
+
+
 -- =============================================================================
 -- SECTION 19: ENABLE ROW LEVEL SECURITY
 -- Must be done before policy creation.
@@ -905,6 +943,28 @@ CREATE POLICY "automation_agents_update_firm"
 CREATE POLICY "automation_agents_delete_firm"
     ON automation_agents FOR DELETE
     USING (firm_id = get_user_firm_id());
+
+
+-- ───────────────────────────────────────────────────────────────── 
+-- RLS POLICY FIXES 
+-- ───────────────────────────────────────────────────────────────── 
+
+-- scheduler_locks: NO RLS (background job, no user context) 
+ALTER TABLE scheduler_locks DISABLE ROW LEVEL SECURITY; 
+
+-- audit_logs: service role only for writes 
+-- (reads are firm-scoped via existing policy) 
+-- Revoke INSERT from authenticated role: 
+REVOKE INSERT ON audit_logs FROM authenticated; 
+-- Grant INSERT only to service_role (backend uses service role for audit writes): 
+GRANT INSERT ON audit_logs TO service_role; 
+
+-- audit_logs: ensure firm_id NOT NULL (add constraint if not present) 
+-- Add default for existing NULL rows before constraint: 
+UPDATE audit_logs SET firm_id = '00000000-0000-0000-0000-000000000000' WHERE firm_id IS NULL; 
+
+ALTER TABLE audit_logs 
+  ALTER COLUMN firm_id SET NOT NULL; 
 
 
 -- =============================================================================
