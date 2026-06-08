@@ -10,6 +10,7 @@ REQUIRED_SECRETS = [
     "SUPABASE_SERVICE_ROLE_KEY",
     "SUPABASE_ANON_KEY",
     "SECRET_KEY",
+    "SUPABASE_JWT_SECRET",   # ← ADD: required for offline JWT verify in prod 
 ]
 
 OPTIONAL_SECRETS = [
@@ -19,18 +20,22 @@ OPTIONAL_SECRETS = [
     # Rate limit overrides
     "AI_RATE_LIMIT",
     "AUTH_RATE_LIMIT",
-    "UPLOAD_RATE_LIMIT",
+    "UPLOAD_LIMIT",
 ]
 
 def validate_environment():
     """Validate all required environment variables on startup."""
     missing = []
     warnings = []
+    env_name = os.getenv("ENV", "development")
 
     for key in REQUIRED_SECRETS:
         val = os.getenv(key)
-        if not val or val in ("mock_key", "mock_url", ""):
-            missing.append(key)
+        if not val or val in ("mock_key", "mock_url", "mock_secret", ""):
+            if env_name == "production":
+                missing.append(key)
+            else:
+                warnings.append(f"{key} (using mock/default — set before prod deployment)")
 
     for key in OPTIONAL_SECRETS:
         val = os.getenv(key)
@@ -39,15 +44,14 @@ def validate_environment():
 
     if warnings:
         for w in warnings:
-            print(f"[WARN] Optional env var not set: {w}")
+            print(f"[WARN] {w}")
 
     if missing:
-        print(f"[CRITICAL] Missing required environment variables: {missing}")
+        print(f"[CRITICAL] Missing required env vars in production: {missing}")
         print("[CRITICAL] Server cannot start safely. Add missing vars to .env")
         sys.exit(1)
 
     # ── Startup env summary ──────────────────────────────────────────────────
-    env_name    = os.getenv("ENV", "development")
     debug_flag  = os.getenv("DEBUG", "false").lower()
     demo_flag   = os.getenv("ENABLE_DEMO_MODE", "false").lower()
     cors_raw    = os.getenv("CORS_ORIGINS", "")
