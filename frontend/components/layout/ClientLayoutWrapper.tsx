@@ -72,7 +72,14 @@ export default function ClientLayoutWrapper({ children }: { children: React.Reac
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
-      if (!session && !isAuthPage && !isRedirectingRef.current) {
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // Reset redirect lock — allow future navigation
+        isRedirectingRef.current = false;
+        return;
+      }
+
+      if ((event === 'SIGNED_OUT' || !session) && !isAuthPage && !isRedirectingRef.current) {
         isRedirectingRef.current = true;
         router.replace("/login");
       }
