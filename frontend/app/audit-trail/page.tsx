@@ -1,20 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import PageHeader from '@/components/layout/PageHeader';
-import { getUnifiedBadgeClass } from '@/lib/badgeHelper';
-import { api } from '@/lib/api';
-import { 
-  ClipboardList, 
-  Search, 
-  Download, 
-  X,
-  CheckCircle,
+import {
+  Search,
+  Download,
   Clock,
   Filter,
-  Shield,
-  ChevronDown
+  ChevronDown,
+  ChevronUp,
+  ScrollText,
+  X
 } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface LogEntry {
   id: string;
@@ -26,50 +23,25 @@ interface LogEntry {
   ip_address: string;
 }
 
-/** Parse "DD-MM-YYYY HH:MM" → { dateLabel, timeLabel } */
-function parseTimestamp(raw: string): { dateLabel: string; timeLabel: string } {
-  const [datePart, timePart] = raw.split(' ');
-  if (!datePart || !timePart) return { dateLabel: raw, timeLabel: '' };
-  const [dd, mm, yyyy] = datePart.split('-');
-  const monthNames: Record<string, string> = {
-    '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
-    '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec',
-  };
-  const monthName = monthNames[mm] || mm;
-  return {
-    dateLabel: `${dd} ${monthName} ${yyyy}`,
-    timeLabel: timePart,
-  };
-}
-
-/** Get uppercase initial for avatar */
-function getInitial(name: string): string {
-  return name.trim().charAt(0).toUpperCase();
-}
-
-export default function AuditTrailPage() {
+export default function SecurityOperationsConsole() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
-  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
-  const [toastMsg, setToastMsg] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [toastMsg, setToastMsg] = useState('');
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  
+  useEffect(() => {
+    fetchLogs();
+  }, []);
+
   const fetchLogs = async () => {
     try {
       setIsLoadingLogs(true);
       const data = await api.get<any[]>('/api/audit/');
-      // Map Supabase audit_logs fields to LogEntry format
       const mapped = data.map((row: any) => {
         const rawUser = row.user_id || row.actor_id;
-        const userDisplay =
-          rawUser && typeof rawUser === "string"
-            ? `${rawUser.slice(0, 8)}...`
-            : "System";
-
+        const userDisplay = rawUser && typeof rawUser === "string" ? `${rawUser.slice(0, 8)}...` : "System";
         return {
           id: row.id,
           timestamp: new Date(row.created_at).toLocaleString('en-IN', {
@@ -91,10 +63,6 @@ export default function AuditTrailPage() {
       setIsLoadingLogs(false);
     }
   };
-  
-  useEffect(() => {
-    fetchLogs();
-  }, []);
 
   const triggerToast = (msg: string) => {
     setToastMsg(msg);
@@ -115,10 +83,6 @@ export default function AuditTrailPage() {
     triggerToast("✓ Audit log CSV exported successfully.");
   };
 
-  const getActionBadgeStyle = (action: string) => {
-    return getUnifiedBadgeClass(action);
-  };
-
   const toggleRowExpand = (id: string) => {
     setExpandedRows(prev => {
       const next = new Set(prev);
@@ -131,440 +95,321 @@ export default function AuditTrailPage() {
     });
   };
 
-  // Filter logic — unchanged
+  const isHighRisk = (action: string) => {
+    const highRiskActions = ['DELETE', 'PASSWORD_CHANGED', 'LOGOUT_ALL'];
+    return highRiskActions.includes(action.toUpperCase());
+  };
+
+  const getActionBadgeClass = (action: string) => {
+    const lower = action.toUpperCase();
+    if (lower === 'CREATE') return 'bg-blue-50 text-blue-700 border border-blue-200';
+    if (lower === 'UPDATE') return 'bg-amber-50 text-amber-700 border border-amber-200';
+    if (lower === 'DELETE') return 'bg-red-50 text-red-700 border border-red-200';
+    if (lower === 'LOGIN') return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+    if (lower === 'EXPORT') return 'bg-purple-50 text-purple-700 border border-purple-200';
+    return 'bg-slate-50 text-slate-700 border border-slate-200';
+  };
+
+  const getInitial = (name: string) => name.trim().charAt(0).toUpperCase();
+
+  const getRelativeTime = (timestamp: string) => {
+    try {
+      // Parse timestamp: DD-MM-YYYY HH:MM
+      const [datePart, timePart] = timestamp.split(' ');
+      const [dd, mm, yyyy] = datePart.split('-');
+      const [hh, mi] = timePart.split(':');
+      const date = new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), parseInt(hh), parseInt(mi));
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} min ago`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return timestamp;
+    }
+  };
+
+  // Filter logic preserved
   const filteredLogs = logs.filter(log => {
     const matchesSearch = log.details.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           log.entity.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           log.user.toLowerCase().includes(searchQuery.toLowerCase());
-    
     const matchesAction = actionFilter === 'All' || log.action === actionFilter;
-
     return matchesSearch && matchesAction;
   });
 
-  const activeFilterCount = (actionFilter !== 'All' ? 1 : 0);
+  // Stats
+  const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const totalToday = logs.filter(l => l.timestamp.startsWith(today)).length;
+  const uniqueActors = new Set(logs.map(l => l.user)).size;
+  const highRiskCount = logs.filter(l => isHighRisk(l.action)).length;
+
+  const parseDetails = (detailsStr: string) => {
+    try {
+      return JSON.parse(detailsStr);
+    } catch {
+      return { message: detailsStr };
+    }
+  };
 
   return (
-    <div className="space-y-8 pb-16 animate-in fade-in duration-500 relative">
-
-      {/* ── Audit Trail Row Detail CSS ── */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        .audit-detail-row {
-          max-height: 0;
-          overflow: hidden;
-          transition: max-height 320ms cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .audit-detail-row.expanded {
-          max-height: 120px;
-        }
-        .audit-row-chevron {
-          transition: transform 220ms ease;
-          color: var(--color-text-tertiary);
-          flex-shrink: 0;
-        }
-        .audit-row-chevron.open {
-          transform: rotate(180deg);
-        }
-        .audit-avatar {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background: var(--color-accent-soft);
-          color: var(--color-primary-light);
-          font-size: 11px;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-          letter-spacing: 0;
-        }
-        .audit-timestamp-primary {
-          font-size: 14px;
-          font-weight: 500;
-          color: var(--color-text-primary);
-          line-height: 1.3;
-        }
-        .audit-timestamp-secondary {
-          font-size: 12px;
-          color: var(--color-text-tertiary);
-          line-height: 1.3;
-          font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
-        }
-        .audit-ip {
-          font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
-          font-size: 13px;
-          color: var(--color-text-secondary);
-        }
-        .audit-entity {
-          font-size: 13px;
-          color: var(--color-text-secondary);
-        }
-        .audit-desc-cell {
-          max-width: 400px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          font-size: 13px;
-          color: var(--color-text-secondary);
-        }
-        .audit-detail-inner {
-          padding: 12px 16px 14px 16px;
-          background: var(--color-surface);
-          border-top: 1px solid var(--color-border);
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .audit-detail-desc {
-          font-size: 13px;
-          color: var(--color-text-primary);
-          line-height: 1.6;
-          white-space: normal;
-        }
-        .audit-detail-hash {
-          font-size: 12px;
-          color: var(--color-text-tertiary);
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-        .audit-detail-hash-val {
-          font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
-          font-size: 12px;
-          color: var(--color-text-tertiary);
-        }
-        .filter-badge {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          height: 18px;
-          min-width: 18px;
-          padding: 0 5px;
-          border-radius: 9px;
-          background: var(--color-primary-light);
-          color: #fff;
-          font-size: 10px;
-          font-weight: 700;
-          margin-left: 4px;
-        }
-        .audit-empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 72px 24px;
-          gap: 12px;
-        }
-        .audit-empty-icon {
-          color: var(--color-text-tertiary);
-          margin-bottom: 4px;
-        }
-        .audit-empty-title {
-          font-size: 18px;
-          font-weight: 600;
-          color: var(--color-text-primary);
-          margin: 0;
-        }
-        .audit-empty-sub {
-          font-size: 14px;
-          color: var(--color-text-secondary);
-          margin: 0;
-        }
-      `}} />
-
+    <div className="flex flex-col h-screen bg-[#F8FAFC] font-sans">
       {/* Toast Alert */}
       {toastMsg && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 px-6 py-4 rounded-[20px] shadow-fintech-lg z-[100] animate-in slide-in-from-bottom-5 duration-300 max-w-sm flex items-center gap-3">
-          <CheckCircle className="text-[#10B981] flex-shrink-0" size={18} />
-          <span className="text-[13.5px] font-semibold text-[var(--color-text-primary)]">{toastMsg}</span>
+        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 px-6 py-4 rounded-xl shadow-lg z-[100] flex items-center gap-3">
+          <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
+          </div>
+          <span className="text-[13px] font-semibold text-slate-800">{toastMsg}</span>
         </div>
       )}
 
-      {/* ── 1. PAGE HEADER — Phase 3 pattern ── */}
-      <PageHeader
-        sectionLabel="Security & Operations"
-        title="Audit Trail"
-        description="Immutable security logging and cryptographic activity records for auditing."
-        actions={
+      {/* Header */}
+      <div className="bg-white border-b border-[#E5E7EB] px-6 py-4 shrink-0 flex items-center justify-between">
+        <h1 className="text-[18px] font-semibold text-slate-900">Audit Trail</h1>
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A]"
+            placeholder="Start date"
+          />
+          <span className="text-slate-400 text-[12px]">to</span>
+          <input
+            type="date"
+            className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A]"
+            placeholder="End date"
+          />
+          <select
+            className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A]"
+          >
+            <option value="all">All Actors</option>
+          </select>
           <button
-            id="btn-export-logs"
             onClick={handleExportLogs}
-            className="btn btn-md btn-secondary"
+            className="h-9 px-3 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[12px] font-semibold rounded-lg flex items-center gap-2"
           >
             <Download size={16} />
-            <span>Export Logs</span>
+            Export
           </button>
-        }
-      />
-
-      {/* ── 2. INFO BANNER — Phase 5 standard card, max-width 800px ── */}
-      <div className="std-card flex gap-5 items-start" style={{ maxWidth: 800 }}>
-        {/* 48×48 circle icon */}
-        <div style={{
-          width: 48, height: 48, borderRadius: '50%',
-          background: 'var(--color-accent-soft)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          <ClipboardList size={22} style={{ color: 'var(--color-primary-light)' }} />
-        </div>
-        <div>
-          <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6, lineHeight: 1.3 }}>
-            Cryptographic Log Integrity
-          </h3>
-          <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', lineHeight: 1.6, margin: 0 }}>
-            Every user action, excel report download, GSTR matching run, and pipeline execution is cryptographically logged to establish a tamper-proof activity ledger. This system conforms to standard ICAI audit mandates and enterprise SaaS compliance metrics for Chartered Accountants in India.
-          </p>
         </div>
       </div>
 
-      {/* ── 3. SEARCH + FILTER ROW ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        {/* Phase 8 Search bar — flex 1, max-width 600px */}
-        <div className="relative group" style={{ flex: 1, maxWidth: 600, minWidth: 200 }}>
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-            <Search size={16} className="text-slate-400 group-focus-within:text-[var(--color-primary-light)] transition-colors" />
-          </div>
+      {/* Filter Bar */}
+      <div className="bg-white border-b border-[#E5E7EB] px-6 py-3 shrink-0 flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
-            id="input-search-logs"
             type="text"
-            placeholder="Search action logs, target profiles, audit hashes..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-            style={{ paddingLeft: 40, width: '100%' }}
+            placeholder="Search by action or entity"
+            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A]"
           />
         </div>
-
-        {/* Right side: filter select + filter count badge + labeled filter button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {/* Action filter select */}
-          <div className="relative">
-            <select
-              id="select-action-filter"
-              value={actionFilter}
-              onChange={(e) => setActionFilter(e.target.value)}
-              className="form-select filter-select-sm"
-              style={{ paddingLeft: 14, minWidth: 170 }}
-            >
-              <option value="All">All Audit Events</option>
-              <option value="RECONCILE">AI Recon Runs</option>
-              <option value="CREATE">Client Registrations</option>
-              <option value="UPDATE">Client Updates</option>
-              <option value="DELETE">Record Deletions</option>
-              <option value="EXPORT">Ledger Exports</option>
-              <option value="LOGIN">Auth Events</option>
-            </select>
-          </div>
-
-          {/* Labeled Filter button with active count badge */}
-          <button
-            id="btn-filter-toggle"
-            onClick={() => {/* filter panel toggle – hook preserved */}}
-            className="btn btn-md btn-secondary"
+        <div className="relative">
+          <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <select
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A] appearance-none"
           >
-            <Filter size={16} />
-            <span>Filter{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}</span>
-            {activeFilterCount > 0 && (
-              <span className="filter-badge">{activeFilterCount}</span>
-            )}
+            <option value="All">All Actions</option>
+            <option value="CREATE">CREATE</option>
+            <option value="UPDATE">UPDATE</option>
+            <option value="DELETE">DELETE</option>
+            <option value="LOGIN">LOGIN</option>
+            <option value="EXPORT">EXPORT</option>
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+        <div className="relative">
+          <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="date"
+            className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A]"
+          />
+        </div>
+        <select className="h-9 px-3 bg-slate-50 border border-slate-200 rounded-lg text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A]">
+          <option value="all">All Actors</option>
+        </select>
+        {(actionFilter !== 'All' || searchQuery) && (
+          <button
+            onClick={() => {
+              setActionFilter('All');
+              setSearchQuery('');
+            }}
+            className="px-3 py-2 text-[12px] text-[#1B4F8A] font-medium hover:underline"
+          >
+            Clear filters
           </button>
+        )}
+      </div>
+
+      {/* Stats Row */}
+      <div className="bg-white border-b border-[#E5E7EB] px-6 py-4 shrink-0 grid grid-cols-3 gap-0 divide-x divide-[#E5E7EB]">
+        <div className="px-4 py-1">
+          <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">Total Events Today</div>
+          <div className="text-[20px] font-semibold text-slate-800">{totalToday}</div>
+        </div>
+        <div className="px-4 py-1">
+          <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">Unique Actors</div>
+          <div className="text-[20px] font-semibold text-slate-800">{uniqueActors}</div>
+        </div>
+        <div className="px-4 py-1">
+          <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">High-Risk Events</div>
+          <div className={`text-[20px] font-semibold ${highRiskCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>{highRiskCount}</div>
         </div>
       </div>
 
-      {/* ── 4 & 5. TABLE — Phase 7 styles + expand-on-click rows ── */}
-      <div className="data-table-shell shadow-fintech-lg">
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
+      {/* Table */}
+      <div className="flex-1 overflow-auto px-6 py-4">
+        <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-slate-50 sticky top-0 z-10">
               <tr>
-                <th>Timestamp</th>
-                <th>User Profile</th>
-                <th>Action Code</th>
-                <th>Entity Target</th>
-                <th style={{ maxWidth: 400 }}>Detailed Event Description</th>
-                <th className="num-col">IP Address</th>
-                <th style={{ width: 32 }}></th>
+                <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Timestamp</th>
+                <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Actor</th>
+                <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Action</th>
+                <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Entity</th>
+                <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Details</th>
+                <th className="px-4 py-3 text-left text-[11px] uppercase tracking-wider text-slate-500 font-semibold">IP</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {isLoadingLogs ? (
-                <tr><td colSpan={7} className="text-center py-12 text-secondary text-xs font-bold">Loading audit logs...</td></tr>
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i}>
+                    <td colSpan={6} className="px-4 py-3">
+                      <div className="h-4 bg-slate-100 rounded animate-pulse" />
+                    </td>
+                  </tr>
+                ))
               ) : filteredLogs.length > 0 ? (
                 filteredLogs.map((log) => {
-                  const { dateLabel, timeLabel } = parseTimestamp(log.timestamp);
                   const isExpanded = expandedRows.has(log.id);
+                  const details = parseDetails(log.details);
+                  const highRisk = isHighRisk(log.action);
 
                   return (
                     <React.Fragment key={log.id}>
                       <tr
-                        id={`row-${log.id}`}
                         onClick={() => toggleRowExpand(log.id)}
-                        className={`data-table-row-clickable ${isExpanded ? 'selected' : ''}`}
+                        className={`h-[52px] cursor-pointer transition-colors ${highRisk ? 'bg-red-50/20' : 'hover:bg-slate-50/50'}`}
                       >
-                        {/* ── Timestamp: two-line ── */}
-                        <td>
-                          <div className="audit-timestamp-primary">{dateLabel}</div>
-                          <div className="audit-timestamp-secondary">{timeLabel}</div>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col">
+                            <span className="text-[12px] font-mono text-slate-500">{getRelativeTime(log.timestamp)}</span>
+                            <span className="text-[11px] text-slate-400 font-mono">{log.timestamp}</span>
+                          </div>
                         </td>
-
-                        {/* ── User Profile: avatar + name, or em dash ── */}
-                        <td>
-                          {log.user ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span className="audit-avatar">{getInitial(log.user)}</span>
-                              <span style={{ fontWeight: 500 }}>
-                                {log.user}
-                              </span>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-[#1B4F8A]/10 flex items-center justify-center">
+                              <span className="text-[11px] font-semibold text-[#1B4F8A]">{getInitial(log.user)}</span>
                             </div>
-                          ) : (
-                            <span style={{ color: 'var(--color-text-tertiary)', display: 'block', textAlign: 'center' }}>—</span>
-                          )}
+                            <span className="text-[13px] text-slate-800">{log.user}</span>
+                          </div>
                         </td>
-
-                        {/* ── Action Code ── */}
-                        <td>
-                          <span className={`status-badge status-badge-action ${getActionBadgeStyle(log.action)}`}>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-[11px] font-semibold ${getActionBadgeClass(log.action)}`}>
                             {log.action}
                           </span>
                         </td>
-
-                        {/* ── Entity Target ── */}
-                        <td>
-                          <span className="audit-entity">{log.entity}</span>
-                        </td>
-
-                        {/* ── Detailed Description ── */}
-                        <td>
-                          <span
-                            className="audit-desc-cell"
-                            title={log.details}
-                          >
-                            {log.details}
+                        <td className="px-4 py-3">
+                          <span className="text-[13px] text-slate-700 truncate max-w-[150px] block">
+                            {log.entity}
                           </span>
                         </td>
-
-                        {/* ── IP Address ── */}
-                        <td className="num-col">
-                          <span>{log.ip_address}</span>
-                        </td>
-
-                        {/* ── Chevron toggle ── */}
-                        <td className="text-right">
-                          <button className="action-btn" aria-label="Toggle Log details">
-                            <ChevronDown
-                              id={`chevron-${log.id}`}
-                              className={`audit-row-chevron${isExpanded ? ' open' : ''}`}
-                            />
-                          </button>
-                        </td>
-                      </tr>
-
-                      {/* ── 5. Expanded detail row ── */}
-                      <tr className={isExpanded ? 'selected' : ''}>
-                        <td colSpan={7} style={{ padding: 0 }}>
-                          <div className={`audit-detail-row${isExpanded ? ' expanded' : ''}`}>
-                            <div className="audit-detail-inner">
-                              <p className="audit-detail-desc">{log.details}</p>
-                              <div className="audit-detail-hash">
-                                <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Audit Hash:</span>
-                                <span className="audit-detail-hash-val">—</span>
-                              </div>
-                            </div>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 text-[12px] text-slate-600">
+                            <span className="truncate max-w-[200px]">
+                              {Object.values(details)[0]?.toString() || log.details.substring(0, 50)}...
+                            </span>
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                           </div>
                         </td>
+                        <td className="px-4 py-3">
+                          <span className="text-[12px] font-mono text-slate-400">{log.ip_address}</span>
+                        </td>
                       </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-4 bg-slate-50 border-t border-slate-100">
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                              {Object.entries(details).map(([key, value]) => (
+                                <div key={key} className="flex flex-col gap-1">
+                                  <span className="text-[11px] text-slate-400 uppercase tracking-wider font-medium">{key}</span>
+                                  <span className="text-[13px] text-slate-700 font-semibold">{value?.toString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                     </React.Fragment>
                   );
                 })
               ) : (
-                /* ── 6. EMPTY STATE ── */
                 <tr>
-                  <td colSpan={7}>
-                    <div className="flex flex-col items-center justify-center py-8 gap-2">
-                      <Shield size={20} className="text-[#D1D5DB]" />
-                      <span className="text-[13px] text-[#6B7280]">No records found</span>
-                    </div>
+                  <td colSpan={6} className="px-4 py-16 text-center">
+                    <ScrollText size={48} className="mx-auto mb-3 text-slate-200" />
+                    <h3 className="text-[15px] font-semibold text-slate-800 mb-1">No audit events found</h3>
+                    <p className="text-[12px] text-slate-500">No audit events found for the selected filters.</p>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* ── Log Detail Inspector Modal (existing — preserved exactly) ── */}
-      {selectedLog && (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-3xl border border-slate-200 p-8 flex flex-col gap-6 relative shadow-fintech-lg animate-in zoom-in-95 duration-200">
-            
-            <button 
-              onClick={() => setSelectedLog(null)}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-900 transition-colors cursor-pointer w-8 h-8 rounded-full bg-slate-100 border border-slate-200 hover:border-slate-200 flex items-center justify-center"
-            >
-              <X size={16} />
+        {/* Pagination */}
+        <div className="flex items-center justify-between mt-4 px-2">
+          <div className="text-[12px] text-slate-500">
+            Showing 1–{Math.min(filteredLogs.length, 20)} of {filteredLogs.length}
+          </div>
+          <div className="flex items-center gap-2">
+            <button className="h-8 px-3 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+              Previous
             </button>
-
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#7C3AED]/10 border border-[#7C3AED]/20 flex items-center justify-center text-[#7C3AED]">
-                  <Clock size={18} />
-                </div>
-                <div>
-                  <h3 className="text-[20px] font-bold text-white tracking-tight">
-                    Audit Log Inspector
-                  </h3>
-                  <p className="text-[12.5px] text-slate-400 mt-0.5">ICAI Cryptographic Compliance Ledger Record.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#F8FAFC] border border-slate-200 rounded-2xl p-6 space-y-4 font-sans text-[13.5px] text-white">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-                <span className="text-slate-400">Timestamp</span>
-                <span className="font-mono text-slate-500">{selectedLog.timestamp}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b border-slate-200">
-                <span className="text-slate-400">Authorized Profile</span>
-                <span className="font-bold text-white">{selectedLog.user}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b border-slate-200">
-                <span className="text-slate-400">Operation Code</span>
-                <span className={`status-badge status-badge-action ${getActionBadgeStyle(selectedLog.action)}`}>
-                  {selectedLog.action}
-                </span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b border-slate-200">
-                <span className="text-slate-400">Target Entity</span>
-                <span className="font-bold text-white">{selectedLog.entity}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 border-b border-slate-200">
-                <span className="text-slate-400">Client IP Address</span>
-                <span className="font-mono text-slate-500">{selectedLog.ip_address}</span>
-              </div>
-              
-              <div className="pt-3 flex flex-col gap-2">
-                <span className="text-slate-400 text-[11px] uppercase tracking-widest font-bold">Ledger Event Summary</span>
-                <div className="text-[14px] leading-relaxed text-gray-200 bg-white p-4 rounded-xl border border-slate-200 italic">
-                  &quot;{selectedLog.details}&quot;
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end gap-3">
-              <button 
-                onClick={() => setSelectedLog(null)}
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-[#1B4F8A] hover:opacity-90 transition-all text-[13px] font-bold text-white shadow-lg cursor-pointer"
-              >
-                Close Audit Entry
-              </button>
-            </div>
-
+            <button className="h-8 px-3 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+              Next
+            </button>
+            <select className="h-8 px-3 bg-white border border-slate-200 rounded-lg text-[12px] text-slate-700">
+              <option value={20}>20 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+            </select>
           </div>
         </div>
-      )}
-
+      </div>
     </div>
+  );
+}
+
+// Missing icon component
+function CalendarIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+      <line x1="16" x2="16" y1="2" y2="6" />
+      <line x1="8" x2="8" y1="2" y2="6" />
+      <line x1="3" x2="21" y1="10" y2="10" />
+    </svg>
   );
 }
