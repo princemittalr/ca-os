@@ -48,20 +48,10 @@ export default function ComplianceOperationsCenter() {
   const [clientsMap, setClientsMap] = useState<Record<string, string>>({});
   const [staffList, setStaffList] = useState<string[]>([]);
 
-  // Toolbar state
-  const [selectedEntity, setSelectedEntity] = useState('ALL');
-  const [selectedMonth, setSelectedMonth] = useState('ALL');
-  const [selectedYear, setSelectedYear] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
-
-  // Calendar states
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  // Selection states for bulk actions
-  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
-
-  // Create Modal state
+  // New state for redesign
+  const [periodFilter, setPeriodFilter] = useState<'month' | 'quarter' | 'year'>('month');
+  const [activeTab, setActiveTab] = useState<'all' | 'overdue' | 'dueToday' | 'upcoming' | 'filed'>('all');
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -70,6 +60,9 @@ export default function ComplianceOperationsCenter() {
   const [formPeriod, setFormPeriod] = useState('March 2024');
   const [formDueDate, setFormDueDate] = useState('2026-06-05');
   const [formAssignedTo, setFormAssignedTo] = useState('');
+
+  // Calendar state
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     api.get<any[]>('/api/clients/')
@@ -137,30 +130,6 @@ export default function ComplianceOperationsCenter() {
     }
   };
 
-  const handleBulkMarkAsFiled = async () => {
-    if (selectedRowIds.length === 0) return;
-    const todayStr = new Date().toISOString().split('T')[0];
-    try {
-      setIsLoading(true);
-      await Promise.all(
-        selectedRowIds.map(id =>
-          api.put(`/api/compliance/${id}/status?new_status=Filed&filed_date=${todayStr}`, {})
-        )
-      );
-      showToast(`Marked ${selectedRowIds.length} returns as FILED!`, "success");
-      setTasks(prev => prev.map(t => selectedRowIds.includes(t.compliance_id) ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
-      setSelectedRowIds([]);
-      await loadCompliance();
-    } catch (err) {
-      console.error(err);
-      setTasks(prev => prev.map(t => selectedRowIds.includes(t.compliance_id) ? { ...t, status: 'Filed', filed_date: todayStr, risk_score: 0, risk_level: 'LOW' } : t));
-      showToast("Selected returns marked as FILED locally.", "success");
-      setSelectedRowIds([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleCreateDeadline = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -194,50 +163,67 @@ export default function ComplianceOperationsCenter() {
     return 'Due';
   };
 
-  // Filtration logic
-  const filteredTasks = tasks.filter(task => {
-    // Entity Filter
-    if (selectedEntity !== 'ALL' && task.client_id !== selectedEntity) {
-      return false;
+  // Calculate days difference for statuses
+  const calculateDaysInfo = (dueDateStr: string, status: string, filedDateStr?: string | null) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(dueDateStr);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let displayStatus = status;
+    let statusVariant: 'high' | 'medium' | 'low' | 'default' = 'default';
+    let statusText = '';
+
+    if (status.toLowerCase() === 'filed' && filedDateStr) {
+      displayStatus = 'Filed';
+      statusVariant = 'low';
+      statusText = `Filed on ${filedDateStr}`;
+    } else if (diffDays < 0) {
+      displayStatus = 'Overdue';
+      statusVariant = 'high';
+      statusText = `${Math.abs(diffDays)} days overdue`;
+    } else if (diffDays === 0) {
+      displayStatus = 'Due Today';
+      statusVariant = 'medium';
+      statusText = 'Due Today';
+    } else {
+      displayStatus = 'Upcoming';
+      statusVariant = 'default';
+      statusText = `${diffDays} days remaining`;
     }
 
-    // Period / Date Filter
-    const [taskYear, taskMonth] = task.due_date.split('-');
-    if (selectedYear !== 'ALL' && taskYear !== selectedYear) {
-      return false;
-    }
-    if (selectedMonth !== 'ALL' && taskMonth !== selectedMonth) {
-      return false;
-    }
-
-    // Status Filter
-    if (statusFilter !== 'ALL') {
-      const cat = getTaskCategory(task.status);
-      if (statusFilter === 'Filed' && cat !== 'Filed') return false;
-      if (statusFilter === 'Due' && cat !== 'Due') return false;
-      if (statusFilter === 'Overdue' && cat !== 'Overdue') return false;
-      if (statusFilter === 'Not Applicable' && cat !== 'Not Applicable') return false;
-      if (statusFilter === 'In Progress' && task.status !== 'In Progress') return false;
-    }
-
-    return true;
-  });
-
-  // Summary Metrics based on filtered scope
-  const summaryCounts = {
-    Filed: filteredTasks.filter(t => getTaskCategory(t.status) === 'Filed').length,
-    Due: filteredTasks.filter(t => getTaskCategory(t.status) === 'Due').length,
-    Overdue: filteredTasks.filter(t => getTaskCategory(t.status) === 'Overdue').length,
-    NA: filteredTasks.filter(t => getTaskCategory(t.status) === 'Not Applicable').length,
+    return { displayStatus, statusVariant, statusText, diffDays };
   };
 
-  // Helper to format currency
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(val);
+  // Filtration logic for the new design
+  const filteredTasks = tasks.filter(task => {
+    const { displayStatus } = calculateDaysInfo(task.due_date, task.status, task.filed_date);
+
+    if (selectedDate) {
+      return task.due_date === selectedDate;
+    }
+
+    if (activeTab === 'overdue') return displayStatus === 'Overdue';
+    if (activeTab === 'dueToday') return displayStatus === 'Due Today';
+    if (activeTab === 'upcoming') return displayStatus === 'Upcoming';
+    if (activeTab === 'filed') return displayStatus === 'Filed';
+    
+    return true;
+  }).sort((a, b) => {
+    const aDiff = calculateDaysInfo(a.due_date, a.status, a.filed_date).diffDays;
+    const bDiff = calculateDaysInfo(b.due_date, b.status, b.filed_date).diffDays;
+    return aDiff - bDiff;
+  });
+
+  // Summary Metrics for new design
+  const summaryCounts = {
+    overdue: filteredTasks.filter(t => calculateDaysInfo(t.due_date, t.status, t.filed_date).displayStatus === 'Overdue').length,
+    dueToday: filteredTasks.filter(t => calculateDaysInfo(t.due_date, t.status, t.filed_date).displayStatus === 'Due Today').length,
+    upcoming: filteredTasks.filter(t => calculateDaysInfo(t.due_date, t.status, t.filed_date).displayStatus === 'Upcoming').length,
+    filed: filteredTasks.filter(t => calculateDaysInfo(t.due_date, t.status, t.filed_date).displayStatus === 'Filed').length
   };
 
   // Calendar Helpers
@@ -279,13 +265,31 @@ export default function ComplianceOperationsCenter() {
     return filteredTasks.filter(t => t.due_date === dateStr);
   };
 
-  const getMutedFillColor = (status: string) => {
-    const cat = getTaskCategory(status);
-    if (cat === 'Filed') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (cat === 'Overdue') return 'bg-red-50 text-red-700 border-red-200';
-    if (cat === 'Not Applicable') return 'bg-gray-50 text-gray-500 border-gray-200';
-    if (status === 'In Progress') return 'bg-blue-50 text-blue-700 border-blue-200';
-    return 'bg-amber-50 text-amber-700 border-amber-200';
+  const getDateDotClass = (dateStr: string) => {
+    const dayTasks = tasks.filter(t => t.due_date === dateStr);
+    if (dayTasks.length === 0) return '';
+    
+    const hasOverdue = dayTasks.some(t => calculateDaysInfo(t.due_date, t.status, t.filed_date).displayStatus === 'Overdue');
+    const hasDueToday = dayTasks.some(t => calculateDaysInfo(t.due_date, t.status, t.filed_date).displayStatus === 'Due Today');
+    
+    if (hasOverdue) return 'bg-red-500';
+    if (hasDueToday) return 'bg-amber-500';
+    return 'bg-blue-500';
+  };
+
+  const Badge = ({ variant, children }: { variant: 'high' | 'medium' | 'low' | 'default', children: React.ReactNode }) => {
+    const variants: Record<string, string> = {
+      high: 'bg-red-50 text-red-700 border border-red-200',
+      medium: 'bg-amber-50 text-amber-700 border border-amber-200',
+      low: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+      default: 'bg-slate-50 text-slate-700 border border-slate-200'
+    };
+    
+    return (
+      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${variants[variant]}`}>
+        {children}
+      </span>
+    );
   };
 
   return (
@@ -293,417 +297,287 @@ export default function ComplianceOperationsCenter() {
       {/* Toast */}
       {ToastComponent}
 
-      {/* Header: 48px border-bottom, title + subtitle */}
+      {/* Header: 48px border-bottom, title + right side */}
       <div className="h-12 border-b border-[#E5E7EB] bg-white px-6 flex items-center justify-between shrink-0">
-        <div className="flex flex-col">
-          <h1 className="text-[15px] font-semibold text-[#111827] leading-tight">Compliance Operations Center</h1>
-          <p className="text-[11px] text-[#6B7280]">Active statutory operations tracking, financial liability shielding, and escalation hub.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              loadCompliance();
-              showToast("✓ Compliance schedule synced with server.");
-            }}
-            className="h-8 w-8 border border-[#E5E7EB] rounded hover:bg-slate-50 flex items-center justify-center text-slate-600 transition-colors cursor-pointer"
-            title="Sync Schedule"
-          >
-            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
-          </button>
+        <h1 className="text-[16px] font-semibold text-[#111827]">Compliance Center</h1>
+        
+        <div className="flex items-center gap-3">
+          {/* Period Filter */}
+          <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded">
+            {(['month', 'quarter', 'year'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriodFilter(p)}
+                className={`px-3 py-1 text-[11px] font-semibold uppercase rounded transition-colors ${
+                  periodFilter === p ? 'bg-white text-[#1B4F8A] shadow-sm' : 'text-slate-600 hover:text-slate-800'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="h-8 px-3 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[12px] font-semibold rounded flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="h-9 px-4 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[12px] font-semibold rounded flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus size={14} />
-            <span>Create Filing Task</span>
+            Add Filing
           </button>
         </div>
       </div>
 
-      {/* Toolbar: period/year selector + entity selector + status filter, height 40px */}
-      <div className="h-10 border-b border-[#E5E7EB] bg-white px-6 flex items-center justify-between shrink-0 text-[12px]">
-        <div className="flex items-center gap-4">
-          {/* Entity Selector */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[#6B7280] font-medium">Entity:</span>
-            {Object.keys(clientsMap).length === 0 ? (
-              <span className="text-[12px] text-rose-600 font-semibold">No client data available.</span>
-            ) : (
-              <select
-                value={selectedEntity}
-                onChange={(e) => setSelectedEntity(e.target.value)}
-                className="h-7 bg-slate-50 border border-[#E5E7EB] rounded px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-[#1B4F8A] cursor-pointer"
-              >
-                <option value="ALL">All Entities</option>
-                {Object.entries(clientsMap).map(([id, name]) => (
-                  <option key={id} value={id}>{name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* Period Selectors */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[#6B7280] font-medium">Period:</span>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="h-7 bg-slate-50 border border-[#E5E7EB] rounded px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-[#1B4F8A] cursor-pointer"
-            >
-              <option value="ALL">All Months</option>
-              {Array.from({ length: 12 }, (_, i) => {
-                const monthVal = String(i + 1).padStart(2, '0');
-                const name = new Date(2026, i, 1).toLocaleString('en-US', { month: 'short' });
-                return <option key={monthVal} value={monthVal}>{name}</option>;
-              })}
-            </select>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(e.target.value)}
-              className="h-7 bg-slate-50 border border-[#E5E7EB] rounded px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-[#1B4F8A] cursor-pointer"
-            >
-              <option value="ALL">All Years</option>
-              {["2024", "2025", "2026", "2027", "2028"].map((yr) => (
-                <option key={yr} value={yr}>{yr}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-[#6B7280] font-medium">Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-7 bg-slate-50 border border-[#E5E7EB] rounded px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-[#1B4F8A] cursor-pointer"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="Filed">Filed</option>
-              <option value="Due">Due</option>
-              <option value="Overdue">Overdue</option>
-              <option value="Not Applicable">Not Applicable</option>
-              <option value="In Progress">In Progress</option>
-            </select>
-          </div>
-        </div>
-
-        {/* View Toggle */}
-        <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded border border-[#E5E7EB]">
-          <button
-            onClick={() => setViewMode('table')}
-            className={`px-3 py-1 text-[11px] font-semibold uppercase rounded transition-all cursor-pointer ${
-              viewMode === 'table' ? 'bg-white text-[#1B4F8A] shadow-sm' : 'text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Table
-          </button>
-          <button
-            onClick={() => setViewMode('calendar')}
-            className={`px-3 py-1 text-[11px] font-semibold uppercase rounded transition-all cursor-pointer ${
-              viewMode === 'calendar' ? 'bg-white text-[#1B4F8A] shadow-sm' : 'text-slate-600 hover:text-slate-800'
-            }`}
-          >
-            Calendar
-          </button>
-        </div>
-      </div>
-
-      {/* Main View Layout */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        
-        {/* Compliance Status Summary Row: 4 metrics */}
-        <div className="bg-white border border-[#E5E7EB] rounded-[4px] flex overflow-hidden">
-          {/* Filed */}
-          <div className="flex-1 p-4 flex justify-between items-center border-r border-[#E5E7EB]">
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280] block">Filed</span>
-              <span className="text-[16px] font-bold font-mono block" style={{ color: '#15803D' }}>{summaryCounts.Filed}</span>
-            </div>
-          </div>
-
-          {/* Due */}
-          <div className="flex-1 p-4 flex justify-between items-center border-r border-[#E5E7EB]">
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280] block">Due</span>
-              <span className="text-[16px] font-bold font-mono block" style={{ color: '#B45309' }}>{summaryCounts.Due}</span>
-            </div>
-          </div>
-
+      {/* Summary Stats Bar */}
+      <div className="bg-white border-b border-[#E5E7EB] px-6 py-4 shrink-0">
+        <div className="grid grid-cols-4 gap-0 divide-x divide-[#E5E7EB]">
           {/* Overdue */}
-          <div className="flex-1 p-4 flex justify-between items-center border-r border-[#E5E7EB]">
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280] block">Overdue</span>
-              <span className="text-[16px] font-bold font-mono block" style={{ color: '#B91C1C' }}>{summaryCounts.Overdue}</span>
+          <div className="px-4 py-2">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+              Overdue
+            </div>
+            <div className="text-[24px] font-bold text-red-600">
+              {summaryCounts.overdue}
             </div>
           </div>
-
-          {/* Not Applicable */}
-          <div className="flex-1 p-4 flex justify-between items-center">
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280] block">Not Applicable</span>
-              <span className="text-[16px] font-bold font-mono block" style={{ color: '#6B7280' }}>{summaryCounts.NA}</span>
+          {/* Due Today */}
+          <div className="px-4 py-2">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+              Due Today
+            </div>
+            <div className="text-[20px] font-bold text-amber-600">
+              {summaryCounts.dueToday}
+            </div>
+          </div>
+          {/* Upcoming */}
+          <div className="px-4 py-2">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+              Upcoming
+            </div>
+            <div className="text-[20px] font-bold text-slate-700">
+              {summaryCounts.upcoming}
+            </div>
+          </div>
+          {/* Filed This Month */}
+          <div className="px-4 py-2">
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+              Filed This Month
+            </div>
+            <div className="text-[20px] font-bold text-emerald-600">
+              {summaryCounts.filed}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Bulk actions toolbar */}
-        {selectedRowIds.length > 0 && (
-          <div className="h-9 bg-[#EFF6FF] border-b border-[#BFDBFE] px-4 flex items-center justify-between text-xs text-[#1E40AF]">
-            <span className="font-semibold">{selectedRowIds.length} compliance rows selected</span>
-            <button
-              onClick={handleBulkMarkAsFiled}
-              className="h-6 px-3 bg-[#1D4ED8] hover:bg-[#1E40AF] text-white text-[11px] font-semibold rounded flex items-center gap-1 transition-colors cursor-pointer"
-            >
-              <Check size={12} />
-              <span>Bulk Mark Filed</span>
-            </button>
+      {/* Main Layout with 70/30 split */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Column: 70% - Filing Table */}
+        <div className="flex-[7] flex flex-col border-r border-[#E5E7EB] overflow-hidden">
+          {/* Tabs */}
+          <div className="bg-white border-b border-[#E5E7EB] px-6 shrink-0">
+            <div className="flex items-center gap-2">
+              {[
+                { id: 'all', label: 'All', count: filteredTasks.length },
+                { id: 'overdue', label: 'Overdue', count: summaryCounts.overdue },
+                { id: 'dueToday', label: 'Due Today', count: summaryCounts.dueToday },
+                { id: 'upcoming', label: 'Upcoming', count: summaryCounts.upcoming },
+                { id: 'filed', label: 'Filed', count: summaryCounts.filed }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+                    activeTab === tab.id
+                      ? 'border-[#1B4F8A] text-[#1B4F8A]'
+                      : 'border-transparent text-slate-600 hover:text-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                  <span className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded-full">{tab.count}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        )}
 
-        {/* Dynamic View Mode Panel */}
-        <div className="bg-white border border-[#E5E7EB] rounded shadow-sm">
-          {isLoading ? (
-            <SkeletonTable rows={6} />
-          ) : viewMode === 'table' ? (
-            /* Table View */
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[#E5E7EB] text-left font-sans">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="pl-4 py-2 w-10">
-                      <input
-                        type="checkbox"
-                        checked={filteredTasks.length > 0 && selectedRowIds.length === filteredTasks.length}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRowIds(filteredTasks.map(t => t.compliance_id));
-                          } else {
-                            setSelectedRowIds([]);
-                          }
-                        }}
-                        className="rounded border-[#D1D5DB] text-[#1B4F8A] focus:ring-[#1B4F8A]"
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Return Type</th>
-                    <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Client / Entity</th>
-                    <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Period</th>
-                    <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Due Date</th>
-                    <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Filing Date</th>
-                    <th className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Status</th>
-                    <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Penalty</th>
-                    <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-[#E5E7EB]">
-                  {filteredTasks.length > 0 ? (
-                    filteredTasks.map(task => {
-                      const isSelected = selectedRowIds.includes(task.compliance_id);
+          {/* Table Body */}
+          <div className="flex-1 overflow-auto px-6 py-4">
+            {isLoading ? (
+              <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+                <SkeletonTable rows={6} />
+              </div>
+            ) : filteredTasks.length > 0 ? (
+              <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-slate-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Client</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Type</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Period</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Due Date</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Status</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Assigned To</th>
+                      <th className="px-6 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredTasks.map(task => {
                       const clientName = clientsMap[task.client_id] || "Client Firm";
-                      const cat = getTaskCategory(task.status);
-                      
-                      const filingDate = task.filed_date || '—';
-
-                      const penalty = task.penalty_amount;
+                      const { displayStatus, statusVariant, statusText, diffDays } = calculateDaysInfo(task.due_date, task.status, task.filed_date);
+                      const isOverdue = displayStatus === 'Overdue';
 
                       return (
                         <tr
                           key={task.compliance_id}
-                          className={`h-9 hover:bg-slate-50/50 transition-colors ${isSelected ? 'bg-slate-50' : ''}`}
+                          className={`h-[52px] hover:bg-slate-50/50 transition-colors ${isOverdue ? 'bg-red-50/30' : ''}`}
                         >
-                          <td className="pl-4 py-1">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedRowIds(prev => [...prev, task.compliance_id]);
-                                } else {
-                                  setSelectedRowIds(prev => prev.filter(id => id !== task.compliance_id));
-                                }
-                              }}
-                              className="rounded border-[#D1D5DB] text-[#1B4F8A] focus:ring-[#1B4F8A]"
-                            />
+                          <td className="px-6 py-3 text-[12px] font-semibold text-slate-800">{clientName}</td>
+                          <td className="px-6 py-3 text-[12px] text-slate-700">{task.compliance_type}</td>
+                          <td className="px-6 py-3 text-[12px] text-slate-600">{task.filing_period}</td>
+                          <td className={`px-6 py-3 text-[12px] font-mono ${isOverdue ? 'text-red-700 font-bold' : 'text-slate-600'}`}>{task.due_date}</td>
+                          <td className="px-6 py-3">
+                            <Badge variant={statusVariant}>{statusText}</Badge>
                           </td>
-                          <td className="px-3 py-1 text-[12px] font-bold text-slate-800">{task.compliance_type}</td>
-                          <td className="px-3 py-1 text-[12px] text-slate-700 truncate max-w-[180px]" title={clientName}>{clientName}</td>
-                          <td className="px-3 py-1 text-[12px] text-slate-600 font-mono">{task.filing_period}</td>
-                          <td className="px-3 py-1 text-[12px] text-slate-600 font-mono">{task.due_date}</td>
-                          <td className="px-3 py-1 text-[12px] text-slate-500 font-mono">{filingDate}</td>
-                          <td className="px-3 py-1">
-                            <span className={`px-2 py-0.5 text-[10px] font-semibold border uppercase tracking-wider rounded-sm ${
-                              cat === 'Filed' ? 'bg-green-50 text-green-700 border-green-200' :
-                              cat === 'Overdue' ? 'bg-red-50 text-red-700 border-red-200' :
-                              cat === 'Not Applicable' ? 'bg-gray-50 text-gray-500 border-gray-200' :
-                              task.status === 'In Progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                              'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              {task.status}
-                            </span>
-                          </td>
-                          <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
-                            {penalty != null ? (
-                              <span className={penalty > 0 ? "text-red-600 font-bold" : ""}>
-                                {formatCurrency(penalty)}
-                              </span>
-                            ) : (
-                              <span className="text-[#9CA3AF]">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-1 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {task.status !== 'Filed' ? (
+                          <td className="px-6 py-3 text-[12px] text-slate-700">{task.assigned_to || '—'}</td>
+                          <td className="px-6 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {displayStatus !== 'Filed' && (
                                 <>
+                                  <button className="text-[11px] text-[#1B4F8A] hover:underline font-medium">View Details</button>
                                   <button
                                     onClick={() => handleMarkAsFiled(task.compliance_id)}
-                                    className="h-6 px-2.5 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[10px] font-bold rounded transition-colors cursor-pointer"
-                                  >
-                                    File Now
-                                  </button>
-                                  <button
-                                    onClick={() => handleMarkAsFiled(task.compliance_id)}
-                                    className="h-6 px-2.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[10px] font-bold rounded transition-colors cursor-pointer"
+                                    className="text-[11px] text-emerald-600 hover:underline font-medium"
                                   >
                                     Mark Filed
                                   </button>
                                 </>
-                              ) : (
-                                <span className="text-emerald-600 font-bold text-[10px] uppercase flex items-center gap-1">
-                                  <Check size={10} /> Done
-                                </span>
+                              )}
+                              {displayStatus === 'Filed' && (
+                                <span className="text-emerald-600 font-bold text-[11px]">✓ Filed</span>
                               )}
                             </div>
                           </td>
                         </tr>
                       );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={9} className="text-center py-12">
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <CheckCircle2 size={24} className="text-[#D1D5DB]" />
-                          <span className="text-[12px] text-[#6B7280]">No compliance deadlines found in selected scope</span>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            /* Calendar View */
-            <div className="bg-white border border-[#E5E7EB] rounded p-4">
-              {/* Month Header / Controls */}
-              <div className="flex justify-between items-center mb-4 border-b border-[#E5E7EB] pb-3">
-                <h2 className="text-[14px] font-bold text-slate-800 font-mono">
-                  {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                </h2>
-                <div className="flex items-center gap-1">
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              /* Empty State */
+              <div className="flex-1 flex flex-col items-center justify-center py-16 gap-4">
+                <Building size={64} className="text-slate-200" />
+                <div className="text-center">
+                  <h3 className="text-[15px] font-semibold text-slate-800 mb-1">No compliance tasks found</h3>
+                  <p className="text-[12px] text-slate-500 mb-4">Add your first filing to begin tracking compliance.</p>
                   <button
-                    onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
-                    className="h-7 w-7 border border-[#E5E7EB] rounded flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="h-9 px-4 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[12px] font-semibold rounded flex items-center gap-1.5 mx-auto"
                   >
-                    <ChevronLeft size={14} />
-                  </button>
-                  <button
-                    onClick={() => setCurrentDate(new Date())}
-                    className="px-2.5 h-7 border border-[#E5E7EB] text-[11px] font-bold text-slate-700 hover:bg-slate-50 rounded flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    Today
-                  </button>
-                  <button
-                    onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
-                    className="h-7 w-7 border border-[#E5E7EB] rounded flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
-                  >
-                    <ChevronRight size={14} />
+                    <Plus size={14} />
+                    Add Filing
                   </button>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
 
-              {/* Grid Header */}
-              <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-2 border-b border-slate-100 pb-1.5">
-                <span>Sun</span>
-                <span>Mon</span>
-                <span>Tue</span>
-                <span>Wed</span>
-                <span>Thu</span>
-                <span>Fri</span>
-                <span>Sat</span>
-              </div>
-
-              {/* Grid Cells */}
-              <div className="grid grid-cols-7 gap-1.5">
-                {getMonthDays(currentDate).map((day, index) => {
-                  const dayTasks = getTasksForDate(day.dateStr);
-                  const isToday = new Date().toISOString().split('T')[0] === day.dateStr;
-
-                  return (
-                    <div
-                      key={index}
-                      className={`h-[80px] bg-white border border-[#E5E7EB] p-1.5 flex flex-col justify-between select-none relative group ${
-                        !day.isCurrentMonth ? 'opacity-30' : ''
-                      } ${
-                        isToday ? 'border-[#1B4F8A] ring-1 ring-[#1B4F8A]/20' : ''
-                      }`}
-                    >
-                      {/* Date top right */}
-                      <div className="text-right">
-                        <span className={`text-[11px] font-bold font-mono ${
-                          isToday ? 'text-[#1B4F8A] font-black' : 'text-[#6B7280]'
-                        }`}>
-                          {day.dayNum}
-                        </span>
-                      </div>
-
-                      {/* Tasks List */}
-                      <div className="flex-1 space-y-1 overflow-y-auto pr-0.5 mt-1">
-                        {dayTasks.map(task => {
-                          const clientShort = clientsMap[task.client_id] || "Firm";
-                          const fillStyle = getMutedFillColor(task.status);
-                          return (
-                            <div
-                              key={task.compliance_id}
-                              className={`text-[11px] px-1 py-0.5 rounded border truncate leading-tight select-text ${fillStyle}`}
-                              title={`${task.compliance_type} - ${clientShort} (${task.status})`}
-                            >
-                              <span className="font-bold font-mono">{task.compliance_type}</span>: <span className="opacity-90">{clientShort}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
+        {/* Right Column: 30% - Calendar */}
+        <div className="flex-[3] bg-white overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-[#E5E7EB]">
+            {/* Calendar Header */}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-[14px] font-bold text-slate-800">
+                {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </h2>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                  className="h-7 w-7 border border-[#E5E7EB] rounded flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <button
+                  onClick={() => setCurrentDate(new Date())}
+                  className="px-2.5 h-7 border border-[#E5E7EB] text-[11px] font-bold text-slate-700 hover:bg-slate-50 rounded flex items-center justify-center transition-colors"
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                  className="h-7 w-7 border border-[#E5E7EB] rounded flex items-center justify-center hover:bg-slate-50 text-slate-600 transition-colors"
+                >
+                  <ChevronRight size={14} />
+                </button>
               </div>
             </div>
-          )}
+
+            {/* Calendar Grid Header */}
+            <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 border-b border-slate-100 pb-1.5">
+              <span>Sun</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+            </div>
+
+            {/* Calendar Grid Cells */}
+            <div className="grid grid-cols-7 gap-1.5">
+              {getMonthDays(currentDate).map((day, index) => {
+                const dayTasks = getTasksForDate(day.dateStr);
+                const isToday = new Date().toISOString().split('T')[0] === day.dateStr;
+                const dotClass = getDateDotClass(day.dateStr);
+                const isSelected = selectedDate === day.dateStr;
+
+                return (
+                  <div
+                    key={index}
+                    onClick={() => {
+                      setSelectedDate(isSelected ? null : day.dateStr);
+                    }}
+                    className={`h-[56px] bg-white border border-[#E5E7EB] rounded-lg p-1.5 flex flex-col items-center justify-center cursor-pointer transition-all ${
+                      !day.isCurrentMonth ? 'opacity-30' : ''
+                    } ${isToday ? 'border-[#1B4F8A]' : ''} ${isSelected ? 'bg-[#EFF6FF] border-[#1B4F8A]' : ''} hover:bg-slate-50`}
+                  >
+                    <span className={`text-[11px] font-bold font-mono ${isToday ? 'text-[#1B4F8A]' : 'text-slate-600'}`}>
+                      {day.dayNum}
+                    </span>
+                    {dayTasks.length > 0 && (
+                      <div className={`w-1.5 h-1.5 rounded-full mt-1 ${dotClass}`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Intake / Create Deadline Modal */}
+      {/* Add Filing Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[100] animate-in fade-in duration-200 p-4">
-          <div className="bg-white border border-slate-200 rounded max-w-md w-full p-6 shadow-2xl relative">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-md w-full p-6 shadow-2xl relative">
             <button
               onClick={() => setIsCreateModalOpen(false)}
-              className="absolute top-5 right-5 w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer transition-all border border-slate-200"
+              className="absolute top-5 right-5 w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer transition-all"
             >
               <X size={14} />
             </button>
 
-            <span className="text-[9px] font-bold text-[#1B4F8A] tracking-wider uppercase block">New Obligation</span>
-            <h3 className="text-lg font-bold text-slate-900 mt-0.5">Schedule Statutory Return</h3>
-            <p className="text-xs text-[#6B7280] mt-1 mb-5">Create a statutory filing requirement or corporate compliance schedule.</p>
+            <h3 className="text-lg font-bold text-slate-900 mb-5">Add New Filing</h3>
 
             <form onSubmit={handleCreateDeadline} className="space-y-4 font-sans text-xs">
               <div>
-                <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5">Select Corporate Client *</label>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Client</label>
                 {Object.keys(clientsMap).length === 0 ? (
-                  <div className="text-[12px] text-rose-600 font-semibold py-1">No client data available.</div>
+                  <div className="text-[12px] text-rose-600 font-semibold py-1">No client data available</div>
                 ) : (
                   <select
                     value={formClientId}
                     onChange={e => setFormClientId(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
                   >
                     {Object.entries(clientsMap).map(([id, name]) => (
                       <option key={id} value={id}>{name}</option>
@@ -714,11 +588,11 @@ export default function ComplianceOperationsCenter() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5">Compliance Type *</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Type</label>
                   <select
                     value={formType}
                     onChange={e => setFormType(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
                   >
                     <option value="GSTR-1">GSTR-1</option>
                     <option value="GSTR-3B">GSTR-3B</option>
@@ -731,38 +605,38 @@ export default function ComplianceOperationsCenter() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5">Filing Period *</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Period</label>
                   <input
                     type="text"
                     required
                     value={formPeriod}
                     onChange={e => setFormPeriod(e.target.value)}
                     placeholder="e.g. March 2024"
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5">Due Date *</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Due Date</label>
                   <input
                     type="date"
                     required
                     value={formDueDate}
                     onChange={e => setFormDueDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-mono font-medium"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5">Assign Staff *</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1.5">Assign To</label>
                   {staffList.length === 0 ? (
                     <div className="text-[12px] text-rose-600 font-semibold py-1">No staff available</div>
                   ) : (
                     <select
                       value={formAssignedTo}
                       onChange={e => setFormAssignedTo(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2.5 text-slate-800 focus:outline-none focus:border-[#1B4F8A] font-medium"
                     >
                       {staffList.map((staff) => (
                         <option key={staff} value={staff}>{staff}</option>
@@ -772,34 +646,25 @@ export default function ComplianceOperationsCenter() {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3.5 pt-4 border-t border-slate-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  disabled={isSubmitting}
-                  className="px-4 py-2 rounded text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-bold transition-all"
+                  className="px-4 py-2 rounded-lg text-slate-600 bg-slate-100 border border-slate-200 hover:bg-slate-200 font-bold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !formClientId}
-                  className="bg-[#1B4F8A] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded font-bold border border-[#1B4F8A] cursor-pointer transition-all min-w-[140px]"
+                  disabled={isSubmitting}
+                  className="bg-[#1B4F8A] hover:bg-[#163F6E] text-white px-5 py-2 rounded-lg font-bold"
                 >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2 justify-center">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Saving...
-                    </span>
-                  ) : 'Schedule Filing'}
+                  Add Filing
                 </button>
               </div>
 
               {formError && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px] mt-4">
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-[12px] mt-4">
                   <AlertCircle size={14} />
                   <span>{formError}</span>
                 </div>
