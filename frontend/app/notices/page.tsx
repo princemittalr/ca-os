@@ -11,7 +11,11 @@ import {
   Copy,
   FolderOpen,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  FileWarning,
+  Download,
+  Clock
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
@@ -45,10 +49,9 @@ interface NoticeDossier {
   questions_for_client: string[];
 }
 
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-export default function NoticeIntelligenceCenter() {
+export default function NoticeWarRoom() {
   const { showToast, ToastComponent } = useToast();
   const [notices, setNotices] = useState<NoticeDossier[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<NoticeDossier | null>(null);
@@ -58,26 +61,16 @@ export default function NoticeIntelligenceCenter() {
   const [uploadFile, setFile] = useState<File | null>(null);
   const [uploadClientId, setUploadClientId] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [uploadClients, setUploadClients] = useState<{id: string; business_name: string; gstin: string}[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
-  // Response drafting states
+  // New state for redesign
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'RESPONDED' | 'RESOLVED'>('ALL');
   const [isDrafting, setIsDrafting] = useState(false);
   const [responseDraft, setResponseDraft] = useState("");
   const [typedReply, setTypedReply] = useState("");
-
-  // Filtration states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState("ALL");
-
-  // AI assistant tab switcher: 'reply' | 'evidence' | 'missing' | 'questions'
-  const [activeAssistantTab, setActiveAssistantTab] = useState<'reply' | 'evidence' | 'missing' | 'questions'>('reply');
-
-  // Interactive checklists for Reply Readiness Score
-  const [checkedEvidence, setCheckedEvidence] = useState<Record<string, boolean>>({});
-  const [checkedMissing, setCheckedMissing] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetchNotices();
@@ -96,24 +89,8 @@ export default function NoticeIntelligenceCenter() {
     fetchClients();
   }, []);
 
-  // Initialize checklists when selectedNotice changes
   useEffect(() => {
     if (selectedNotice) {
-      const evidenceChecks: Record<string, boolean> = {};
-      selectedNotice.supporting_evidence?.forEach((doc, idx) => {
-        // Pre-check the first item to show default interactivity
-        evidenceChecks[doc] = idx === 0;
-      });
-      setCheckedEvidence(evidenceChecks);
-
-      const missingChecks: Record<string, boolean> = {};
-      selectedNotice.missing_documents?.forEach((doc) => {
-        missingChecks[doc] = false;
-      });
-      setCheckedMissing(missingChecks);
-      
-      // Default to drafting tab
-      setActiveAssistantTab('reply');
       setResponseDraft("");
       setTypedReply("");
     }
@@ -132,7 +109,6 @@ export default function NoticeIntelligenceCenter() {
     }
   };
 
-  // Sync selected notice details if refreshed
   useEffect(() => {
     if (selectedNotice) {
       const updated = notices.find(n => n.id === selectedNotice.id);
@@ -142,7 +118,6 @@ export default function NoticeIntelligenceCenter() {
     }
   }, [notices]);
 
-  // Handle statutory response drafting
   const handleDraftResponse = async (noticeId: string) => {
     setIsDrafting(true);
     setResponseDraft("");
@@ -153,7 +128,6 @@ export default function NoticeIntelligenceCenter() {
       );
       setResponseDraft(data.reply);
 
-      // Simulate live typing streams reveal
       let index = 0;
       const text = data.reply;
       const timer = setInterval(() => {
@@ -166,12 +140,10 @@ export default function NoticeIntelligenceCenter() {
 
       showToast("Response compiled successfully!", "success");
       
-      // Update local state status
-      setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: "DRAFTED" } : n));
+      setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: "RESPONDED" } : n));
     } catch (err) {
       console.error(err);
       
-      // Template Fallback for draft reply
       const fallbackReply = `To,
 The Office of the ${selectedNotice?.issuing_authority || 'GST Department'},
 
@@ -197,14 +169,13 @@ For ${selectedNotice?.client_name}`;
         }
       }, 5);
       
-      setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: "DRAFTED" } : n));
+      setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: "RESPONDED" } : n));
       showToast("Draft reply generated using statutory template.", "success");
     } finally {
       setIsDrafting(false);
     }
   };
 
-  // Ingest uploaded files
   const handleFileUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadFile || !uploadClientId || isSubmitting) return;
@@ -252,37 +223,16 @@ For ${selectedNotice?.client_name}`;
     }
   };
 
-  const handleUpdateStatus = (noticeId: string, newStatus: string) => {
-    setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: newStatus } : n));
-    setSelectedNotice(prev => prev && prev.id === noticeId ? { ...prev, status: newStatus } : prev);
-    showToast(`Notice status updated to ${newStatus}`, "success");
-  };
-
-  const handleToggleEvidence = (doc: string) => {
-    setCheckedEvidence(prev => ({
-      ...prev,
-      [doc]: !prev[doc]
-    }));
-  };
-
-  const handleToggleMissing = (doc: string) => {
-    setCheckedMissing(prev => ({
-      ...prev,
-      [doc]: !prev[doc]
-    }));
+  const handleMarkResolved = (noticeId: string) => {
+    setNotices(prev => prev.map(n => n.id === noticeId ? { ...n, status: "RESOLVED" } : n));
+    setSelectedNotice(prev => prev && prev.id === noticeId ? { ...prev, status: "RESOLVED" } : prev);
+    showToast(`Notice marked as resolved`, "success");
   };
 
   const handleCopyReply = () => {
     const text = typedReply || responseDraft;
     navigator.clipboard.writeText(text);
     showToast("Legal response draft copied to clipboard!", "success");
-  };
-
-  const handleCopyQuestions = () => {
-    if (!selectedNotice) return;
-    const text = `Hi ${selectedNotice.client_name},\n\nWe are preparing the reply for GST notice ${selectedNotice.notice_number}. Please clarify the following questions:\n\n${(selectedNotice.questions_for_client || []).map((q, i) => `${i+1}. ${q}`).join("\n")}\n\nWe also require these documents:\n${(selectedNotice.missing_documents || []).map(d => `- ${d}`).join("\n")}\n\nThanks,\nAudit Team`;
-    navigator.clipboard.writeText(text);
-    showToast("Client outreach questions copied to clipboard!", "success");
   };
 
   const formatCurrency = (val: number) => {
@@ -293,7 +243,27 @@ For ${selectedNotice?.client_name}`;
     }).format(val);
   };
 
-  // Filtration logic
+  const getDueDateInfo = (dueDateStr: string, status: string) => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const dueDate = new Date(dueDateStr);
+    dueDate.setHours(0,0,0,0);
+
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    let color = '#6B7280';
+    if (status !== 'RESOLVED') {
+      if (diffDays < 0) {
+        color = '#DC2626';
+      } else if (diffDays <= 7) {
+        color = '#D97706';
+      }
+    }
+
+    return { diffDays, color };
+  };
+
   const filteredNotices = notices.filter(item => {
     const client = item.client_name.toLowerCase();
     const refNum = item.notice_number.toLowerCase();
@@ -301,565 +271,358 @@ For ${selectedNotice?.client_name}`;
     if (query && !client.includes(query) && !refNum.includes(query)) {
       return false;
     }
-    if (filterStatus !== 'ALL' && item.status !== filterStatus) {
-      return false;
-    }
+    
+    if (activeTab === 'PENDING') return item.status === 'PENDING';
+    if (activeTab === 'RESPONDED') return item.status === 'RESPONDED' || item.status === 'DRAFTED';
+    if (activeTab === 'RESOLVED') return item.status === 'RESOLVED';
+    
     return true;
   });
 
-  // Reply Readiness calculations
-  const getReadinessScore = () => {
-    if (!selectedNotice) return 0;
-    const totalEvidence = (selectedNotice.supporting_evidence?.length || 0) + (selectedNotice.missing_documents?.length || 0);
-    if (totalEvidence === 0) return 0;
+  const unreadCount = notices.filter(n => n.status === 'PENDING').length;
+
+  const Badge = ({ variant, children }: { variant: 'high' | 'medium' | 'low' | 'default', children: React.ReactNode }) => {
+    const variants: Record<string, string> = {
+      high: 'bg-red-50 text-red-700 border border-red-200',
+      medium: 'bg-amber-50 text-amber-700 border border-amber-200',
+      low: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+      default: 'bg-slate-50 text-slate-700 border border-slate-200'
+    };
     
-    let checkedCount = 0;
-    selectedNotice.supporting_evidence?.forEach(doc => {
-      if (checkedEvidence[doc]) checkedCount++;
-    });
-    selectedNotice.missing_documents?.forEach(doc => {
-      if (checkedMissing[doc]) checkedCount++;
-    });
-    
-    return Math.round((checkedCount / totalEvidence) * 100);
+    return (
+      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${variants[variant]}`}>
+        {children}
+      </span>
+    );
   };
 
-  const readinessPercent = getReadinessScore();
+  const getRiskVariant = (riskLevel: string) => {
+    if (riskLevel === 'HIGH') return 'high';
+    if (riskLevel === 'MEDIUM') return 'medium';
+    if (riskLevel === 'LOW') return 'low';
+    return 'default';
+  };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-white font-sans">
-      {/* Toast Notification */}
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC] font-sans">
+      {/* Toast */}
       {ToastComponent}
 
-      {/* Header: 48px white border-bottom pattern */}
-      <div className="h-[48px] border-b border-[#E5E7EB] bg-white px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-[#111827]">Regulatory Notices Inbox</h1>
-          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 rounded">
-            {notices.length} Total
-          </span>
-        </div>
-        <div>
+      {/* Left Panel: Inbox (380px fixed) */}
+      <div className="w-[380px] shrink-0 border-r border-[#E5E7EB] bg-white flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-[#E5E7EB] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[15px] font-semibold text-[#111827]">Notice Desk</h2>
+            <span className="px-2 py-0.5 bg-[#1B4F8A] text-white text-[11px] font-semibold rounded-full">
+              {unreadCount}
+            </span>
+          </div>
           <button
-            onClick={() => {
-              setShowUploadModal(true);
-              setFormError("");
-            }}
-            className="px-3 py-1 bg-[#111827] hover:bg-slate-800 text-white text-[11px] font-medium rounded flex items-center gap-1.5 transition-colors cursor-pointer"
+            onClick={() => setShowUploadModal(true)}
+            className="px-3 py-1.5 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[12px] font-semibold rounded flex items-center gap-1.5"
           >
-            <Plus size={12} />
-            <span>Ingest Notice</span>
+            <Plus size={14} />
+            Upload Notice
           </button>
         </div>
-      </div>
 
-      {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden lg:flex-row flex-col">
-        {/* Left Panel - Notice List (340px, border-right, white background) */}
-        <div className="w-full lg:w-[340px] shrink-0 border-r border-[#E5E7EB] bg-white flex flex-col overflow-hidden h-full">
-          {/* Toolbar: search 100% width minus padding, height 30px, border-bottom 1px solid #E5E7EB, padding 8px */}
-          <div className="h-[30px] border-b border-[#E5E7EB] flex items-center bg-white shrink-0" style={{ padding: '8px' }}>
-            <div className="relative w-full flex items-center h-full">
-              <Search size={12} className="absolute left-2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search reference or client..."
-                className="w-full h-full bg-transparent pl-6 pr-2 text-[11px] font-medium text-slate-800 placeholder-[#9CA3AF] focus:outline-none"
-              />
-            </div>
-          </div>
+        {/* Filter Tabs */}
+        <div className="border-b border-[#E5E7EB] flex items-center">
+          {[
+            { id: 'ALL', label: 'All' },
+            { id: 'PENDING', label: 'Pending' },
+            { id: 'RESPONDED', label: 'Responded' },
+            { id: 'RESOLVED', label: 'Resolved' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-4 py-2.5 text-[12px] font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-[#1B4F8A] text-[#1B4F8A]'
+                  : 'border-transparent text-[#6B7280] hover:text-[#374151]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-          {/* Filter tabs (All / Pending / Responded / Closed): underline tab style, height 32px, font 12px */}
-          <div className="h-[32px] border-b border-[#E5E7EB] flex items-center bg-white px-2 shrink-0">
-            {[
-              { id: 'ALL', label: 'All' },
-              { id: 'PENDING', label: 'Pending' },
-              { id: 'DRAFTED', label: 'Responded' },
-              { id: 'RESOLVED', label: 'Closed' }
-            ].map((tab) => {
-              const isActive = filterStatus === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setFilterStatus(tab.id)}
-                  className={`h-full px-3 text-[12px] font-medium transition-all relative cursor-pointer ${
-                    isActive ? 'text-[#111827] font-semibold' : 'text-[#6B7280] hover:text-[#374151]'
-                  }`}
-                >
-                  {tab.label}
-                  {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#111827]"></div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Notice list scroll area */}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {isLoading ? (
-              <div className="p-2 space-y-1">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-14 bg-slate-100 rounded-[3px] animate-pulse" />
-                ))}
-              </div>
-            ) : filteredNotices.length > 0 ? (
-              filteredNotices.map((notice) => {
-                const isSelected = selectedNotice?.id === notice.id;
-                
-                // Urgency indicator left border color
-                let urgencyColor = 'transparent';
-                if (notice.risk_level === 'HIGH' || notice.risk_score >= 70) {
-                  urgencyColor = '#B91C1C';
-                } else if (notice.risk_level === 'MEDIUM' || (notice.risk_score >= 40 && notice.risk_score < 70)) {
-                  urgencyColor = '#B45309';
-                }
-
-                // Due date text color
-                let dueDateColor = '#6B7280';
-                if (notice.status !== 'RESOLVED') {
-                  const due = new Date(notice.due_date);
-                  const now = new Date();
-                  due.setHours(0,0,0,0);
-                  now.setHours(0,0,0,0);
-                  if (due < now) {
-                    dueDateColor = '#B91C1C'; // Overdue
-                  } else {
-                    const diffTime = due.getTime() - now.getTime();
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays <= 15) {
-                      dueDateColor = '#B45309'; // Upcoming
-                    }
-                  }
-                }
-
-                return (
-                  <div
-                    key={notice.id}
-                    onClick={() => setSelectedNotice(notice)}
-                    className={`w-full h-[56px] px-3 py-2 flex flex-col justify-between border-b border-[#F3F4F6] cursor-pointer transition-colors relative shrink-0 ${
-                      isSelected ? 'bg-[#EFF6FF]' : 'bg-white hover:bg-slate-50'
-                    }`}
-                    style={{ borderLeft: `3px solid ${urgencyColor}` }}
-                  >
-                    {/* Line 1: notice type 12px weight 600 #111827 + period 11px #6B7280 right */}
-                    <div className="flex justify-between items-center w-full">
-                      <span className="text-[12px] font-semibold text-[#111827] truncate pr-2">
-                        {notice.notice_type}
-                      </span>
-                      <span className="text-[11px] text-[#6B7280] font-mono shrink-0">
-                        {notice.notice_number}
-                      </span>
-                    </div>
-                    {/* Line 2: issuing authority 11px #6B7280 */}
-                    <div className="text-[11px] text-[#6B7280] truncate leading-none">
-                      {notice.issuing_authority}
-                    </div>
-                    {/* Line 3: due date 11px */}
-                    <div className="flex justify-between items-center w-full leading-none">
-                      <span className="text-[11px] truncate font-medium text-slate-500">
-                        {notice.client_name}
-                      </span>
-                      <span className="text-[11px] font-medium font-mono shrink-0" style={{ color: dueDateColor }}>
-                        Due: {notice.due_date}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12 gap-2">
-                <FileText size={20} className="text-[#D1D5DB]" />
-                <span className="text-[12px] text-[#6B7280] font-medium">No notices found</span>
-              </div>
-            )}
+        {/* Search Input */}
+        <div className="px-4 py-2 border-b border-[#E5E7EB]">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search notices..."
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-[#E5E7EB] rounded text-[12px] focus:outline-none focus:border-[#1B4F8A]"
+            />
           </div>
         </div>
 
-        {/* Right Panel - Detail View (background #F7F8FA) */}
-        <div className="flex-1 bg-[#F7F8FA] flex flex-col overflow-hidden h-full">
-          {selectedNotice ? (
-            <>
-              {/* Header: notice reference 15px weight 600 #111827, meta row 12px #6B7280, height 52px border-bottom 1px solid #E5E7EB, background #FFFFFF */}
-              <div className="h-[52px] border-b border-[#E5E7EB] bg-white px-4 flex items-center justify-between shrink-0">
-                <div className="flex flex-col justify-center min-w-0">
-                  <h2 className="text-[15px] font-semibold text-[#111827] leading-tight select-all truncate">
-                    {selectedNotice.notice_number}
-                  </h2>
-                  <div className="text-[12px] text-[#6B7280] leading-none mt-0.5 truncate">
-                    {selectedNotice.client_name} · GSTIN: <span className="font-mono">{selectedNotice.gstin}</span>
+        {/* Notice List */}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="p-4 space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-[72px] bg-slate-100 rounded animate-pulse" />
+              ))}
+            </div>
+          ) : filteredNotices.length > 0 ? (
+            filteredNotices.map((notice) => {
+              const isSelected = selectedNotice?.id === notice.id;
+              const isUnread = notice.status === 'PENDING';
+              const { color: dueDateColor } = getDueDateInfo(notice.due_date, notice.status);
+
+              return (
+                <div
+                  key={notice.id}
+                  onClick={() => setSelectedNotice(notice)}
+                  className={`w-full h-[72px] px-4 py-3 border-b border-[#F3F4F6] cursor-pointer transition-all ${
+                    isSelected ? 'bg-slate-100 border-l-2 border-[#1B4F8A]' : 'bg-white hover:bg-slate-50'
+                  } ${isUnread ? 'border-l-2 border-[#3B82F6] bg-blue-50/30' : ''}`}
+                >
+                  {/* Top Row */}
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[13px] font-semibold text-[#111827] truncate pr-2">
+                      {notice.client_name}
+                    </span>
+                    <span className="text-[12px] font-semibold font-mono text-slate-700">
+                      {formatCurrency(notice.tax_amount)}
+                    </span>
+                  </div>
+                  {/* Middle Row */}
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="default">{notice.notice_type}</Badge>
+                    <Badge variant={getRiskVariant(notice.risk_level)}>
+                      {notice.risk_level} Risk
+                    </Badge>
+                  </div>
+                  {/* Bottom Row */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono" style={{ color: dueDateColor }}>
+                      Due: {notice.due_date}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {notice.notice_number}
+                    </span>
                   </div>
                 </div>
-                {/* Status + priority badges: rectangular per badge rules */}
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className={`px-2 py-0.5 text-[10px] font-semibold border uppercase tracking-wider rounded-sm ${
-                    selectedNotice.status === 'PENDING' ? 'bg-[#FEF3C7] text-[#D97706] border-[#FCD34D]' :
-                    selectedNotice.status === 'DRAFTED' ? 'bg-[#DBEAFE] text-[#2563EB] border-[#BFDBFE]' :
-                    'bg-[#D1FAE5] text-[#059669] border-[#A7F3D0]'
-                  }`}>
-                    {selectedNotice.status}
-                  </span>
-                  <span className={`px-2 py-0.5 text-[10px] font-semibold border uppercase tracking-wider rounded-sm ${
-                    selectedNotice.risk_level === 'HIGH' ? 'bg-[#FEE2E2] text-[#DC2626] border-[#FCA5A5]' :
-                    selectedNotice.risk_level === 'MEDIUM' ? 'bg-[#FFEDD5] text-[#D97706] border-[#FED7AA]' :
-                    'bg-[#F0FDF4] text-[#16A34A] border-[#BBF7D0]'
-                  }`}>
-                    {selectedNotice.risk_level} Risk
-                  </span>
-                </div>
-              </div>
-
-              {/* Details Scroll Area */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {/* AI SUGGESTION PANEL */}
-                <div className="bg-[#F7F8FA] border border-[#E5E7EB] rounded p-4">
-                  <span className="text-[11px] uppercase font-semibold tracking-wider text-[#4B5563] block mb-1">
-                    AI Suggestion
-                  </span>
-                  <p className="text-[12px] text-[#374151] leading-relaxed">
-                    {selectedNotice.summary}
-                  </p>
-                </div>
-
-                {/* Section Cards: background #FFFFFF, border 1px solid #E5E7EB, border-radius 4px, padding 16px, margin-bottom 12px */}
-                {/* Card 1: Notice Overview */}
-                <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
-                  {/* Section title: 12px uppercase weight 600 letter-spacing 0.05em #4B5563, border-bottom 1px solid #F3F4F6, padding-bottom 8px, margin-bottom 12px */}
-                  <h3 className="text-[12px] uppercase font-semibold tracking-wider text-[#4B5563] border-b border-[#F3F4F6] pb-2 mb-3">
-                    Notice Details
-                  </h3>
-                  
-                  {/* Info rows: label 11px #6B7280 width 140px, value 13px #111827 */}
-                  <div className="space-y-2">
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Issuing Authority</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{selectedNotice.issuing_authority}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Notice Type</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{selectedNotice.notice_type}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Section References</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{selectedNotice.section_references.join(", ") || "N/A"}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Due Date</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{selectedNotice.due_date}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Complexity Score</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{selectedNotice.complexity_score}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 2: Financial Assessment */}
-                <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
-                  <h3 className="text-[12px] uppercase font-semibold tracking-wider text-[#4B5563] border-b border-[#F3F4F6] pb-2 mb-3">
-                    Exposure Analysis
-                  </h3>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Risk Score</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{selectedNotice.risk_score} / 100</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Estimated Tax</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{formatCurrency(selectedNotice.tax_amount)}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Interest Impact</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{formatCurrency(selectedNotice.interest_exposure_est)}</span>
-                    </div>
-                    <div className="flex items-start">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Penalty Impact</span>
-                      <span className="text-[13px] text-[#111827] font-medium">{formatCurrency(selectedNotice.penalty_exposure_est)}</span>
-                    </div>
-                    <div className="flex items-start border-t border-[#F3F4F6] pt-2">
-                      <span className="text-[11px] text-[#6B7280] w-[140px] shrink-0">Total Exposure</span>
-                      <span className="text-[13px] text-[#2563EB] font-bold">{formatCurrency(selectedNotice.total_exposure_est)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 3: Evidence & Readiness Checklist */}
-                <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
-                  <h3 className="text-[12px] uppercase font-semibold tracking-wider text-[#4B5563] border-b border-[#F3F4F6] pb-2 mb-3">
-                    Reply Readiness ({readinessPercent}%)
-                  </h3>
-                  
-                  <div className="w-full bg-slate-100 h-1.5 rounded-sm overflow-hidden mb-3">
-                    <div 
-                      className="h-full bg-[#2563EB] transition-all duration-300"
-                      style={{ width: `${readinessPercent}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <span className="text-[11px] text-[#6B7280] font-medium block mb-1.5">Supporting Evidence Checklist</span>
-                      <div className="space-y-1">
-                        {selectedNotice.supporting_evidence?.map((doc) => (
-                          <label key={doc} className="flex items-center gap-2 py-0.5 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!checkedEvidence[doc]}
-                              onChange={() => handleToggleEvidence(doc)}
-                              className="rounded border-[#E5E7EB] text-[#2563EB] focus:ring-0 w-3.5 h-3.5"
-                            />
-                            <span className="text-[12px] text-[#374151]">{doc}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className="text-[11px] text-[#6B7280] font-medium block mb-1.5">Missing Documents Tracking</span>
-                      <div className="space-y-1">
-                        {selectedNotice.missing_documents?.map((doc) => (
-                          <label key={doc} className="flex items-center gap-2 py-0.5 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={!!checkedMissing[doc]}
-                              onChange={() => handleToggleMissing(doc)}
-                              className="rounded border-[#E5E7EB] text-[#2563EB] focus:ring-0 w-3.5 h-3.5"
-                            />
-                            <span className="text-[12px] text-[#374151]">{doc}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card 4: Response Documents */}
-                {/* Response/document section: file attachment rows 32px height, icon 13px, filename 12px */}
-                <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
-                  <h3 className="text-[12px] uppercase font-semibold tracking-wider text-[#4B5563] border-b border-[#F3F4F6] pb-2 mb-3">
-                    Attached Files
-                  </h3>
-
-                  <div className="space-y-1.5">
-                    <div className="h-[32px] flex items-center justify-between px-3 border border-[#E5E7EB] bg-white rounded">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText size={13} className="text-[#6B7280]" />
-                        <span className="text-[12px] text-[#374151] truncate font-medium">
-                          {selectedNotice.file_path.split('/').pop() || "Notice_Details.pdf"}
-                        </span>
-                      </div>
-                      <a 
-                        href={`${API_BASE}${selectedNotice.file_path}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[11px] text-[#2563EB] hover:underline shrink-0"
-                      >
-                        View Original
-                      </a>
-                    </div>
-
-                    {selectedNotice.supporting_evidence?.map((doc, idx) => (
-                      <div key={idx} className="h-[32px] flex items-center justify-between px-3 border border-[#E5E7EB] bg-white rounded">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <FileText size={13} className="text-[#6B7280]" />
-                          <span className="text-[12px] text-[#374151] truncate font-medium">
-                            {doc}
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-[#6B7280] shrink-0">
-                          Evidence
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Card 5: AI Drafting & Outreach Workspace */}
-                <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
-                  <h3 className="text-[12px] uppercase font-semibold tracking-wider text-[#4B5563] border-b border-[#F3F4F6] pb-2 mb-3">
-                    AI Drafting & Outreach
-                  </h3>
-
-                  <div className="flex border-b border-[#E5E7EB] mb-3">
-                    {[
-                      { id: 'reply', label: "Draft Reply" },
-                      { id: 'questions', label: "Client Interview" }
-                    ].map(tab => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveAssistantTab(tab.id as any)}
-                        className={`px-3 py-1.5 text-[11px] font-semibold relative cursor-pointer ${
-                          activeAssistantTab === tab.id ? 'text-[#2563EB]' : 'text-[#6B7280]'
-                        }`}
-                      >
-                        {tab.label}
-                        {activeAssistantTab === tab.id && (
-                          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#2563EB]"></div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-
-                  {activeAssistantTab === 'reply' ? (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-medium text-[#6B7280]">Response Draft Preview</span>
-                        {(typedReply || responseDraft) && (
-                          <button
-                            onClick={handleCopyReply}
-                            className="px-2 py-1 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-[10px] text-slate-700 font-semibold rounded flex items-center gap-1 transition-colors"
-                          >
-                            <Copy size={11} />
-                            <span>Copy Letter</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {!responseDraft && !typedReply && !isDrafting ? (
-                        <div className="text-center py-6">
-                          <button
-                            onClick={() => handleDraftResponse(selectedNotice.id)}
-                            className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold rounded transition-colors"
-                          >
-                            Compile Response Letter
-                          </button>
-                        </div>
-                      ) : isDrafting && !typedReply ? (
-                        <div className="text-center py-6 text-[12px] text-[#6B7280]">
-                          Compiling reply letter...
-                        </div>
-                      ) : (
-                        <div className="border border-[#E5E7EB] bg-slate-50 rounded p-3 text-[11px] font-mono whitespace-pre-wrap h-40 overflow-y-auto">
-                          {typedReply}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-medium text-[#6B7280]">Client Information Request Pack</span>
-                        <button
-                          onClick={handleCopyQuestions}
-                          className="px-2 py-1 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-[10px] text-slate-700 font-semibold rounded flex items-center gap-1 transition-colors"
-                        >
-                          <Copy size={11} />
-                          <span>Copy Pack</span>
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        {selectedNotice.questions_for_client?.map((q, idx) => (
-                          <div key={idx} className="p-2.5 border border-[#E5E7EB] bg-slate-50 rounded text-[12px] text-[#374151]">
-                            {idx + 1}. {q}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card 6: Timeline / Activity */}
-                <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4">
-                  <h3 className="text-[12px] uppercase font-semibold tracking-wider text-[#4B5563] border-b border-[#F3F4F6] pb-2 mb-3">
-                    Milestone Timeline
-                  </h3>
-
-                  {/* Simple: date 11px #9CA3AF left 80px, event text 12px #4B5563, border-left 2px solid #E5E7EB, padding-left 12px */}
-                  <div className="space-y-3">
-                    {[
-                      { date: "2026-05-20", text: "Notice Received & Logged (Central Portal Registry)" },
-                      { date: "2026-05-28", text: "AI Notice Analysis Completed (OCR & NLP Extraction Done)" },
-                      { 
-                        date: "In Progress", 
-                        text: selectedNotice.status !== 'PENDING' ? "Response Reply Prepared" : "Draft reply compiling required" 
-                      },
-                      { 
-                        date: "Pending", 
-                        text: selectedNotice.status === 'RESOLVED' ? "Response Submitted to Portal" :
-                              selectedNotice.status === 'DRAFTED' ? "Awaiting submission verification" : "Pending reply preparation" 
-                      },
-                      { 
-                        date: "Target", 
-                        text: selectedNotice.status === 'RESOLVED' ? "Litigation Case Resolved" : "Active under statutory scrutiny files" 
-                      }
-                    ].map((milestone, idx) => (
-                      <div key={idx} className="flex items-start">
-                        <span className="text-[11px] text-[#9CA3AF] w-[80px] shrink-0 font-mono pt-0.5">{milestone.date}</span>
-                        <div className="flex-1 border-l-2 border-[#E5E7EB] pl-[12px] py-0.5 text-[12px] text-[#4B5563]">
-                          {milestone.text}
-                          {milestone.date === 'Pending' && selectedNotice.status === 'DRAFTED' && (
-                            <div className="mt-2">
-                              <button
-                                onClick={() => handleUpdateStatus(selectedNotice.id, "RESOLVED")}
-                                className="px-2 py-1 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-[10px] font-semibold text-slate-700 rounded transition-colors"
-                              >
-                                Mark as Submitted
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4 flex flex-wrap gap-2.5">
-                  <button
-                    onClick={() => {
-                      if (selectedNotice.status === 'PENDING') {
-                        handleDraftResponse(selectedNotice.id);
-                      } else {
-                        setActiveAssistantTab('reply');
-                        showToast("Draft reply already prepared.", "warning");
-                      }
-                    }}
-                    className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold rounded transition-colors cursor-pointer"
-                  >
-                    Draft Reply
-                  </button>
-                  <button
-                    onClick={() => showToast("Exporting statutory summary report PDF...", "success")}
-                    className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[11px] font-semibold rounded transition-colors cursor-pointer"
-                  >
-                    Export Summary
-                  </button>
-                  <button
-                    onClick={() => setShowShareModal(true)}
-                    className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[11px] font-semibold rounded transition-colors cursor-pointer"
-                  >
-                    Request Documents
-                  </button>
-                </div>
-
-              </div>
-            </>
+              );
+            })
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#F7F8FA]">
-              <FolderOpen size={40} className="text-slate-400 mb-2" />
-              <h4 className="text-sm font-bold text-slate-800">No Notice Selected</h4>
-              <p className="text-[11px] text-slate-500 max-w-xs mt-1">
-                Choose a notice from the ledger to load the statutory compliance details and AI drafting workspace.
-              </p>
+            <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <FileText size={24} className="text-slate-300" />
+              <span className="text-[12px] text-slate-500">No notices found</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* ============================================================== */}
-      {/* INGEST FILE UPLOAD MODAL                                       */}
-      {/* ============================================================== */}
+      {/* Right Panel: Detail View (flex-1) */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {selectedNotice ? (
+          <>
+            {/* Top Bar */}
+            <div className="bg-white border-b border-[#E5E7EB] px-6 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="text-[16px] font-semibold text-[#111827]">
+                  {selectedNotice.notice_number}
+                </span>
+                <Badge variant="default">{selectedNotice.notice_type}</Badge>
+                <Badge variant={getRiskVariant(selectedNotice.risk_level)}>
+                  {selectedNotice.status}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => selectedNotice && handleDraftResponse(selectedNotice.id)}
+                  className="px-3 py-1.5 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[12px] font-semibold rounded flex items-center gap-1.5"
+                >
+                  Draft Response
+                </button>
+                <button
+                  onClick={() => selectedNotice && handleMarkResolved(selectedNotice.id)}
+                  className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[12px] font-semibold rounded"
+                >
+                  Mark Resolved
+                </button>
+                <a 
+                  href={`${API_BASE}${selectedNotice.file_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[12px] font-semibold rounded flex items-center gap-1.5"
+                >
+                  <Download size={14} />
+                  Download
+                </a>
+              </div>
+            </div>
+
+            {/* Details Scroll Area */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Section 1: Notice Summary */}
+              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-0.5">Notice No</div>
+                    <div className="text-[13px] font-semibold text-[#111827]">{selectedNotice.notice_number}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-0.5">Type</div>
+                    <div className="text-[13px] font-semibold text-[#111827]">{selectedNotice.notice_type}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-0.5">Authority</div>
+                    <div className="text-[13px] font-semibold text-[#111827]">{selectedNotice.issuing_authority}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-0.5">Section</div>
+                    <div className="text-[13px] font-semibold text-[#111827]">
+                      {selectedNotice.section_references.join(", ")}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-0.5">Due Date</div>
+                    <div className="text-[13px] font-semibold text-[#111827]">{selectedNotice.due_date}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-0.5">Tax Amount</div>
+                    <div className="text-[13px] font-semibold text-[#111827]">
+                      {formatCurrency(selectedNotice.tax_amount)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-0.5">Risk</div>
+                    <div className="text-[13px] font-semibold text-[#111827]">
+                      {selectedNotice.risk_level} ({selectedNotice.risk_score}/100)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: AI Analysis */}
+              <div className="bg-violet-50 border border-violet-100 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles size={16} className="text-violet-600" />
+                  <span className="text-[13px] font-semibold text-violet-900">AI Risk Assessment</span>
+                </div>
+                <p className="text-[12px] text-violet-800 mb-3 leading-relaxed">
+                  {selectedNotice.summary}
+                </p>
+                {selectedNotice.risk_level === 'HIGH' && (
+                  <ul className="list-disc list-inside text-[12px] text-violet-800 space-y-1">
+                    <li>High penalty exposure detected</li>
+                    <li>Urgent action required before due date</li>
+                    <li>Consider requesting additional documents from client</li>
+                  </ul>
+                )}
+              </div>
+
+              {/* Section 3: Timeline */}
+              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+                <h3 className="text-[13px] font-semibold text-[#111827] mb-4">Timeline</h3>
+                <div className="space-y-3">
+                  {[
+                    { status: 'completed', text: 'Notice Received & Logged' },
+                    { status: 'completed', text: 'AI Notice Analysis Completed' },
+                    { 
+                      status: selectedNotice.status !== 'PENDING' ? 'completed' : 'pending', 
+                      text: 'Response Draft Prepared' 
+                    },
+                    { 
+                      status: selectedNotice.status === 'RESOLVED' ? 'completed' : 'pending', 
+                      text: 'Response Submitted' 
+                    },
+                    { 
+                      status: selectedNotice.status === 'RESOLVED' ? 'completed' : 'pending', 
+                      text: 'Notice Resolved' 
+                    }
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className={`mt-1 w-3 h-3 rounded-full shrink-0 ${
+                        item.status === 'completed' ? 'bg-emerald-500' : 'bg-slate-300'
+                      }`} />
+                      <div className="text-[12px]">
+                        <span className={`${item.status === 'completed' ? 'font-semibold' : ''} text-[#374151]`}>
+                          {item.text}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 4: Response Draft */}
+              <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[13px] font-semibold text-[#111827]">Response Draft</h3>
+                  <div className="flex items-center gap-2">
+                    {(typedReply || responseDraft) && (
+                      <>
+                        <button
+                          onClick={handleCopyReply}
+                          className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[11px] font-semibold rounded flex items-center gap-1.5"
+                        >
+                          <Copy size={14} />
+                          Copy
+                        </button>
+                        <button
+                          className="px-3 py-1.5 bg-white border border-[#E5E7EB] hover:bg-slate-50 text-slate-700 text-[11px] font-semibold rounded flex items-center gap-1.5"
+                        >
+                          <Download size={14} />
+                          Download
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {!responseDraft && !typedReply && !isDrafting ? (
+                  <button
+                    onClick={() => handleDraftResponse(selectedNotice.id)}
+                    className="w-full px-4 py-3 bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-semibold rounded flex items-center justify-center gap-2"
+                  >
+                    <Sparkles size={16} />
+                    Generate AI Response
+                  </button>
+                ) : isDrafting && !typedReply ? (
+                  <div className="text-center py-8 text-[12px] text-[#6B7280]">
+                    Generating response...
+                  </div>
+                ) : (
+                  <textarea
+                    value={typedReply || responseDraft}
+                    onChange={(e) => setTypedReply(e.target.value)}
+                    className="w-full h-64 p-4 border border-[#E5E7EB] rounded text-[12px] font-mono focus:outline-none focus:border-[#1B4F8A]"
+                  />
+                )}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Empty State */
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <FileWarning size={64} className="text-slate-300 mb-4" />
+            <h3 className="text-[15px] font-semibold text-slate-800 mb-1">Select a notice to review</h3>
+            <p className="text-[12px] text-slate-500 max-w-sm">
+              Choose a notice from the inbox to view details, analysis, and draft responses
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded p-6 max-w-lg w-full mx-4 shadow-xl relative space-y-4">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-lg w-full mx-4 shadow-xl relative space-y-4 p-6">
             <div className="flex justify-between items-start">
               <div>
-                <span className="text-[9.5px] font-semibold text-[#2563EB] tracking-wider uppercase block font-mono">Intake Desk</span>
-                <h3 className="text-lg font-bold text-slate-800 mt-0.5">Ingest GST Notice</h3>
+                <h3 className="text-lg font-bold text-slate-800">Upload Notice</h3>
                 <p className="text-[11px] text-[#6B7280] mt-1">
-                  Upload a PDF notice or image to parse and extract statute details.
+                  Upload a PDF or image to parse and analyze
                 </p>
               </div>
               <button
@@ -869,28 +632,29 @@ For ${selectedNotice?.client_name}`;
                   setUploadClientId("");
                   setFormError("");
                 }}
-                className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors"
+                className="w-7 h-7 rounded bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200"
               >
-                <X size={12} />
+                <X size={14} />
               </button>
             </div>
 
             <form onSubmit={handleFileUploadSubmit} className="space-y-4">
               {formError && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px] animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-[12px]">
                   <AlertCircle size={14} />
                   <span>{formError}</span>
                 </div>
               )}
+
               <div className="space-y-1">
-                <label className="text-[9px] font-semibold uppercase text-slate-500 tracking-wider block font-mono">Client Profile</label>
+                <label className="text-[11px] font-semibold text-slate-700 block">Client</label>
                 <select
                   value={uploadClientId}
                   onChange={e => setUploadClientId(e.target.value)}
                   required
-                  className="w-full h-9 bg-slate-50 border border-slate-200 rounded px-3 text-[11px] font-medium text-slate-700 focus:outline-none focus:border-[#2563EB]"
+                  className="w-full h-10 bg-slate-50 border border-slate-200 rounded-lg px-3 text-[12px] text-slate-800 focus:outline-none focus:border-[#1B4F8A]"
                 >
-                  <option value="" disabled>Choose a business client...</option>
+                  <option value="" disabled>Select client...</option>
                   {uploadClients.map(c => (
                     <option key={c.id} value={c.id}>{c.business_name} ({c.gstin})</option>
                   ))}
@@ -898,9 +662,9 @@ For ${selectedNotice?.client_name}`;
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-semibold uppercase text-slate-500 tracking-wider block font-mono">Attach Document</label>
+                <label className="text-[11px] font-semibold text-slate-700 block">Document</label>
                 {!uploadFile ? (
-                  <div className="border border-dashed border-slate-200 hover:border-slate-300 rounded p-6 flex flex-col items-center justify-center cursor-pointer transition-colors relative bg-slate-50/50">
+                  <div className="border-2 border-dashed border-slate-200 hover:border-[#1B4F8A] rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors relative bg-slate-50/50">
                     <input
                       type="file"
                       required
@@ -912,19 +676,19 @@ For ${selectedNotice?.client_name}`;
                       }}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     />
-                    <UploadCloud size={16} className="text-[#2563EB] mb-2" />
-                    <span className="text-xs font-semibold text-slate-800">Drag & drop PDF / Image here</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">or click to browse files</span>
+                    <UploadCloud size={20} className="text-[#1B4F8A] mb-2" />
+                    <span className="text-sm font-semibold text-slate-800">Drag & drop file here</span>
+                    <span className="text-[11px] text-slate-400 mt-0.5">or click to browse</span>
                   </div>
                 ) : (
-                  <div className="border border-slate-200 rounded p-3 flex items-center justify-between bg-slate-50/30">
+                  <div className="border border-slate-200 rounded-xl p-3 flex items-center justify-between bg-slate-50">
                     <div className="flex items-center gap-2 min-w-0">
-                      <FileText size={14} className="text-[#2563EB] shrink-0" />
+                      <FileText size={16} className="text-[#1B4F8A] shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <span className="text-xs font-medium text-slate-800 truncate block max-w-[200px]" title={uploadFile.name}>
+                        <span className="text-sm font-medium text-slate-800 truncate block" title={uploadFile.name}>
                           {uploadFile.name}
                         </span>
-                        <span className="text-[9.5px] text-slate-400 block font-mono">
+                        <span className="text-[11px] text-slate-400 block font-mono">
                           {(uploadFile.size / (1024 * 1024)).toFixed(2)} MB
                         </span>
                       </div>
@@ -932,26 +696,26 @@ For ${selectedNotice?.client_name}`;
                     <button
                       type="button"
                       onClick={() => setFile(null)}
-                      className="w-6 h-6 bg-slate-100 rounded flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors border border-slate-200"
+                      className="w-7 h-7 bg-slate-100 rounded flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200"
                     >
-                      <X size={12} />
+                      <X size={14} />
                     </button>
                   </div>
                 )}
               </div>
 
               {isUploading && (
-                <div className="space-y-1.5 p-3 bg-slate-50 rounded border border-slate-200">
-                  <div className="flex justify-between items-center text-[10px]">
+                <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="flex justify-between items-center text-[11px]">
                     <span className="font-semibold text-slate-700 flex items-center gap-1">
-                      <RefreshCw size={10} className="animate-spin text-[#2563EB]" />
-                      <span>Parsing with OCR & AI...</span>
+                      <RefreshCw size={12} className="animate-spin text-[#1B4F8A]" />
+                      <span>Parsing with OCR...</span>
                     </span>
-                    <span className="font-mono font-semibold text-[#2563EB]">{uploadProgress}%</span>
+                    <span className="font-mono font-semibold text-[#1B4F8A]">{uploadProgress}%</span>
                   </div>
-                  <div className="w-full bg-slate-200 h-1 rounded overflow-hidden">
+                  <div className="w-full bg-slate-200 h-1.5 rounded overflow-hidden">
                     <div
-                      className="h-full bg-[#2563EB] transition-all duration-300"
+                      className="h-full bg-[#1B4F8A] transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>
@@ -967,85 +731,19 @@ For ${selectedNotice?.client_name}`;
                     setUploadClientId("");
                     setFormError("");
                   }}
-                  className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold rounded hover:bg-slate-50"
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-[12px] font-semibold rounded-lg hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !uploadFile || !uploadClientId}
-                  className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold rounded disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
+                  className="px-5 py-2 bg-[#1B4F8A] hover:bg-[#163F6E] text-white text-[12px] font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? (
-                    <span className="flex items-center gap-2 justify-center">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Saving...
-                    </span>
-                  ) : 'Process & Analyze'}
+                  {isSubmitting ? 'Processing...' : 'Analyze Notice'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* outreach / Share Modal */}
-      {showShareModal && selectedNotice && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded p-6 max-w-lg w-full mx-4 shadow-xl relative space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-[9.5px] font-semibold text-[#2563EB] tracking-wider uppercase block font-mono">Outreach Dispatch</span>
-                <h3 className="text-lg font-bold text-slate-800 mt-0.5">Request Client Documents</h3>
-              </div>
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors"
-              >
-                <X size={12} />
-              </button>
-            </div>
-
-            <div className="space-y-1.5">
-              <span className="text-[9px] font-semibold uppercase text-slate-500 tracking-wider block font-mono">Outreach Template</span>
-              <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10.5px] leading-relaxed text-slate-600 font-mono h-48 overflow-y-auto">
-                <p className="font-bold">Subject: Documents Needed for GST Notice {selectedNotice.notice_number}</p>
-                <br />
-                <p>Dear {selectedNotice.client_name} Team,</p>
-                <br />
-                <p>Please share the following evidence documents to support our reply:</p>
-                {selectedNotice.missing_documents?.map((d, i) => (
-                  <p key={i} className="pl-3 font-semibold">- [ ] {d}</p>
-                ))}
-                <br />
-                <p>Also clarify these questions:</p>
-                {selectedNotice.questions_for_client?.map((q, i) => (
-                  <p key={i} className="pl-3 font-semibold">{i+1}. {q}</p>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-[11px] font-semibold rounded hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  handleCopyQuestions();
-                  setShowShareModal(false);
-                }}
-                className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1d4ed8] text-white text-[11px] font-semibold rounded flex items-center gap-1"
-              >
-                <Copy size={12} />
-                <span>Copy Outreach Pack</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
