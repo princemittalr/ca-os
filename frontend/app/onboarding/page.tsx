@@ -1,19 +1,19 @@
 "use client";
 
 import React, { useState } from 'react';
-import { 
-  Sparkles, 
-  ArrowRight, 
-  ShieldAlert, 
-  Coins, 
-  Calendar, 
-  Layers, 
-  HelpCircle, 
+import {
+  Sparkles,
+  ArrowRight,
+  ShieldAlert,
+  Coins,
+  Calendar,
   Cpu,
   BookOpen,
-  ArrowRightLeft
+  HelpCircle
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 
 interface PredefinedProfile {
   id: string;
@@ -55,12 +55,12 @@ const PREDEFINED_PROFILES: PredefinedProfile[] = [
   }
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 export default function PilotOnboardingWelcome() {
+  const router = useRouter();
   const [selectedPain, setSelectedPain] = useState<string>('itc_leakage');
   const [selectedProfile, setSelectedProfile] = useState<string>('manufacturing');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const painPoints = [
     {
@@ -85,46 +85,69 @@ export default function PilotOnboardingWelcome() {
 
   const handleLaunchSandbox = async () => {
     setIsSubmitting(true);
-    
+    setErrorMessage('');
+
     try {
-      // 1. Trigger API Demo Bootstrap/Reset (best-effort — gracefully skipped if demo
-      //    mode is disabled or the endpoint is absent in production builds).
+      // Step 1: Demo bootstrap — best-effort, non-fatal
       try {
         await api.get('/api/demo/bootstrap');
-        // Log pilot onboarding action in analytics only when demo mode is active.
         await api.post('/api/demo/analytics', {
           event_name: "onboarding_completed",
-          metadata: {
-            chosen_focus: selectedPain,
-            chosen_client_profile: selectedProfile
-          }
-        }).catch(() => {
-          // Analytics failure is non-fatal — tour still launches.
-        });
+          metadata: { chosen_focus: selectedPain, chosen_client_profile: selectedProfile }
+        }).catch(() => {});
       } catch (err) {
-        // Network error, 404 (demo disabled), or 403 (not SUPER_ADMIN) are handled
-        // gracefully: the tour still launches without sandbox pre-seeding.
-        console.warn("[Demo] Bootstrap skipped (demo mode may be disabled):", err);
+        console.warn("[Onboarding] Demo bootstrap skipped:", err);
       }
 
-      // 2. Call PATCH /api/auth/me/onboarding endpoint to complete onboarding
-      await api.patch('/api/auth/me/onboarding');
-      
-    } catch (err) {
-      console.error("Failed to complete onboarding:", err);
-    } finally {
+      // Step 2: Mark onboarding complete via backend API
+      // This updates public.users.onboarding_complete = true
+      let backendSuccess = false;
+      try {
+        await api.patch('/api/auth/me/onboarding');
+        backendSuccess = true;
+        console.log("[Onboarding] Backend onboarding marked complete.");
+      } catch (apiErr) {
+        console.warn("[Onboarding] Backend patch failed, attempting direct Supabase update:", apiErr);
+      }
+
+      // Step 3: Fallback — if backend failed, update directly via Supabase SDK
+      // (covers cases where backend is down or JWT expired mid-session)
+      if (!backendSuccess) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: updateErr } = await supabase
+            .from("users")
+            .update({ onboarding_complete: true })
+            .eq("id", user.id);
+
+          if (updateErr) {
+            console.error("[Onboarding] Direct Supabase update failed:", updateErr.message);
+            // Still proceed — worst case user sees onboarding again on next login
+          } else {
+            console.log("[Onboarding] Direct Supabase update succeeded.");
+          }
+        }
+      }
+
+      // Step 4: Dispatch tour event
+      const startTourEvent = new CustomEvent("start_product_tour");
+      window.dispatchEvent(startTourEvent);
+
+      // Step 5: CRITICAL — navigate to dashboard after onboarding
+      // Without this, user is stuck on onboarding page forever
+      console.log("[Onboarding] REDIRECT: → /action-center");
+      router.push("/action-center");
+
+    } catch (err: any) {
+      console.error("[Onboarding] handleLaunchSandbox failed:", err);
+      setErrorMessage("Setup failed. Please try again or refresh the page.");
       setIsSubmitting(false);
     }
-    
-    // 3. Dispatch custom event to trigger OnboardingTour overlay globally
-    const startTourEvent = new CustomEvent("start_product_tour");
-    window.dispatchEvent(startTourEvent);
+    // Note: don't setIsSubmitting(false) on success — keep spinner until navigation completes
   };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col justify-between overflow-y-auto p-6 md:p-12 relative font-sans">
-      
-      {/* Visual background decorative blurs removed */}
 
       {/* Top Brand Header */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-5 z-10">
@@ -144,16 +167,16 @@ export default function PilotOnboardingWelcome() {
         </div>
       </div>
 
-      {/* Main Column Grid */}
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 my-8 items-center z-10 max-w-[1400px] mx-auto w-full flex-1">
-        
-        {/* Left Side: Product Intro */}
+
+        {/* Left: Product Intro */}
         <div className="lg:col-span-5 space-y-6">
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-widest bg-indigo-50 text-[#1B4F8A] rounded-full border border-indigo-200">
             <Sparkles size={11} />
             Frictionless Product Walkthrough
           </div>
-          
+
           <h1 className="text-3xl font-black tracking-tight leading-tight text-slate-900">
             Welcome to the future of <span className="text-[#1B4F8A]">Tax Auditing.</span>
           </h1>
@@ -162,9 +185,7 @@ export default function PilotOnboardingWelcome() {
             Reckon CA-OS is the intelligent operating system for Chartered Accountants. It automates high-volume GSTR-2B matching, parses complex tax notices via OCR, drafts responses using generative AI, and monitors compliance deadlines seamlessly.
           </p>
 
-          {/* Education list panels */}
           <div className="space-y-4 pt-2">
-            
             <div className="flex gap-3 bg-white p-3.5 rounded-[3px] border border-slate-200 shadow-sm">
               <div className="w-8 h-8 rounded-[3px] bg-slate-50 flex items-center justify-center border border-slate-200 flex-shrink-0">
                 <Sparkles className="text-[#1B4F8A]" size={15} />
@@ -188,13 +209,12 @@ export default function PilotOnboardingWelcome() {
                 </p>
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* Right Side: Setup Questionnaire Box */}
+        {/* Right: Setup Questionnaire */}
         <div className="lg:col-span-7 bg-white border border-slate-200 rounded-[3px] p-6 md:p-8 shadow-sm relative">
-          
+
           <div className="absolute top-5 right-5 text-slate-400 cursor-pointer" title="Need help?">
             <HelpCircle size={18} />
           </div>
@@ -205,8 +225,8 @@ export default function PilotOnboardingWelcome() {
           </p>
 
           <div className="space-y-6 mt-6">
-            
-            {/* Focus Question */}
+
+            {/* Step 1: Focus */}
             <div className="space-y-2">
               <span className="text-[10px] font-black text-[#1B4F8A] uppercase tracking-widest">
                 Step 1: Choose Your Primary Focus
@@ -216,30 +236,27 @@ export default function PilotOnboardingWelcome() {
                   <button
                     key={item.id}
                     onClick={() => setSelectedPain(item.id)}
-                    className={`p-3.5 rounded-[3px] border text-left cursor-pointer flex flex-col justify-between h-[120px] ${
-                      selectedPain === item.id 
-                        ? 'bg-[#1B4F8A]/5 border-[#1B4F8A] text-slate-900 shadow-sm' 
-                        : 'bg-[#FFFFFF] border-slate-200 text-slate-500 hover:text-slate-900'
+                    disabled={isSubmitting}
+                    className={`p-3.5 rounded-[3px] border text-left cursor-pointer flex flex-col justify-between h-[120px] disabled:opacity-50 ${
+                      selectedPain === item.id
+                        ? 'bg-[#1B4F8A]/5 border-[#1B4F8A] text-slate-900 shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900'
                     }`}
                   >
                     <div className="flex items-center justify-between w-full">
                       {item.icon}
-                      {selectedPain === item.id && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#1B4F8A]" />
-                      )}
+                      {selectedPain === item.id && <span className="w-1.5 h-1.5 rounded-full bg-[#1B4F8A]" />}
                     </div>
                     <div>
                       <h4 className="text-[11px] font-extrabold leading-tight">{item.label}</h4>
-                      <p className="text-[8.5px] text-slate-400 font-medium leading-tight mt-1 truncate">
-                        {item.desc}
-                      </p>
+                      <p className="text-[8.5px] text-slate-400 font-medium leading-tight mt-1 truncate">{item.desc}</p>
                     </div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Profile Selection */}
+            {/* Step 2: Profile */}
             <div className="space-y-2">
               <span className="text-[10px] font-black text-[#1B4F8A] uppercase tracking-widest">
                 Step 2: Pre-Select Active Client Audits Profile
@@ -249,10 +266,11 @@ export default function PilotOnboardingWelcome() {
                   <button
                     key={profile.id}
                     onClick={() => setSelectedProfile(profile.id)}
-                    className={`w-full p-4 rounded-[3px] border text-left cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${
+                    disabled={isSubmitting}
+                    className={`w-full p-4 rounded-[3px] border text-left cursor-pointer flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 disabled:opacity-50 ${
                       selectedProfile === profile.id
                         ? 'bg-[#1B4F8A]/5 border-[#1B4F8A] text-slate-900 shadow-sm'
-                        : 'bg-[#FFFFFF] border-slate-200 text-slate-500 hover:text-slate-900'
+                        : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900'
                     }`}
                   >
                     <div className="space-y-1 max-w-[80%]">
@@ -262,36 +280,37 @@ export default function PilotOnboardingWelcome() {
                           {profile.type}
                         </span>
                       </div>
-                      <p className="text-[9.5px] text-slate-500 leading-normal font-medium">
-                        {profile.description}
-                      </p>
+                      <p className="text-[9.5px] text-slate-500 leading-normal font-medium">{profile.description}</p>
                     </div>
-
                     <div className="flex sm:flex-col items-start sm:items-end gap-2 flex-shrink-0">
                       <span className={`text-[8.5px] font-black px-2.5 py-1 border uppercase tracking-wide leading-none ${profile.difficultyColor}`}>
                         {profile.difficulty}
                       </span>
-                      <span className="text-[9px] text-slate-400 font-bold leading-none mt-1 block">
-                        {profile.stats}
-                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold leading-none mt-1 block">{profile.stats}</span>
                     </div>
-
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Final Launch Actions */}
+            {/* Error */}
+            {errorMessage && (
+              <div className="text-[11px] text-[#B91C1C] bg-red-50 border border-red-100 px-3 py-2 rounded-[3px]">
+                {errorMessage}
+              </div>
+            )}
+
+            {/* Launch */}
             <div className="pt-2">
               <button
                 onClick={handleLaunchSandbox}
                 disabled={isSubmitting}
-                className="w-full h-[32px] bg-[#1B4F8A] text-[#FFFFFF] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-[32px] bg-[#1B4F8A] text-white text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? (
                   <>
                     <div className="w-[12px] h-[12px] border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    <span>Initializing Your Pilot Audits...</span>
+                    <span>Setting up your workspace...</span>
                   </>
                 ) : (
                   <>
@@ -303,12 +322,10 @@ export default function PilotOnboardingWelcome() {
             </div>
 
           </div>
-
         </div>
-
       </div>
 
-      {/* Footer Branding */}
+      {/* Footer */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-slate-200 pt-5 z-10 text-[10px] text-slate-400 font-bold">
         <span>© 2026 Reckon AI Technologies. Secure Auditor Workspaces.</span>
         <div className="flex gap-4">
@@ -319,7 +336,6 @@ export default function PilotOnboardingWelcome() {
           <a href="#" className="hover:text-slate-900">Stakeholder Walkthrough</a>
         </div>
       </div>
-
     </div>
   );
 }
