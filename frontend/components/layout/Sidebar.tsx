@@ -1,26 +1,21 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
-  Users,
-  BarChart3,
-  ArrowLeftRight,
-  ShieldCheck,
-  Zap,
-  ClipboardList,
-  LifeBuoy,
-  Settings,
-  ChevronDown,
-  User,
   Building2,
-  CreditCard,
+  ArrowLeftRight,
+  Package,
+  ShieldCheck,
+  FileWarning,
+  Zap,
+  Bot,
+  ScrollText,
+  Settings,
+  HelpCircle,
   LogOut,
-  FileText,
-  Search,
-  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { clearAuth } from '../../lib/auth';
@@ -34,50 +29,45 @@ interface NavItem {
 }
 
 interface NavGroup {
-  label: string;
+  label?: string;
   items: NavItem[];
 }
 
 const navGroups: NavGroup[] = [
   {
-    label: 'Overview',
+    label: undefined, // CORE no label
     items: [
       { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Clients', href: '/clients', icon: Building2 },
     ],
   },
   {
-    label: 'Clients',
+    label: 'RECONCILIATION',
     items: [
-      { name: 'Client Portfolio', href: '/clients', icon: Users },
+      { name: 'GST Recon', href: '/gst-recon', icon: ArrowLeftRight },
+      { name: 'BOE Recon', href: '/import-recon', icon: Package },
     ],
   },
   {
-    label: 'Compliance',
+    label: 'COMPLIANCE',
     items: [
-      { name: 'GST Recon', href: '/gst-recon', icon: BarChart3 },
-      { name: 'Import Recon', href: '/import-recon', icon: ArrowLeftRight },
-      { name: 'Notice Desk', href: '/notices', icon: FileText },
-      { name: 'Compliance Operations Center', href: '/compliance', icon: ShieldCheck },
+      { name: 'Compliance', href: '/compliance', icon: ShieldCheck },
+      { name: 'Notices', href: '/notices', icon: FileWarning },
+      { name: 'Action Center', href: '/action-center', icon: Zap },
     ],
   },
   {
-    label: 'AI Operations',
+    label: 'OPERATIONS',
     items: [
-      { name: 'Action Center', href: '/action-center', icon: Sparkles },
-      { name: 'Automation', href: '/automation', icon: Zap },
+      { name: 'Automation', href: '/automation', icon: Bot },
+      { name: 'Audit Trail', href: '/audit-trail', icon: ScrollText },
     ],
   },
   {
-    label: 'Governance',
-    items: [
-      { name: 'Audit Trail', href: '/audit-trail', icon: ClipboardList },
-    ],
-  },
-  {
-    label: 'System',
+    label: undefined, // SYSTEM no label
     items: [
       { name: 'Settings', href: '/settings', icon: Settings },
-      { name: 'Support', href: '/support', icon: LifeBuoy },
+      { name: 'Support', href: '/support', icon: HelpCircle },
     ],
   },
 ];
@@ -92,46 +82,6 @@ function NavRow({
 }) {
   const [isRowHovered, setIsRowHovered] = useState(false);
 
-  const containerStyle: React.CSSProperties = {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    cursor: 'pointer',
-    userSelect: 'none',
-    width: '100%',
-    height: '32px',
-    backgroundColor: isActive 
-      ? '#FFFFFF14' 
-      : isRowHovered 
-        ? '#FFFFFF0D' 
-        : 'transparent',
-    borderLeft: isActive 
-      ? '2px solid #60A5FA' 
-      : '2px solid transparent',
-    borderRadius: '3px',
-    paddingLeft: isCollapsed ? '0px' : '12px',
-    paddingRight: isCollapsed ? '0px' : '12px',
-    justifyContent: isCollapsed ? 'center' : 'flex-start',
-  };
-
-  const iconColor = isActive 
-    ? '#60A5FA' 
-    : isRowHovered 
-      ? '#FFFFFF' 
-      : '#94A3B8';
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: '13px',
-    fontWeight: 400,
-    color: isActive ? '#FFFFFF' : isRowHovered ? '#FFFFFF' : '#CBD5E1',
-    opacity: isCollapsed ? 0 : 1,
-    width: isCollapsed ? 0 : 'auto',
-    visibility: isCollapsed ? 'hidden' : 'visible',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    transition: 'opacity 150ms ease 50ms, visibility 150ms, width 150ms ease',
-  };
-
   return (
     <Link 
       href={item.href} 
@@ -139,41 +89,40 @@ function NavRow({
       onMouseEnter={() => setIsRowHovered(true)}
       onMouseLeave={() => setIsRowHovered(false)}
     >
-      <div className="group w-full" style={containerStyle}>
-        {/* Icon container */}
-        <span
-          className="flex-shrink-0 flex items-center justify-center"
-          style={{ 
-            width: '14px', 
-            height: '14px', 
-            marginRight: isCollapsed ? '0px' : '8px' 
-          }}
-        >
-          <item.icon
-            size={14}
-            strokeWidth={2}
-            style={{ 
-              color: iconColor,
-            }}
-          />
-        </span>
+      <div className="group relative w-full h-[36px] mx-2 my-0.5 rounded-[8px] flex items-center transition-all duration-150 ease"
+           style={{
+             backgroundColor: isActive ? 'rgba(255,255,255,0.1)' : isRowHovered ? 'rgba(255,255,255,0.05)' : 'transparent',
+             color: isActive ? '#FFFFFF' : isRowHovered ? '#FFFFFF' : '#94A3B8',
+             fontWeight: isActive ? 600 : 400,
+             justifyContent: isCollapsed ? 'center' : 'flex-start',
+             borderLeft: isActive ? '3px solid #1B4F8A' : '3px solid transparent',
+           }}>
+        {/* Icon */}
+        <item.icon
+          size={isCollapsed ? 20 : 16}
+          strokeWidth={2}
+          className="flex-shrink-0"
+          style={{ marginRight: isCollapsed ? 0 : 12 }}
+        />
 
         {/* Label */}
-        <span style={labelStyle}>
-          {item.name}
-        </span>
+        {!isCollapsed && (
+          <span className="text-[13px] font-medium leading-none whitespace-nowrap">
+            {item.name}
+          </span>
+        )}
 
         {/* Tooltip (collapsed state only) */}
         {isCollapsed && (
           <div 
-            className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-in-out delay-[200ms] z-50 whitespace-nowrap px-2.5 py-1.5"
+            className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-in-out delay-200 z-50 whitespace-nowrap"
             style={{
-              backgroundColor: '#1E293B',
+              backgroundColor: '#1e293b',
               color: '#FFFFFF',
               fontSize: '12px',
               fontWeight: 500,
-              borderRadius: '3px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              borderRadius: '6px',
+              padding: '6px 8px',
             }}
           >
             {item.name}
@@ -185,61 +134,25 @@ function NavRow({
 }
 
 /* ─── Group label ────────────────────────────────────────── */
-function GroupLabel({ label, isCollapsed }: { label: string; isCollapsed: boolean }) {
+function GroupLabel({ label, isCollapsed }: { label?: string; isCollapsed: boolean }) {
+  if (!label) return null;
+
   return (
     <div 
-      className="select-none uppercase"
+      className="select-none uppercase mt-4 mb-1 px-3"
       style={{
         fontSize: '10px',
-        fontWeight: 400,
-        letterSpacing: '0.08em',
-        color: '#93C5FD',
-        padding: isCollapsed ? '0px' : '16px 16px 4px',
+        fontWeight: 600,
+        letterSpacing: '0.15em',
+        color: '#64748B',
         opacity: isCollapsed ? 0 : 1,
-        height: isCollapsed ? '0px' : 'auto',
-        transition: 'opacity 150ms ease, height 150ms ease, padding 150ms ease',
-        whiteSpace: 'nowrap',
+        height: isCollapsed ? 0 : 'auto',
         overflow: 'hidden',
+        transition: 'opacity 150ms ease, height 150ms ease, margin 150ms ease, padding 150ms ease',
+        whiteSpace: 'nowrap',
       }}
     >
       {label}
-    </div>
-  );
-}
-
-/* ─── Dropdown content ───────────────────────────────────── */
-function DropdownContent({
-  items,
-  onClose,
-  onLogout,
-}: {
-  items: { name: string; href: string; icon: LucideIcon }[];
-  onClose: () => void;
-  onLogout: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-[2px] w-full">
-      {items.map(i => (
-        <Link key={i.name} href={i.href} onClick={onClose} className="block w-full">
-          <div
-            role="menuitem"
-            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded text-[12px] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all duration-150 font-medium group cursor-pointer"
-          >
-            <i.icon size={14} className="text-slate-400 group-hover:text-[#3B82F6] transition-all duration-150 flex-shrink-0" />
-            <span>{i.name}</span>
-          </div>
-        </Link>
-      ))}
-      <div className="my-1.5 h-px bg-slate-100" />
-      <button
-        type="button"
-        role="menuitem"
-        onClick={onLogout}
-        className="flex items-center gap-2.5 px-2.5 py-1.5 rounded text-[12px] text-[#EF4444] hover:bg-[#EF4444]/5 transition-all duration-150 font-medium w-full text-left cursor-pointer group"
-      >
-        <LogOut size={14} className="text-[#EF4444]/80 transition-all duration-150" />
-        <span>Logout</span>
-      </button>
     </div>
   );
 }
@@ -254,11 +167,9 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [userName, setUserName] = useState("");
   const [userRole, setUserRole] = useState("PARTNER");
   const [userInitials, setUserInitials] = useState("U");
-  const profileRef = useRef<HTMLDivElement>(null);
 
   const [isTablet, setIsTablet] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -311,39 +222,9 @@ export default function Sidebar({
     window.location.href = "/login";
   };
 
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node))
-        setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, []);
-
-  const dropdownItems = [
-    { name: 'My Profile',       href: '/settings?tab=profile',  icon: User },
-    { name: 'Firm Settings',    href: '/settings?tab=firm',     icon: Building2 },
-    { name: 'Account Settings', href: '/settings?tab=security', icon: Settings },
-    { name: 'Billing',          href: '/settings?tab=billing',  icon: CreditCard },
-  ];
-
-  // Filter groups according to the user's role
-  const filteredGroups = navGroups.map(group => {
-    const filteredItems = group.items.filter(item => {
-      if (userRole === "CLIENT_VIEWER") {
-        // CLIENT_VIEWER can only access: Dashboard, Client Portfolio, and essential system modules
-        const allowedNames = ["Dashboard", "Client Portfolio", "Audit Trail", "Settings", "Support"];
-        return allowedNames.includes(item.name);
-      }
-      return true;
-    });
-    return { ...group, items: filteredItems };
-  }).filter(group => group.items.length > 0);
+  // Split nav groups into top (CORE, RECONCILIATION, COMPLIANCE, OPERATIONS) and bottom (SYSTEM)
+  const topGroups = navGroups.slice(0, 4);
+  const bottomGroup = navGroups[4];
 
   return (
     <>
@@ -351,15 +232,12 @@ export default function Sidebar({
       {isMobile && isMobileOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 bg-black/30 z-[99] transition-opacity duration-200 cursor-pointer"
+          className="fixed inset-0 bg-black/50 z-[99] transition-opacity duration-200 cursor-pointer"
         />
       )}
 
       <div 
-        className="h-screen flex-shrink-0 z-20 relative transition-[width] duration-200 ease-in-out"
-        style={{
-          width: isMobile ? '0px' : '56px'
-        }}
+        className="h-screen flex-shrink-0 z-20 relative"
       >
         <aside
           onMouseEnter={() => {
@@ -370,51 +248,45 @@ export default function Sidebar({
           onMouseLeave={() => {
             if (!isTablet && !isMobile) {
               setIsHovered(false);
-              setMenuOpen(false);
             }
           }}
-          className={[
-            'h-screen flex flex-col justify-between top-0 left-0 border-r border-[#FFFFFF1A]',
-            'transition-[width,transform] duration-200 ease-in-out',
-            isMobile ? 'fixed z-[100] w-[220px]' : 'absolute z-30',
-            isCollapsed ? 'w-[56px]' : 'w-[220px]',
-          ].join(' ')}
+          className="h-screen flex flex-col justify-between top-0 left-0 fixed z-30 border-r"
           style={{
-            background: '#1B4F8A',
-            boxShadow: 'none',
+            backgroundColor: '#0F172A',
+            borderColor: 'rgba(255,255,255,0.06)',
+            width: isMobile ? 220 : (isCollapsed ? 72 : 220),
             transform: isMobile ? (isMobileOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+            transition: 'width 200ms ease, transform 200ms ease',
           }}
         >
-          {/* ── Outer Layout Wrapper (Logo + Search + Nav) ───────── */}
+          {/* ── Outer Layout Wrapper (Logo + Nav) ───────── */}
           <div className="flex flex-col flex-1 min-h-0">
             
-            {/* ── Logo Workspace Switcher ────────────────────────── */}
+            {/* ── Logo Section ────────────────────────── */}
             <div
+              className="flex-shrink-0"
               style={{
-                height: '48px',
-                paddingLeft: isCollapsed ? '12px' : '16px',
-                paddingRight: isCollapsed ? '12px' : '16px',
-                display: 'flex',
-                alignItems: 'center',
+                paddingTop: 16,
+                paddingBottom: 16,
+                paddingLeft: isCollapsed ? 16 : 16,
+                paddingRight: isCollapsed ? 16 : 16,
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
               }}
             >
-              <div className={[
-                'flex items-center w-full transition-colors duration-150',
-                isCollapsed ? 'justify-center' : 'gap-2.5 justify-start'
-              ].join(' ')}>
-                <div className="flex-shrink-0 flex justify-center items-center relative" style={{ width: '28px', height: '28px' }}>
-                  <img 
-                    src="/assets/reckon-logo.png" 
-                    alt="Reckon AI Logo"
-                    style={{ maxHeight: '28px', maxWidth: '28px', objectFit: 'contain' }}
-                  />
+              <div className="flex items-center w-full transition-colors duration-200"
+                   style={{
+                     justifyContent: isCollapsed ? 'center' : 'flex-start',
+                   }}>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-[#1B4F8A] flex-shrink-0">
+                  {/* Logo mark */}
+                  <span className="text-white text-sm font-black">R</span>
                 </div>
                 {!isCollapsed && (
-                  <div className="flex flex-col justify-center overflow-hidden">
-                    <span className="text-white font-semibold text-[13px] tracking-tight leading-none whitespace-nowrap">
-                      Reckon AI
+                  <div className="flex flex-col justify-center overflow-hidden ml-3">
+                    <span className="text-white font-black text-[13px] tracking-tight leading-none whitespace-nowrap">
+                      RECKON CA-OS
                     </span>
-                    <span className="text-[#93C5FD] font-normal text-[9px] tracking-wider uppercase leading-none mt-1 whitespace-nowrap">
+                    <span className="text-slate-400 font-medium text-[10px] leading-none mt-1 whitespace-nowrap">
                       CA Platform
                     </span>
                   </div>
@@ -422,44 +294,14 @@ export default function Sidebar({
               </div>
             </div>
 
-            {/* ── Workspace Search Trigger ───────────────────────── */}
-            <div className={['py-1.5 flex-shrink-0', isCollapsed ? 'flex justify-center px-2' : 'px-3.5'].join(' ')}>
-              <button
-                data-tooltip="Search (⌘K)"
-                className={[
-                  'flex items-center text-left transition-all duration-150 w-full',
-                  isCollapsed ? 'h-8 w-8 justify-center' : 'h-8 px-3 gap-2'
-                ].join(' ')}
-                style={{
-                  cursor: 'default',
-                  backgroundColor: '#FFFFFF0D',
-                  border: '1px solid #FFFFFF1A',
-                  borderRadius: '3px',
-                }}
-              >
-                <Search size={14} className="text-[#94A3B8] flex-shrink-0" />
-                {!isCollapsed && (
-                  <div className="flex items-center justify-between flex-1">
-                    <span className="text-[13px] font-normal text-[#CBD5E1] select-none">Search</span>
-                    <kbd className="relative text-[10px] font-normal border border-[#FFFFFF1A] bg-[#FFFFFF0D] text-[#CBD5E1] px-1.5 py-0.5 rounded shadow-none">
-                      ⌘K
-                    </kbd>
-                  </div>
-                )}
-              </button>
-            </div>
-
             {/* ── Navigation Items ───────────────────────────────── */}
             <nav
-              className={[
-                'relative z-10 flex-1 flex flex-col justify-start overflow-y-auto hidden-scrollbar pb-6',
-                isCollapsed ? 'px-2' : 'px-3',
-              ].join(' ')}
+              className="relative z-10 flex-1 flex flex-col justify-start overflow-y-auto pb-6"
             >
-              {filteredGroups.map(group => (
-                <React.Fragment key={group.label}>
+              {topGroups.map((group, index) => (
+                <React.Fragment key={index}>
                   <GroupLabel label={group.label} isCollapsed={isCollapsed} />
-                  <div className="space-y-[2px]">
+                  <div className="space-y-0.5">
                     {group.items.map(item => (
                       <NavRow
                         key={item.name}
@@ -474,92 +316,74 @@ export default function Sidebar({
             </nav>
           </div>
 
-          {/* ── Profile card ─────────────────────────────────────────────── */}
-          <div
-            ref={profileRef}
-            className="relative z-10 flex-shrink-0"
-            style={{
-              borderTop: '1px solid #FFFFFF1A',
-              padding: '12px',
-            }}
-          >
-            {/* Profile dropdown */}
-            {menuOpen && (
-              <div
-                role="menu"
-                className={[
-                  'absolute z-50 rounded border border-slate-200/60 p-2 flex flex-col bg-white shadow-md animate-in fade-in zoom-in-95 duration-150 ease-out',
-                  isCollapsed ? 'left-[calc(100%+8px)] bottom-0 w-[200px]' : 'bottom-[calc(100%+8px)] left-0 right-0 w-[196px]'
-                ].join(' ')}
-              >
-                {/* User Info Header */}
-                <div className="px-2.5 py-2 border-b border-slate-100 mb-1.5 flex items-center gap-2.5">
+          {/* ── Bottom Section: SYSTEM Nav + User ─────────────────────────────────────────────── */}
+          <div className="flex-shrink-0 flex flex-col">
+            {/* SYSTEM nav items */}
+            <div className="flex-shrink-0">
+              {bottomGroup && (
+                <>
+                  <GroupLabel label={bottomGroup.label} isCollapsed={isCollapsed} />
+                  <div className="space-y-0.5">
+                    {bottomGroup.items.map(item => (
+                      <NavRow
+                        key={item.name}
+                        item={item}
+                        isActive={pathname === item.href || pathname.startsWith(item.href + '/')}
+                        isCollapsed={isCollapsed}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* User profile section */}
+            <div
+              className="flex-shrink-0"
+              style={{
+                paddingTop: 12,
+                paddingBottom: 12,
+                paddingLeft: isCollapsed ? 16 : 16,
+                paddingRight: isCollapsed ? 16 : 16,
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <div className="flex items-center w-full"
+                   style={{ justifyContent: isCollapsed ? 'center' : 'space-between' }}>
+                <div className="flex items-center gap-3">
+                  {/* Avatar */}
                   <div
-                    className="w-[24px] h-[24px] rounded-full text-white font-bold flex items-center justify-center text-[10px] flex-shrink-0 bg-[#3B82F6]"
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold bg-[#1B4F8A] flex-shrink-0"
+                    style={{ fontSize: '11px' }}
                   >
                     {userInitials}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12px] font-bold text-slate-800 truncate leading-none">{userName}</div>
-                    <div className="text-[9px] font-bold tracking-wider mt-1 text-[#3B82F6] leading-none uppercase">
-                      {userRole === 'PARTNER' ? 'CA / Partner' : `CA / ${userRole}`}
+
+                  {/* Name + role */}
+                  {!isCollapsed && (
+                    <div className="flex flex-col justify-center min-w-0">
+                      <div className="text-[13px] font-medium text-white truncate leading-none">
+                        {userName}
+                      </div>
+                      <div className="text-[11px] text-slate-400 truncate leading-none mt-1">
+                        {userRole === 'PARTNER' ? 'CA / Partner' : `CA / ${userRole}`}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-                <DropdownContent items={dropdownItems} onClose={() => setMenuOpen(false)} onLogout={handleLogout} />
-              </div>
-            )}
 
-            {/* ── Profile Button trigger ─────────────────────────────── */}
-            <button
-              onClick={() => setMenuOpen(v => !v)}
-              aria-haspopup="true"
-              aria-expanded={menuOpen}
-              aria-label="Open user menu"
-              className={[
-                'w-full cursor-pointer group relative focus:outline-none flex items-center hover:bg-white/5 transition-colors duration-150 rounded',
-                isCollapsed
-                  ? 'justify-center h-8 p-0'
-                  : 'gap-2 px-2 py-1 h-8',
-              ].join(' ')}
-            >
-              {/* Avatar Wrapper */}
-              <div className="relative flex-shrink-0">
-                <div
-                  className="flex-shrink-0 flex items-center justify-center rounded-full text-white font-semibold"
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    fontSize: '10px',
-                    backgroundColor: '#3B82F6',
-                  }}
-                >
-                  {userInitials}
-                </div>
+                {/* Logout button (only when expanded) */}
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="p-1.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-md transition-colors duration-150"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                )}
               </div>
-
-              {/* Name + role */}
-              <div 
-                className={[
-                  'flex-1 text-left transition-all duration-150 ease-in-out whitespace-nowrap overflow-hidden',
-                  isCollapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-[130px]'
-                ].join(' ')}
-              >
-                <div className="text-[12px] font-normal truncate leading-tight text-[#CBD5E1] group-hover:text-white">
-                  {userName}
-                </div>
-                <div className="text-[11px] font-normal text-[#64748B] uppercase tracking-wider mt-0.5 leading-none">
-                  {userRole === 'PARTNER' ? 'CA / Partner' : `CA / ${userRole}`}
-                </div>
-              </div>
-
-              {!isCollapsed && (
-                <ChevronDown
-                  size={12}
-                  className={`flex-shrink-0 text-[#94A3B8] ${menuOpen ? 'rotate-180 text-white' : 'group-hover:text-white'}`}
-                />
-              )}
-            </button>
+            </div>
           </div>
         </aside>
       </div>
