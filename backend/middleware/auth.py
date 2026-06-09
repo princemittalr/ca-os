@@ -7,6 +7,61 @@ from config.settings import settings
 # -------------------------------------------------------------------------
 # JWT SESSION VERIFICATION DEPENDENCY
 # -------------------------------------------------------------------------
+async def _resolve_user_context(user_id: Optional[str], token: str) -> dict:
+    """
+    Resolve full user context. Tries JWT claims first, falls back to DB.
+    """
+    if not is_supabase_active():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable."
+        )
+
+    # Try Supabase SDK for fresh metadata
+    try:
+        res = get_supabase_client().auth.get_user(token)
+        if not res or not res.user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired session."
+            )
+
+        user = res.user
+        user_metadata = user.user_metadata or {}
+        app_metadata = getattr(user, "app_metadata", {}) or {}
+        firm_id = user_metadata.get("firm_id") or app_metadata.get("firm_id")
+
+        if not firm_id:
+            # Last resort: DB lookup from public.users table
+            try:
+                profile = get_supabase_client().table("users").select("firm_id").eq("id", user.id).maybe_single().execute()
+                if profile.data:
+                    firm_id = profile.data.get("firm_id")
+            except Exception:
+                pass
+
+        if not firm_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User missing firm association."
+            )
+
+        return {
+            "user_id": user.id,
+            "firm_id": firm_id,
+            "role": user_metadata.get("role") or app_metadata.get("role", "ARTICLE"),
+            "full_name": user_metadata.get("full_name") or app_metadata.get("full_name", "CA Auditor"),
+            "email": user.email,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        detail = str(e) if settings.DEBUG else "Authentication verification failed."
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=detail
+        )
+
 async def verify_token(request: Request, authorization: Optional[str] = Header(None)) -> dict:
     """
     HTTP Bearer JWT Token verification middleware.
@@ -39,11 +94,16 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
             app_meta = payload.get("app_metadata") or {}
             firm_id = user_meta.get("firm_id") or app_meta.get("firm_id")
 
-            if not user_id or not firm_id:
+            if not user_id:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token claims: missing sub or firm_id."
+                    detail="Invalid token claims: missing sub."
                 )
+            
+            # If firm_id missing from JWT — fall through to slow path for DB lookup
+            if not firm_id:
+                return await _resolve_user_context(user_id, token)
+
             return {
                 "user_id": user_id,
                 "firm_id": firm_id,
@@ -66,53 +126,8 @@ async def verify_token(request: Request, authorization: Optional[str] = Header(N
                 detail="Invalid token." if not settings.DEBUG else str(e)
             )
 
-    # 2. Slow path: Supabase SDK round-trip (fallback for dev/test without real secret)
-    if not is_supabase_active():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication service unavailable."
-        )
-
-    try:
-        res = get_supabase_client().auth.get_user(token)
-        if not res or not res.user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired session."
-            )
-
-        user = res.user
-        user_metadata = user.user_metadata or {}
-        app_metadata = getattr(user, "app_metadata", {}) or {}
-        firm_id = user_metadata.get("firm_id") or app_metadata.get("firm_id")
-
-        if not firm_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User missing firm association."
-            )
-
-        role = user_metadata.get("role") or app_metadata.get("role", "ARTICLE")
-        full_name = user_metadata.get("full_name") or app_metadata.get("full_name", "CA Auditor")
-
-        return {
-            "user_id": user.id,
-            "firm_id": firm_id,
-            "role": role,
-            "full_name": full_name,
-            "email": user.email,
-        }
-
-    except HTTPException:
-        raise  # ← CRITICAL: must re-raise, not fall through to generic handler
-
-    except Exception as e:
-        # Scrub internal detail in production
-        detail = str(e) if settings.DEBUG else "Authentication verification failed."
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=detail
-        )
+    # 2. Slow path: Supabase SDK round-trip
+    return await _resolve_user_context(None, token)
 
 # -------------------------------------------------------------------------
 # ROLE-BASED ACCESS CONTROL (RBAC) GUARD DEPENDENCY
