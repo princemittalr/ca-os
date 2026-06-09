@@ -8,7 +8,7 @@ import {
   ArrowRight,
   Zap,
   X,
-  Building,
+  Building2,
   Filter,
   AlertTriangle,
   Activity,
@@ -19,9 +19,24 @@ import {
   Clock,
   Users,
   TrendingUp,
+  MoreVertical,
+  Eye,
+  Edit,
+  Trash2,
+  ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { Badge } from '@/components/ui/Badge';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/Table';
 
 // Helper to calculate health score and risk level deterministically based on status and ITC exposure
 const getHealthAndRisk = (status: string, itcRisk: number) => {
@@ -59,10 +74,16 @@ export default function ClientPortfolioPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [stateFilter, setStateFilter] = useState('All');
-  const [sortBy, setSortBy] = useState('Alphabetical');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [riskFilter, setRiskFilter] = useState('All');
+  const [assignedManagerFilter, setAssignedManagerFilter] = useState('All');
+  const [filingTypeFilter, setFilingTypeFilter] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Form fields for new client
   const [newName, setNewName] = useState('');
@@ -173,7 +194,10 @@ export default function ClientPortfolioPage() {
           initials: (c.business_name || c.legal_name || 'C').charAt(0).toUpperCase(),
           health_score: healthScore,
           risk_level: riskLevel,
-          risk_score: 100 - healthScore
+          risk_score: 100 - healthScore,
+          filing_type: c.filing_type || 'GSTR-1 & 3B',
+          filing_frequency: c.filing_frequency || 'Monthly',
+          assigned_manager: c.assigned_manager || 'Priya Sharma'
         };
       });
 
@@ -204,25 +228,24 @@ export default function ClientPortfolioPage() {
     const matchesSearch = client.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.gstin.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || client.status === statusFilter;
     const matchesState = stateFilter === 'All' || client.state === stateFilter;
-    return matchesSearch && matchesStatus && matchesState;
+    const matchesRisk = riskFilter === 'All' || client.risk_level === riskFilter;
+    const matchesManager = assignedManagerFilter === 'All' || client.assigned_manager === assignedManagerFilter;
+    const matchesFilingType = filingTypeFilter === 'All' || client.filing_type === filingTypeFilter;
+    return matchesSearch && matchesState && matchesRisk && matchesManager && matchesFilingType;
   });
 
-  // Unique states for filters
+  // Unique filters
   const allStates = Array.from(new Set(clients.map(c => c.state)));
+  const allRiskLevels = ['High', 'Medium', 'Low'];
+  const allManagers = Array.from(new Set(clients.map(c => c.assigned_manager)));
+  const allFilingTypes = Array.from(new Set(clients.map(c => c.filing_type)));
 
-  // Sorting logic
-  const sortedClients = [...filteredClients].sort((a, b) => {
-    if (sortBy === 'Alphabetical') return a.business_name.localeCompare(b.business_name);
-    if (sortBy === 'HealthScore') return b.health_score - a.health_score;
-    if (sortBy === 'ITCAtRisk') return b.itc_at_risk - a.itc_at_risk;
-    if (sortBy === 'RiskLevel') {
-      const riskWeight: any = { High: 3, Medium: 2, Low: 1 };
-      return (riskWeight[b.risk_level] || 0) - (riskWeight[a.risk_level] || 0);
-    }
-    return 0;
-  });
+  // Pagination logic
+  const totalPages = Math.ceil(filteredClients.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedClients = filteredClients.slice(startIndex, endIndex);
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,7 +292,10 @@ export default function ClientPortfolioPage() {
         initials: newName.charAt(0).toUpperCase(),
         health_score: healthScore,
         risk_level: riskLevel,
-        risk_score: 100 - healthScore
+        risk_score: 100 - healthScore,
+        filing_type: 'GSTR-1 & 3B',
+        filing_frequency: 'Monthly',
+        assigned_manager: 'Priya Sharma'
       };
       setClients([newClient, ...clients]);
       setIsModalOpen(false);
@@ -282,6 +308,18 @@ export default function ClientPortfolioPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const clearAllFilters = () => {
+    setSearchQuery('');
+    setStateFilter('All');
+    setRiskFilter('All');
+    setAssignedManagerFilter('All');
+    setFilingTypeFilter('All');
+  };
+
+  const toggleMenu = (id: string) => {
+    setOpenMenuId(openMenuId === id ? null : id);
+  };
+
   const formatCurrency = (val: number) => {
     if (val === 0) return '₹0';
     return new Intl.NumberFormat('en-IN', {
@@ -291,367 +329,365 @@ export default function ClientPortfolioPage() {
     }).format(val);
   };
 
-  const getStatusCount = (status: string) => {
-    if (status === 'All') return clients.length;
-    return clients.filter(c => c.status === status).length;
+  const getRiskVariant = (risk: string) => {
+    switch (risk.toLowerCase()) {
+      case 'high': return 'high';
+      case 'medium': return 'medium';
+      case 'low': return 'low';
+      default: return 'default';
+    }
   };
 
   return (
     <div className="pb-16 relative font-sans text-slate-800 bg-[#F8FAFC] min-h-screen">
+      {/* Header */}
+      <div className="w-full px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Client Directory
+            </h1>
+            <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+              {filteredClients.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-[9px] text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search clients..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-[36px] w-[240px] bg-white border border-slate-200 rounded-[6px] pl-8 pr-3 text-[13px] text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#1B4F8A] focus:ring-1 focus:ring-[#1B4F8A] font-sans"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-[9px] text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="h-[36px] bg-[#1B4F8A] text-white px-4 text-[13px] font-medium rounded-[6px] flex items-center gap-2 hover:bg-[#163F6E] transition-colors cursor-pointer"
+            >
+              <Plus size={16} />
+              Add Client
+            </button>
+          </div>
+        </div>
 
-      {/* Page Header — 48px, white, border-bottom */}
-      <div className="w-full h-12 px-6 bg-[#FFFFFF] border-b border-[#E5E7EB] flex items-center justify-between -mt-6 -mx-6 mb-4">
-        <div className="flex flex-col gap-[2px]">
-          <h1 className="text-[14px] font-semibold text-[#111827] leading-none">Client Directory</h1>
-          <p className="text-[11px] text-[#6B7280] leading-none">Manage corporate workspaces, statutory filings, and ITC risk audit desks</p>
+        {/* Filter Row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Filing Type */}
+          <div className="flex items-center gap-1">
+            {['All', ...allFilingTypes].map((type) => (
+              <button
+                key={type}
+                onClick={() => setFilingTypeFilter(type)}
+                className={`px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-colors ${
+                  filingTypeFilter === type
+                    ? 'bg-[#1B4F8A] text-white'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
+          {/* State */}
+          <div className="flex items-center gap-1">
+            {['All', ...allStates].map((state) => (
+              <button
+                key={state}
+                onClick={() => setStateFilter(state)}
+                className={`px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-colors ${
+                  stateFilter === state
+                    ? 'bg-[#1B4F8A] text-white'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {state}
+              </button>
+            ))}
+          </div>
+
+          {/* Assigned Manager */}
+          <div className="flex items-center gap-1">
+            {['All', ...allManagers].map((manager) => (
+              <button
+                key={manager}
+                onClick={() => setAssignedManagerFilter(manager)}
+                className={`px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-colors ${
+                  assignedManagerFilter === manager
+                    ? 'bg-[#1B4F8A] text-white'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {manager}
+              </button>
+            ))}
+          </div>
+
+          {/* Risk Level */}
+          <div className="flex items-center gap-1">
+            {['All', ...allRiskLevels].map((risk) => (
+              <button
+                key={risk}
+                onClick={() => setRiskFilter(risk)}
+                className={`px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-colors ${
+                  riskFilter === risk
+                    ? 'bg-[#1B4F8A] text-white'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {risk}
+              </button>
+            ))}
+          </div>
+
+          <div className="ml-auto">
+            <button
+              onClick={clearAllFilters}
+              className="text-[12px] text-slate-500 hover:text-[#1B4F8A] font-medium transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="px-6 space-y-4">
-
-        {/* Toolbar: 40px, flex row, gap-2 */}
-        <div className="h-10 flex items-center gap-2 mb-3">
-          {/* Search */}
-          <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-[8px] text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by name, GSTIN, email…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-[30px] w-[220px] bg-white border border-[#E5E7EB] rounded-[3px] pl-8 pr-3 text-[12px] text-slate-800 placeholder-[#9CA3AF] focus:outline-none focus:border-[#1B4F8A] font-sans"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-[7px] text-slate-400 hover:text-slate-700"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-
-          {/* Status filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-[30px] bg-white border border-[#E5E7EB] rounded-[3px] px-2 text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A] cursor-pointer font-sans"
-          >
-            <option value="All">All Status</option>
-            <option value="Clean">Clean</option>
-            <option value="Issues">Issues</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Never Run">Never Run</option>
-          </select>
-
-          {/* State filter */}
-          <select
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value)}
-            className="h-[30px] bg-white border border-[#E5E7EB] rounded-[3px] px-2 text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A] cursor-pointer font-sans"
-          >
-            <option value="All">All States</option>
-            {allStates.map(st => (
-              <option key={st} value={st}>{st}</option>
-            ))}
-          </select>
-
-          {/* Sort */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="h-[30px] bg-white border border-[#E5E7EB] rounded-[3px] px-2 text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A] cursor-pointer font-sans"
-          >
-            <option value="Alphabetical">Sort: Name A–Z</option>
-            <option value="HealthScore">Sort: Health Score</option>
-            <option value="RiskLevel">Sort: Risk Level</option>
-            <option value="ITCAtRisk">Sort: ITC at Risk</option>
-          </select>
-
-          {/* Result count */}
-          <span className="text-[11px] text-[#6B7280] ml-1">
-            {sortedClients.length} of {clients.length} clients
-          </span>
-
-          {/* View mode toggle — pushed to right */}
-          <div className="ml-auto flex bg-slate-100 border border-slate-200 rounded-[3px] p-0.5">
-            <button
-              onClick={() => setViewMode('list')}
-              title="List View"
-              className="w-[28px] h-[26px] flex items-center justify-center rounded-[2px] transition-colors"
-              style={{
-                background: viewMode === 'list' ? '#E8EFF7' : 'transparent',
-                color: viewMode === 'list' ? '#1B4F8A' : '#6B7280',
-              }}
-            >
-              <List size={14} />
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              title="Grid View"
-              className="w-[28px] h-[26px] flex items-center justify-center rounded-[2px] transition-colors"
-              style={{
-                background: viewMode === 'grid' ? '#E8EFF7' : 'transparent',
-                color: viewMode === 'grid' ? '#1B4F8A' : '#6B7280',
-              }}
-            >
-              <Grid size={14} />
-            </button>
-          </div>
-
-          {/* Add Client button - primary style */}
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="btn btn-primary h-[30px] px-3 text-[12px] font-medium rounded-[3px] flex items-center gap-1.5 hover:bg-[#163F6E] cursor-pointer"
-          >
-            <Plus size={13} />
-            <span>Add Client</span>
-          </button>
-        </div>
-
-        {/* ── LIST TABLE VIEW ── */}
-        {viewMode === 'list' && (
-          <div className="data-table-shell">
-            <div className="overflow-x-auto">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>PAN</th>
-                    <th>GST</th>
-                    <th>Status</th>
-                    <th>Last Activity</th>
-                    <th className="text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoading ? (
-                    [...Array(4)].map((_, i) => (
-                      <tr key={i}>
-                        <td colSpan={6}>
-                          <div className="h-4 bg-slate-100 rounded mx-4 animate-pulse" />
-                        </td>
-                      </tr>
-                    ))
-                  ) : sortedClients.length > 0 ? (
-                    sortedClients.map((client) => {
-                      const isCopied = copiedId === client.id;
-                      const extractedPan = client.gstin && client.gstin.length >= 12 ? client.gstin.substring(2, 12) : (client.gstin || '—');
-                      return (
-                        <tr
-                          key={client.id}
-                          className="hover:bg-[#F9FAFB] transition-colors group"
+      {/* Table */}
+      <div className="px-6">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Client</TableHead>
+                <TableHead>Filing Type</TableHead>
+                <TableHead>Frequency</TableHead>
+                <TableHead>Assigned Manager</TableHead>
+                <TableHead>Last Recon</TableHead>
+                <TableHead>Risk</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-[32px] h-[32px] bg-slate-100 rounded-[6px] animate-pulse" />
+                        <div className="flex flex-col gap-1.5">
+                          <div className="h-3 bg-slate-100 rounded w-[120px] animate-pulse" />
+                          <div className="h-2.5 bg-slate-100 rounded w-[100px] animate-pulse" />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell><div className="h-6 bg-slate-100 rounded w-[80px] animate-pulse" /></TableCell>
+                    <TableCell><div className="h-6 bg-slate-100 rounded w-[70px] animate-pulse" /></TableCell>
+                    <TableCell><div className="h-3 bg-slate-100 rounded w-[90px] animate-pulse" /></TableCell>
+                    <TableCell><div className="h-3 bg-slate-100 rounded w-[70px] animate-pulse" /></TableCell>
+                    <TableCell><div className="h-6 bg-slate-100 rounded w-[60px] animate-pulse" /></TableCell>
+                    <TableCell className="text-right"><div className="h-8 w-8 bg-slate-100 rounded animate-pulse ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : filteredClients.length > 0 ? (
+                paginatedClients.map((client, index) => (
+                  <TableRow
+                    key={client.id}
+                    className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'}
+                    style={{ height: '52px' }}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-[32px] h-[32px] rounded-[6px] flex items-center justify-center text-[12px] font-bold shrink-0"
+                          style={{ backgroundColor: '#E8EFF7', color: '#1B4F8A' }}
                         >
-                          {/* Name + GSTIN sub-row */}
-                          <td className="pl-4 pr-3 py-0">
-                            <div className="flex items-center gap-2.5">
-                              {/* 26px initials avatar */}
-                              <div
-                                className="w-[26px] h-[26px] rounded-[3px] flex items-center justify-center text-[11px] font-semibold shrink-0"
-                                style={{ backgroundColor: '#E8EFF7', color: '#1B4F8A' }}
-                              >
-                                {client.initials}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-[13px] font-medium text-[#111827] truncate max-w-[200px]" title={client.business_name}>
-                                  {client.business_name}
-                                </div>
-                                <div className="text-[11px] text-[#6B7280]">
-                                  <span className="font-mono">{client.gstin}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* PAN */}
-                          <td className="px-3 py-0">
-                            <span className="font-mono text-[13px] text-[#111827]">{extractedPan}</span>
-                          </td>
-
-                          {/* GST */}
-                          <td className="px-3 py-0">
-                            <span className="font-mono text-[13px] text-[#111827]">{client.gstin}</span>
-                          </td>
-
-                          {/* Status */}
-                          <td className="px-3 py-0">
-                            <span className={`status-badge ${
-                              client.status === 'Clean' ? 'status-badge-success' :
-                              client.status === 'Issues' ? 'status-badge-error' :
-                              client.status === 'In Progress' ? 'status-badge-warning' :
-                              'status-badge-neutral'
-                            }`}>
-                              {client.status === 'In Progress' ? 'Running' : client.status === 'Never Run' ? 'Pending' : client.status}
-                            </span>
-                          </td>
-
-                          {/* Last Activity */}
-                          <td className="px-3 py-0">
-                            <span className="text-[13px] text-[#111827]">{client.last_run}</span>
-                          </td>
-
-                          {/* Actions */}
-                          <td className="pl-3 pr-4 py-0 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Link href={`/gst-recon?client=${client.id}`} title="Run AI Recon">
-                                <button className="action-btn">
-                                  <Zap size={12} />
-                                </button>
-                              </Link>
-                              <Link href={`/clients/${client.id}`} title="Open Client Workspace">
-                                <button className="action-btn">
-                                  <ArrowRight size={12} />
-                                </button>
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={6}>
-                        <div className="flex flex-col items-center justify-center py-12 gap-2">
-                          <Users size={20} className="text-[#D1D5DB]" />
-                          <span className="text-[13px] text-[#6B7280]">No clients match filters</span>
-                          <button
-                            onClick={() => { setSearchQuery(''); setStatusFilter('All'); setStateFilter('All'); }}
-                            className="text-[12px] text-[#1B4F8A] hover:underline mt-1"
-                          >
-                            Clear filters
-                          </button>
+                          {client.initials}
                         </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── GRID VIEW ── */}
-        {viewMode === 'grid' && (
-          <div>
-            {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-[180px] bg-white border border-[#E5E7EB] rounded-[4px]" />
-                ))}
-              </div>
-            ) : sortedClients.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sortedClients.map((client) => {
-                  const isCopied = copiedId === client.id;
-                  return (
-                    <div
-                      key={client.id}
-                      className="bg-white border border-[#E5E7EB] rounded-[4px] p-4 flex flex-col gap-3 hover:shadow-[0_1px_4px_rgba(0,0,0,0.08)] transition-shadow group"
-                      style={{ borderLeft: client.risk_level === 'High' ? '3px solid #B91C1C' : client.risk_level === 'Medium' ? '3px solid #B45309' : '3px solid #E5E7EB' }}
-                    >
-                      {/* Top: initials + name */}
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className="w-[26px] h-[26px] rounded-[3px] flex items-center justify-center text-[11px] font-semibold shrink-0"
-                            style={{ backgroundColor: '#E8EFF7', color: '#1B4F8A' }}
-                          >
-                            {client.initials}
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-semibold text-slate-900 truncate" title={client.business_name}>
+                            {client.business_name}
                           </div>
-                          <div className="min-w-0">
-                            <div className="text-[13px] font-medium text-[#111827] truncate" title={client.business_name}>
-                              {client.business_name}
-                            </div>
-                            <div className="text-[11px] text-[#6B7280]">{client.state}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            {client.gstin}
                           </div>
                         </div>
-                        <span className={`status-badge ${getUnifiedBadgeClass(client.risk_level)} shrink-0`}>
-                          {renderBadgeDot(client.risk_level)}
-                          {client.risk_level}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge variant="default" className="text-[11px]">
+                        {client.filing_type}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <Badge variant="default" className="text-[11px]">
+                        {client.filing_frequency}
+                      </Badge>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                          {client.assigned_manager.charAt(0)}
+                        </div>
+                        <span className="text-[13px] text-slate-700">
+                          {client.assigned_manager}
                         </span>
                       </div>
+                    </TableCell>
 
-                      {/* GSTIN row */}
-                      <div className="flex items-center justify-between bg-[#F9FAFB] border border-[#E5E7EB] rounded-[3px] px-2.5 py-1.5">
-                        <span className="text-[11px] font-mono text-[#6B7280]">{client.gstin}</span>
+                    <TableCell>
+                      <span className="text-[13px] text-slate-600">
+                        {client.last_run}
+                      </span>
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getRiskVariant(client.risk_level)}>
+                          {client.risk_level}
+                        </Badge>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          {client.risk_score}
+                        </span>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      <div className="relative inline-block">
                         <button
-                          onClick={() => handleCopyGstin(client.id, client.gstin)}
-                          className="text-slate-400 hover:text-[#1B4F8A] transition-colors"
-                          title="Copy GSTIN"
+                          onClick={() => toggleMenu(client.id)}
+                          className="w-8 h-8 flex items-center justify-center rounded-[6px] hover:bg-slate-100 text-slate-500 transition-colors"
                         >
-                          {isCopied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                          <MoreVertical size={16} />
+                        </button>
+                        {openMenuId === client.id && (
+                          <div className="absolute right-0 top-full mt-1 w-[180px] bg-white border border-slate-200 rounded-[6px] shadow-lg z-50 py-1">
+                            <Link href={`/clients/${client.id}`} className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                              <Eye size={14} />
+                              View Details
+                            </Link>
+                            <Link href={`/gst-recon?client=${client.id}`} className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                              <Zap size={14} />
+                              Run Reconciliation
+                            </Link>
+                            <Link href={`/compliance`} className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                              <ShieldCheck size={14} />
+                              View Compliance
+                            </Link>
+                            <Link href={`/clients/${client.id}`} className="w-full text-left px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                              <Edit size={14} />
+                              Edit Client
+                            </Link>
+                            <div className="border-t border-slate-100 my-1" />
+                            <button className="w-full text-left px-4 py-2 text-[13px] text-red-600 hover:bg-red-50 flex items-center gap-2">
+                              <Trash2 size={14} />
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <div className="flex flex-col items-center justify-center py-16 gap-4">
+                      <Building2 size={64} className="text-slate-200" />
+                      <div className="text-center">
+                        <h3 className="text-[15px] font-semibold text-slate-700 mb-1">
+                          No clients added yet
+                        </h3>
+                        <p className="text-[13px] text-slate-500 mb-4">
+                          Add your first client to begin tracking compliance and reconciliation.
+                        </p>
+                        <button
+                          onClick={() => setIsModalOpen(true)}
+                          className="h-[36px] bg-[#1B4F8A] text-white px-4 text-[13px] font-medium rounded-[6px] inline-flex items-center gap-2 hover:bg-[#163F6E] transition-colors cursor-pointer"
+                        >
+                          <Plus size={16} />
+                          Add Client
                         </button>
                       </div>
-
-                      {/* Issues row */}
-                      <div className="flex flex-wrap gap-1 min-h-[20px]">
-                        {client.open_notices_count > 0 && (
-                          <span className="status-badge status-badge-error">{client.open_notices_count} Notice{client.open_notices_count > 1 ? 's' : ''}</span>
-                        )}
-                        {client.compliance_issues_count > 0 && (
-                          <span className="status-badge status-badge-warning">{client.compliance_issues_count} Compliance</span>
-                        )}
-                        {client.mismatch_count > 0 && (
-                          <span className="status-badge status-badge-info">{client.mismatch_count} Mismatch</span>
-                        )}
-                        {client.open_notices_count === 0 && client.compliance_issues_count === 0 && client.mismatch_count === 0 && (
-                          <span className="text-[11px] text-[#6B7280]">No active issues</span>
-                        )}
-                      </div>
-
-                      {/* Bottom: ITC + actions */}
-                      <div className="flex items-center justify-between pt-2 border-t border-[#F3F4F6]">
-                        <div>
-                          {client.itc_at_risk > 0 ? (
-                            <span className="text-[12px] font-medium font-mono text-[#B91C1C]">{formatCurrency(client.itc_at_risk)} ITC at risk</span>
-                          ) : (
-                            <span className="text-[11px] text-[#6B7280] flex items-center gap-1">
-                              <Clock size={11} /> {client.last_run}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Link href={`/gst-recon?client=${client.id}`} title="Run AI Recon">
-                            <button className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors">
-                              <Zap size={12} />
-                            </button>
-                          </Link>
-                          <Link href={`/clients/${client.id}`} title="Open Client Workspace">
-                            <button className="w-6 h-6 flex items-center justify-center rounded border border-[#E5E7EB] bg-white hover:bg-slate-50 text-[#6B7280] transition-colors">
-                              <ArrowRight size={12} />
-                            </button>
-                          </Link>
-                        </div>
-                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-12 text-center">
-                <Building size={20} className="text-[#D1D5DB] mx-auto mb-2" />
-                <p className="text-[13px] text-[#6B7280]">No clients match filters</p>
-                <button
-                  onClick={() => { setSearchQuery(''); setStatusFilter('All'); setStateFilter('All'); }}
-                  className="text-[12px] text-[#1B4F8A] hover:underline mt-2"
-                >
-                  Clear filters
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
 
+          {/* Pagination */}
+          {filteredClients.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-slate-500">
+                  Show
+                </span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="h-[32px] bg-white border border-slate-200 rounded-[6px] px-2 text-[12px] text-slate-700 focus:outline-none focus:border-[#1B4F8A] cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <span className="text-[12px] text-slate-500">
+                  per page
+                </span>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <span className="text-[12px] text-slate-500">
+                  {startIndex + 1}–{Math.min(endIndex, filteredClients.length)} of {filteredClients.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-[6px] border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M8.75 3.5L5.25 7L8.75 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages || totalPages === 0}
+                    className="w-8 h-8 flex items-center justify-center rounded-[6px] border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M5.25 3.5L8.75 7L5.25 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Onboarding Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200/80 w-full max-w-[480px] rounded-[3px] flex flex-col relative shadow-sm overflow-hidden">
-
+          <div className="bg-white border border-slate-200/80 w-full max-w-[480px] rounded-[8px] flex flex-col relative shadow-lg overflow-hidden">
             {/* Header */}
             <div className="h-[48px] border-b border-[#E5E7EB] flex items-center justify-between px-5">
-              <h3 className="text-[14px] font-semibold text-[#111827]">Onboard Corporate Client</h3>
+              <h3 className="text-[14px] font-semibold text-[#111827]">Add New Client</h3>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="text-slate-400 hover:text-slate-800 transition-colors cursor-pointer"
@@ -661,25 +697,22 @@ export default function ClientPortfolioPage() {
             </div>
 
             {/* Body */}
-            <div className="p-[20px] space-y-[16px]">
-              <p className="text-[11px] text-slate-500">Register a new client entity to activate automated GSTR reconciliation audits.</p>
-
-              <form onSubmit={handleAddClient} className="space-y-[16px]">
-
+            <div className="p-5 space-y-4">
+              <form onSubmit={handleAddClient} className="space-y-4">
                 <div>
-                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Business Legal Name *</label>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-1">Business Legal Name *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Acme Corp Pvt Ltd"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
+                    className="w-full h-[36px] border border-[#D1D5DB] rounded-[6px] bg-[#FFFFFF] text-[13px] text-[#111827] px-3 placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-1 focus:ring-[#1B4F8A]"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">GSTIN Identification Number *</label>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-1">GSTIN *</label>
                   <input
                     type="text"
                     required
@@ -688,17 +721,17 @@ export default function ClientPortfolioPage() {
                     placeholder="e.g. 27AAACT1234A1Z5"
                     value={newGstin}
                     onChange={(e) => setNewGstin(e.target.value)}
-                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] uppercase"
+                    className="w-full h-[36px] border border-[#D1D5DB] rounded-[6px] bg-[#FFFFFF] text-[13px] text-[#111827] px-3 placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-1 focus:ring-[#1B4F8A] uppercase"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-[12px] gap-y-[16px]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Corporate Jurisdiction</label>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">State</label>
                     <select
                       value={newState}
                       onChange={(e) => setNewState(e.target.value)}
-                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
+                      className="w-full h-[36px] border border-[#D1D5DB] rounded-[6px] bg-[#FFFFFF] text-[13px] text-[#111827] px-3 focus:border-[#1B4F8A] focus:outline-none focus:ring-1 focus:ring-[#1B4F8A]"
                     >
                       <option value="Maharashtra">Maharashtra</option>
                       <option value="Karnataka">Karnataka</option>
@@ -711,40 +744,40 @@ export default function ClientPortfolioPage() {
                   </div>
 
                   <div>
-                    <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Finance Contact Email</label>
+                    <label className="block text-[12px] font-medium text-[#374151] mb-1">Email</label>
                     <input
                       type="email"
                       placeholder="e.g. accounts@domain.com"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
-                      className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
+                      className="w-full h-[36px] border border-[#D1D5DB] rounded-[6px] bg-[#FFFFFF] text-[13px] text-[#111827] px-3 placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-1 focus:ring-[#1B4F8A]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Finance Contact Mobile</label>
+                  <label className="block text-[12px] font-medium text-[#374151] mb-1">Phone</label>
                   <input
                     type="text"
                     placeholder="e.g. +91 98765 43210"
                     value={newPhone}
                     onChange={(e) => setNewPhone(e.target.value)}
-                    className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-[#FFFFFF] text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26]"
+                    className="w-full h-[36px] border border-[#D1D5DB] rounded-[6px] bg-[#FFFFFF] text-[13px] text-[#111827] px-3 placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-1 focus:ring-[#1B4F8A]"
                   />
                 </div>
 
                 {/* Footer */}
-                <div className="h-[52px] border-t border-[#E5E7EB] -mx-[20px] -mb-[20px] px-[20px] flex flex-row-reverse gap-2 items-center bg-slate-50">
+                <div className="h-[56px] border-t border-[#E5E7EB] -mx-5 -mb-5 px-5 flex flex-row-reverse gap-2 items-center bg-slate-50 rounded-b-[8px]">
                   <button
                     type="submit"
-                    className="h-[32px] bg-[#1B4F8A] text-[#FFFFFF] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center hover:bg-[#163F6E] cursor-pointer"
+                    className="h-[36px] bg-[#1B4F8A] text-[#FFFFFF] text-[13px] font-medium rounded-[6px] px-4 flex items-center justify-center hover:bg-[#163F6E] cursor-pointer transition-colors"
                   >
-                    Initialize Workspace
+                    Add Client
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="h-[32px] bg-[#FFFFFF] border border-[#D1D5DB] text-[#374151] text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center hover:bg-[#F9FAFB] cursor-pointer"
+                    className="h-[36px] bg-[#FFFFFF] border border-[#D1D5DB] text-[#374151] text-[13px] font-medium rounded-[6px] px-4 flex items-center justify-center hover:bg-[#F9FAFB] cursor-pointer transition-colors"
                   >
                     Cancel
                   </button>
@@ -756,6 +789,13 @@ export default function ClientPortfolioPage() {
         </div>
       )}
 
+      {/* Close menu when clicking outside */}
+      {openMenuId && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpenMenuId(null)}
+        />
+      )}
     </div>
   );
 }
