@@ -1,18 +1,10 @@
 "use client";
 
 import React, { useState } from 'react';
-import {
-  Building,
-  CheckCircle2,
-  ShieldAlert,
-  ArrowRight,
-  MailWarning
-} from 'lucide-react';
+import { Building, CheckCircle2, ShieldAlert, ArrowRight, MailWarning } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -22,16 +14,9 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('');
   const [firmName, setFirmName] = useState('');
   const [role, setRole] = useState('PARTNER');
-
   const [isLoading, setIsLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [emailPendingConfirm, setEmailPendingConfirm] = useState(false);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(''), 4000);
-  };
 
   const validate = (): string | null => {
     if (!fullName.trim()) return "Full name is required.";
@@ -42,58 +27,73 @@ export default function SignupPage() {
     return null;
   };
 
+  const generateUUID = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setErrorMessage(validationError);
-      return;
-    }
+    const err = validate();
+    if (err) { setErrorMessage(err); return; }
+
+    setIsLoading(true);
+    setErrorMessage('');
+
+    const firm_id = generateUUID();
 
     try {
-      setIsLoading(true);
-      setErrorMessage('');
-
-      // Step 1: Backend provisions firm UUID + creates Supabase auth user
-      const res = await fetch(`${API_BASE}/api/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, full_name: fullName, firm_name: firmName, role })
+      // Sign up directly via Supabase SDK — no backend needed
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName, firm_name: firmName, role, firm_id }
+        }
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData?.detail || "Registration failed.");
-      }
+      if (error) throw error;
 
-      const data = await res.json();
+      if (!data.user) throw new Error("Signup failed — no user returned.");
 
-      // Step 2: If backend returned a session, set it directly in Supabase SDK
-      if (data.access_token && data.refresh_token) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
+      // If session exists → email confirm disabled → redirect
+      if (data.session) {
+        // Explicitly persist session so ClientLayoutWrapper reads it immediately
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
         });
 
-        if (sessionError) {
-          if (sessionError.message?.includes("email") || sessionError.message?.includes("confirm")) {
-            setEmailPendingConfirm(true);
-            showToast("Registration successful! Check your email to verify.");
-            return;
-          }
-          throw sessionError;
+        // 409 duplicate = trigger already inserted row — ignore
+        const { error: insertError } = await supabase.from("users").insert({
+          id: data.user.id,
+          full_name: fullName,
+          firm_name: firmName,
+          firm_id,
+          onboarding_complete: false
+        });
+        if (insertError && !insertError.message?.includes("duplicate")) {
+          console.warn("[SIGNUP] Profile insert error:", insertError.message);
         }
 
-        showToast("Firm workspace provisioned successfully!");
-        setTimeout(() => router.push("/onboarding"), 1200);
+        // Mark onboarding complete immediately — user goes straight to dashboard
+        await supabase.from("users")
+          .update({ onboarding_complete: true })
+          .eq("id", data.user.id);
+
+        // Wait for SDK to persist session before navigation
+        await new Promise(r => setTimeout(r, 500));
+        router.push("/action-center");
         return;
       }
 
-      // Step 3: No tokens in response = email confirmation required
+      // No session = email confirmation required
       setEmailPendingConfirm(true);
-      showToast("Registration successful! Check your email to verify your account.");
 
     } catch (err: any) {
+      console.error("[SIGNUP] error:", err);
       setErrorMessage(err?.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
@@ -110,12 +110,11 @@ export default function SignupPage() {
           <div>
             <h2 className="text-xl font-black text-slate-900">Verify Your Email</h2>
             <p className="text-[13px] text-slate-500 mt-2">
-              We sent a verification link to <strong>{email}</strong>. Click it to activate your CA firm workspace.
+              Verification link sent to <strong>{email}</strong>. Click it to activate your workspace.
             </p>
           </div>
           <div className="bg-slate-50 border border-slate-100 p-4 rounded-[3px] text-[11px] text-slate-500 text-left">
-            After verifying, return here to{' '}
-            <Link href="/login" className="text-[#1B4F8A] font-bold hover:underline">sign in</Link>.
+            After verifying, <Link href="/login" className="text-[#1B4F8A] font-bold hover:underline">sign in here</Link>.
           </div>
         </div>
       </div>
@@ -124,13 +123,6 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex items-center justify-center p-4 font-sans">
-      {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-white border border-slate-200 border-l-4 border-l-[#10B981] text-slate-900 px-6 py-4 rounded-[3px] shadow-sm z-[100] max-w-sm flex items-center gap-3.5">
-          <CheckCircle2 className="text-[#10B981] flex-shrink-0" size={20} />
-          <span className="text-[13px] font-bold tracking-wide">{toastMessage}</span>
-        </div>
-      )}
-
       <div className="bg-white border border-slate-200 rounded-[3px] max-w-[640px] w-full p-10 shadow-sm space-y-6">
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-[3px] bg-[#1B4F8A] text-white flex items-center justify-center mx-auto shadow-sm">
@@ -152,38 +144,24 @@ export default function SignupPage() {
           <div className="grid grid-cols-2 gap-x-3 gap-y-4">
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Auditor Full Name *</label>
-              <input
-                type="text"
-                required
-                value={fullName}
+              <input type="text" required value={fullName}
                 onChange={e => { setFullName(e.target.value); setErrorMessage(''); }}
-                placeholder="e.g. Rahul Sharma"
-                disabled={isLoading}
-                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
-              />
+                placeholder="e.g. Rahul Sharma" disabled={isLoading}
+                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none disabled:opacity-50" />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">CA Firm Name *</label>
-              <input
-                type="text"
-                required
-                value={firmName}
+              <input type="text" required value={firmName}
                 onChange={e => { setFirmName(e.target.value); setErrorMessage(''); }}
-                placeholder="e.g. Sharma & Associates"
-                disabled={isLoading}
-                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
-              />
+                placeholder="e.g. Sharma & Associates" disabled={isLoading}
+                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none disabled:opacity-50" />
             </div>
           </div>
 
           <div>
             <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Role Designation *</label>
-            <select
-              value={role}
-              onChange={e => setRole(e.target.value)}
-              disabled={isLoading}
-              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
-            >
+            <select value={role} onChange={e => setRole(e.target.value)} disabled={isLoading}
+              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] px-[10px] focus:border-[#1B4F8A] focus:outline-none disabled:opacity-50">
               <option value="PARTNER">CA Partner / Principal</option>
               <option value="MANAGER">Audit Manager</option>
               <option value="ARTICLE">Article Clerk / Associate</option>
@@ -193,54 +171,34 @@ export default function SignupPage() {
 
           <div>
             <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Firm Email Address *</label>
-            <input
-              type="email"
-              required
-              value={email}
+            <input type="email" required value={email}
               onChange={e => { setEmail(e.target.value); setErrorMessage(''); }}
-              placeholder="e.g. auditor@firm.com"
-              disabled={isLoading}
-              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
-            />
+              placeholder="e.g. auditor@firm.com" disabled={isLoading}
+              className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none disabled:opacity-50" />
           </div>
 
           <div className="grid grid-cols-2 gap-x-3">
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Password *</label>
-              <input
-                type="password"
-                required
-                value={password}
+              <input type="password" required value={password}
                 onChange={e => { setPassword(e.target.value); setErrorMessage(''); }}
-                placeholder="Min 8 characters"
-                disabled={isLoading}
-                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
-              />
+                placeholder="Min 8 characters" disabled={isLoading}
+                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none disabled:opacity-50" />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[#374151] mb-[4px]">Confirm Password *</label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
+              <input type="password" required value={confirmPassword}
                 onChange={e => { setConfirmPassword(e.target.value); setErrorMessage(''); }}
-                placeholder="Repeat password"
-                disabled={isLoading}
-                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] text-[#111827] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none focus:ring-2 focus:ring-[#1B4F8A26] disabled:opacity-50"
-              />
+                placeholder="Repeat password" disabled={isLoading}
+                className="w-full h-[32px] border border-[#D1D5DB] rounded-[3px] bg-white text-[13px] px-[10px] placeholder-[#9CA3AF] focus:border-[#1B4F8A] focus:outline-none disabled:opacity-50" />
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full h-[32px] bg-[#1B4F8A] text-white text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? (
-              <div className="w-[12px] h-[12px] border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            ) : (
-              <><span>Provision Firm Workspace</span><ArrowRight size={12} /></>
-            )}
+          <button type="submit" disabled={isLoading}
+            className="w-full h-[32px] bg-[#1B4F8A] text-white text-[13px] font-medium rounded-[3px] px-[14px] flex items-center justify-center gap-[6px] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+            {isLoading
+              ? <div className="w-[12px] h-[12px] border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              : <><span>Provision Firm Workspace</span><ArrowRight size={12} /></>}
           </button>
         </form>
 

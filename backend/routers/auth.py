@@ -17,105 +17,101 @@ router = APIRouter()
 @router.post("/signup", response_model=schemas.TokenResponse)
 @limiter.limit(AUTH_LIMIT)
 async def signup_firm_user(request: Request, payload: schemas.UserRegister):
-    """
-    Registers a new CA Firm user account using Supabase Auth.
-    Automatically provisions firm tenant context, inserts the user profile
-    row into the users table, and assigns roles. Rolls back the auth user
-    if the DB insert fails to prevent orphan auth records.
-    """
     email = payload.email
     password = payload.password
     full_name = payload.full_name
     firm_name = payload.firm_name
     role = payload.role or "PARTNER"
-
-    # Provision dynamic tenant firm UUID — single source of truth for this firm
     firm_id = str(uuid.uuid4())
 
-    if is_supabase_active():
-        try:
-            # Step 1: Register user in Supabase Auth with custom metadata
-            res = get_supabase_client().auth.sign_up({
-                "email": email,
-                "password": password,
-                "options": {
-                    "data": {
-                        "full_name": full_name,
-                        "firm_name": firm_name,
-                        "role": role,
-                        "firm_id": firm_id
-                    }
-                }
-            })
+    if not is_supabase_active():
+        raise HTTPException(status_code=503, detail="Registration service unavailable.")
 
-            if not res.user:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Auth signup request failed."
-                )
-
-            user = res.user
-
-            # Step 2: Insert user profile row — firm_id must match user_metadata exactly.
-            # If this fails, rollback the auth user to prevent orphan records.
-            try:
-                get_supabase_client().table("users").insert({
-                    "id": user.id,
+    try:
+        # Step 1: Create auth user
+        res = get_supabase_client().auth.sign_up({
+            "email": email,
+            "password": password,
+            "options": {
+                "data": {
                     "full_name": full_name,
                     "firm_name": firm_name,
-                    "firm_id": firm_id,
-                    "onboarding_complete": False
-                }).execute()
-            except Exception as db_err:
-                # Rollback: delete the auth user so we don't leave orphan records
-                logger.error(f"User profile creation failed: {str(db_err)}", exc_info=True)
+                    "role": role,
+                    "firm_id": firm_id
+                }
+            }
+        })
+
+        if not res.user:
+            raise HTTPException(status_code=400, detail="Auth signup failed.")
+
+        user = res.user
+
+        # Step 2: Insert profile row — ignore 409 (handle_new_user trigger may have 
+        # already inserted it). NEVER rollback auth user on 409.
+        try:
+            get_supabase_client().table("users").insert({
+                "id": user.id,
+                "full_name": full_name,
+                "firm_name": firm_name,
+                "firm_id": firm_id,
+                "onboarding_complete": True  # skip onboarding — go straight to dashboard
+            }).execute()
+        except Exception as db_err:
+            err_str = str(db_err)
+            if "duplicate" in err_str.lower() or "23505" in err_str or "409" in err_str:
+                # Trigger already inserted row — update firm_id to ensure consistency
+                logger.info(f"Profile row already exists for {user.id} — updating.")
+                try:
+                    get_supabase_client().table("users").update({
+                        "firm_id": firm_id,
+                        "full_name": full_name,
+                        "firm_name": firm_name,
+                        "onboarding_complete": True
+                    }).eq("id", user.id).execute()
+                except Exception as upd_err:
+                    logger.warning(f"Profile update failed (non-fatal): {upd_err}")
+            else:
+                # Real DB error — rollback auth user
+                logger.error(f"Profile creation failed: {err_str}", exc_info=True)
                 try:
                     get_supabase_client().auth.admin.delete_user(user.id)
                 except Exception:
-                    pass  # Best-effort rollback; log but don't mask original error
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="User profile creation failed. Please contact support."
-                )
+                    pass
+                raise HTTPException(status_code=500, detail="User profile creation failed.")
 
-            # Step 3: Log audit trail
-            await log_audit_event(
-                action="SIGNUP_FIRM_USER",
-                entity_type="users",
-                actor_id=user.id,
-                firm_id=firm_id,
-                entity_id=user.id,
-                details={"firm_name": firm_name, "role": role},
-            )
+        # Step 3: Audit
+        await log_audit_event(
+            action="SIGNUP_FIRM_USER",
+            entity_type="users",
+            actor_id=user.id,
+            firm_id=firm_id,
+            entity_id=user.id,
+            details={"firm_name": firm_name, "role": role},
+        )
 
-            if not res.session:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Registration succeeded but session could not be established. Please verify your email."
-                )
-
-            return {
-                "access_token": res.session.access_token,
-                "refresh_token": res.session.refresh_token,
-                "token_type": "bearer",
-                "user_id": user.id,
-                "firm_id": firm_id,
-                "role": role,
-                "full_name": full_name
-            }
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"Registration failed: {str(e)}", exc_info=True)
+        # Step 4: Return session or email-confirm response
+        if not res.session:
+            # Email confirmation required — return 202 with clear message
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Registration failed. Please check your details and try again."
+                status_code=status.HTTP_202_ACCEPTED,
+                detail="Registration successful. Please verify your email before logging in."
             )
 
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Registration service unavailable. Supabase is not configured."
-    )
+        return {
+            "access_token": res.session.access_token,
+            "refresh_token": res.session.refresh_token,
+            "token_type": "bearer",
+            "user_id": user.id,
+            "firm_id": firm_id,
+            "role": role,
+            "full_name": full_name
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Registration failed. Please try again.")
 
 @router.post("/login", response_model=schemas.TokenResponse)
 @limiter.limit(AUTH_LIMIT)
