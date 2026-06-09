@@ -6,7 +6,7 @@ import { getUnifiedBadgeClass, renderBadgeDot } from '@/lib/badgeHelper';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import {
-  Building,
+  Building2,
   Calendar as CalendarIcon,
   ArrowRight,
   FileJson,
@@ -16,8 +16,8 @@ import {
   Download,
   Search,
   CheckCircle2,
-  ChevronRight,
-  ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   X,
   Mail,
   ShieldCheck,
@@ -33,7 +33,13 @@ import {
   CheckCircle,
   Compass,
   ArrowUpRight,
-  Plus
+  Plus,
+  MoreVertical,
+  Eye,
+  Edit,
+  Trash2,
+  User,
+  Trash
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
@@ -100,13 +106,16 @@ function GSTReconciliationPageContent() {
   const [formError, setFormError] = useState('');
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [processingStartTime, setProcessingStartTime] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   // Results View States (Step 5)
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusTab, setStatusTab] = useState('all'); // all, matched, missing_books, missing_2b, gstin_mismatch, value_mismatch
+  const [statusTab, setStatusTab] = useState('all'); // all, mismatched, missing_2b, missing_books
   const [activeFindingFilter, setActiveFindingFilter] = useState<string | null>(null);
   const [vendorFilter, setVendorFilter] = useState('all');
   const [selectedRow, setSelectedRow] = useState<ReconRow | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   
   // AI Explainer Panel States
   const [aiExplanation, setAiExplanation] = useState<any>(null);
@@ -132,7 +141,8 @@ function GSTReconciliationPageContent() {
             business_name: c.business_name,
             gstin: c.gstin,
             state: c.state,
-            prev_health: c.prev_health || 88.1
+            prev_health: c.prev_health || 88.1,
+            last_recon: c.last_recon || 'Never'
           })));
         }
       } catch (err) {
@@ -150,6 +160,7 @@ function GSTReconciliationPageContent() {
     const clientId = searchParams.get('client');
     if (clientId) {
       setSelectedClient(clientId);
+      if (clientId) setStep(2);
     }
   }, [searchParams]);
 
@@ -236,7 +247,9 @@ function GSTReconciliationPageContent() {
   // Simulation timer for step 4
   useEffect(() => {
     let interval: NodeJS.Timeout;
+    let elapsedTimeInterval: NodeJS.Timeout;
     if (isProcessing) {
+      setProcessingStartTime(Date.now());
       interval = setInterval(() => {
         setCurrentStepIndex((prev) => {
           if (PROCESSING_STEPS.length - 1 > prev) {
@@ -247,15 +260,24 @@ function GSTReconciliationPageContent() {
             clearInterval(interval);
             setTimeout(() => {
               setIsProcessing(false);
-            setStep(5); // Go to step 5 (Review Findings)
+            setStep(4); // Go to step 4 (Review Results)
             showToast("AI Match Engine completed analysis successfully!", "success");
           }, 700);
             return prev;
           }
         });
       }, 350);
+
+      elapsedTimeInterval = setInterval(() => {
+        if (processingStartTime) {
+          setElapsedTime(Math.floor((Date.now() - processingStartTime) / 1000);
+        }
+      }, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(elapsedTimeInterval);
+    };
   }, [isProcessing]);
 
   const clientInfo = clients.find(c => c.id === selectedClient);
@@ -305,6 +327,7 @@ function GSTReconciliationPageContent() {
     setFormError('');
     setCurrentStepIndex(0);
     setProcessingProgress(0);
+    setStep(3);
 
     try {
       const formData = new FormData();
@@ -380,7 +403,6 @@ function GSTReconciliationPageContent() {
       setReconRows([]);
       setFormError(err.message || "Reconciliation failed. Please check your files and try again.");
       setIsProcessing(false);
-      setStep(3);
       return;
     }
   };
@@ -390,6 +412,7 @@ function GSTReconciliationPageContent() {
     setFile2B(null);
     setFilePR(null);
     setSelectedRow(null);
+    setExpandedRows(new Set());
   };
 
   const formatCurrency = (val: number) => {
@@ -398,6 +421,24 @@ function GSTReconciliationPageContent() {
       currency: 'INR',
       maximumFractionDigits: 0
     }).format(val);
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const toggleRowExpansion = (rowId: string) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(rowId)) {
+      newExpanded.delete(rowId);
+    } else {
+      newExpanded.add(rowId);
+    }
+    setExpandedRows(newExpanded);
   };
 
   const handleCopyEmail = (row: ReconRow) => {
@@ -417,28 +458,25 @@ ${clientInfo?.business_name || 'Our Company'}`;
     showToast(`Supplier follow-up email copied to clipboard!`, "success");
   };
 
-  // Filter lists in table (Step 5)
+  // Filter lists in table (Step 4)
   const filteredRows = reconRows.filter(row => {
     const matchesSearch = row.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       row.supplier_gstin.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesTab = statusTab === 'all' || row.status === statusTab;
+    let matchesTab = true;
+    if (statusTab === 'mismatched') {
+      matchesTab = row.status === 'value_mismatch' || row.status === 'gstin_mismatch';
+    } else if (statusTab === 'missing_2b') {
+      matchesTab = row.status === 'missing_in_2b';
+    } else if (statusTab === 'missing_books') {
+      matchesTab = row.status === 'missing_in_books';
+    } else {
+      matchesTab = true;
+    }
 
     const matchesVendor = vendorFilter === 'all' || row.supplier_gstin === vendorFilter;
 
-    // Side filter integration
-    let matchesFinding = true;
-    if (activeFindingFilter === 'itc_at_risk') {
-      matchesFinding = row.status === 'value_mismatch' || row.status === 'missing_in_2b' || row.status === 'gstin_mismatch';
-    } else if (activeFindingFilter === 'missing_invoices') {
-      matchesFinding = row.status === 'missing_in_2b' || row.status === 'missing_in_books';
-    } else if (activeFindingFilter === 'excess_claims') {
-      matchesFinding = row.status === 'value_mismatch' && row.taxable_value_pr > row.taxable_value_2b;
-    } else if (activeFindingFilter === 'vendor_issues') {
-      matchesFinding = row.status !== 'matched';
-    }
-
-    return matchesSearch && matchesTab && matchesVendor && matchesFinding;
+    return matchesSearch && matchesTab && matchesVendor;
   });
 
   const uniqueVendors = Array.from(new Set(reconRows.map(r => r.supplier_gstin)));
@@ -459,223 +497,85 @@ ${clientInfo?.business_name || 'Our Company'}`;
       return sum + getITC(Math.max(r.taxable_value_pr, r.taxable_value_2b));
     }, 0);
 
-  // Health Score calculation (by Value)
-  const totalITCValue = reconRows.reduce((sum, r) => {
-    if (r.status === 'value_mismatch') {
-      return sum + getITC(Math.max(r.taxable_value_pr, r.taxable_value_2b));
-    }
-    return sum + getITC(r.taxable_value_pr || r.taxable_value_2b);
-  }, 0);
-
-  const matchedITCValue = reconRows
-    .filter(r => r.status === 'matched')
-    .reduce((sum, r) => sum + getITC(r.taxable_value_pr), 0);
-
-  const healthScore = totalITCValue > 0 ? (matchedITCValue / totalITCValue) * 100 : 92.4;
-
-  // Reconciliation Health Trend (Requirement 4)
-  const prevMonthHealth = clientInfo?.prev_health || 88.1;
-  const healthImprovement = healthScore - prevMonthHealth;
-
-  // Category Metrics Calculator (Prioritized for Requirement 2)
-  const categoryMetrics = {
+  // Summary Stats
+  const summaryStats = {
     matched: {
-      name: 'Perfect Matches',
       count: reconRows.filter(r => r.status === 'matched').length,
-      exposure: matchedITCValue,
-      risk: 'Low Risk',
-      color: 'border-emerald-200 hover:border-emerald-300 text-emerald-700 bg-emerald-50/[0.04]',
-      badgeColor: 'bg-emerald-100 text-emerald-800'
+      itc: reconRows.filter(r => r.status === 'matched').reduce((sum, r) => sum + getITC(r.taxable_value_pr), 0)
     },
-    missing_books: {
-      name: 'Missing In Books',
-      count: reconRows.filter(r => r.status === 'missing_in_books').length,
-      exposure: getITC(reconRows.filter(r => r.status === 'missing_in_books').reduce((sum, r) => sum + r.taxable_value_2b, 0)),
-      risk: 'High Risk',
-      color: 'border-red-200 hover:border-red-300 text-red-700 bg-red-50/[0.04]',
-      badgeColor: 'bg-red-100 text-red-800'
+    mismatched: {
+      count: reconRows.filter(r => r.status === 'value_mismatch' || r.status === 'gstin_mismatch').length,
+      itc: reconRows.filter(r => r.status === 'value_mismatch' || r.status === 'gstin_mismatch').reduce((sum, r) => sum + getITC(r.difference || Math.max(r.taxable_value_pr, r.taxable_value_2b)), 0)
     },
     missing_2b: {
-      name: 'Missing In GSTR-2B',
       count: reconRows.filter(r => r.status === 'missing_in_2b').length,
-      exposure: getITC(reconRows.filter(r => r.status === 'missing_in_2b').reduce((sum, r) => sum + r.taxable_value_pr, 0)),
-      risk: 'High Risk',
-      color: 'border-red-200 hover:border-red-300 text-red-700 bg-red-50/[0.04]',
-      badgeColor: 'bg-red-100 text-red-800 shadow-sm animate-pulse'
+      itc: reconRows.filter(r => r.status === 'missing_in_2b').reduce((sum, r) => sum + getITC(r.taxable_value_pr)), 0)
     },
-    gstin_mismatch: {
-      name: 'GSTIN Mismatch',
-      count: reconRows.filter(r => r.status === 'gstin_mismatch').length,
-      exposure: getITC(reconRows.filter(r => r.status === 'gstin_mismatch').reduce((sum, r) => sum + Math.max(r.taxable_value_pr, r.taxable_value_2b), 0)),
-      risk: 'Medium Risk',
-      color: 'border-amber-200 hover:border-amber-300 text-amber-700 bg-amber-50/[0.04]',
-      badgeColor: 'bg-amber-100 text-amber-800'
-    },
-    value_mismatch: {
-      name: 'Invoice Value Mismatch',
-      count: reconRows.filter(r => r.status === 'value_mismatch').length,
-      exposure: getITC(reconRows.filter(r => r.status === 'value_mismatch').reduce((sum, r) => sum + r.difference, 0)),
-      risk: 'Medium Risk',
-      color: 'border-amber-200 hover:border-amber-300 text-amber-700 bg-amber-50/[0.04]',
-      badgeColor: 'bg-amber-100 text-amber-800'
+    missing_books: {
+      count: reconRows.filter(r => r.status === 'missing_in_books').length,
+      itc: reconRows.filter(r => r.status === 'missing_in_books').reduce((sum, r) => sum + getITC(r.taxable_value_2b)), 0)
     }
   };
 
-  // Today's Priorities Queue (Requirement 3)
-  const getPriorities = () => {
-    const list: { action: string; impact: number; urgency: 'Immediate' | 'High' | 'Medium'; id: string }[] = [];
+  const workflowSteps = [
+    { id: 1, label: 'Select Client' },
+    { id: 2, label: 'Upload Files' },
+    { id: 3, label: 'Processing' },
+    { id: 4, label: 'Review Results' },
+    { id: 5, label: 'Export' }
+  ];
 
-    reconRows.forEach(row => {
-      if (row.status === 'missing_in_2b') {
-        list.push({
-          id: `pri-${row.id}`,
-          action: `Reach out to supplier ${row.supplier_gstin} to upload Invoice ${row.invoice_number} in GSTR-1`,
-          impact: getITC(row.taxable_value_pr),
-          urgency: 'Immediate'
-        });
-      } else if (row.status === 'gstin_mismatch') {
-        list.push({
-          id: `pri-${row.id}`,
-          action: `Update supplier GSTIN in ERP to match GSTR-2B portal (INV: ${row.invoice_number})`,
-          impact: getITC(row.taxable_value_pr),
-          urgency: 'High'
-        });
-      } else if (row.status === 'missing_in_books') {
-        list.push({
-          id: `pri-${row.id}`,
-          action: `Record invoice ${row.invoice_number} in ERP Purchase Register to claim eligible ITC`,
-          impact: getITC(row.taxable_value_2b),
-          urgency: 'Medium'
-        });
-      } else if (row.status === 'value_mismatch') {
-        list.push({
-          id: `pri-${row.id}`,
-          action: `Resolve ₹${row.difference.toLocaleString('en-IN')} invoice value difference for ${row.invoice_number}`,
-          impact: getITC(row.difference),
-          urgency: 'Medium'
-        });
-      }
-    });
+  const processingStages = [
+    { label: 'Parsing', progress: processingProgress >= 20 },
+    { label: 'Matching', progress: processingProgress >= 50 },
+    { label: 'Analysis', progress: processingProgress >= 80 },
+    { label: 'Complete', progress: processingProgress >= 100 }
+  ];
 
-    return list.sort((a, b) => b.impact - a.impact).slice(0, 3);
-  };
-  const todaysPriorities = getPriorities();
-
-  // Top Risk Suppliers (Requirement 5)
-  const getTopRiskSuppliers = () => {
-    const suppliers: Record<string, { gstin: string; exposure: number; mismatches: number }> = {};
-
-    reconRows.forEach(row => {
-      if (row.status !== 'matched') {
-        const gstin = row.supplier_gstin;
-        if (!suppliers[gstin]) {
-          suppliers[gstin] = { gstin, exposure: 0, mismatches: 0 };
-        }
-        suppliers[gstin].mismatches += 1;
-        
-        let exp = 0;
-        if (row.status === 'value_mismatch') {
-          exp = getITC(row.difference);
-        } else {
-          exp = getITC(Math.max(row.taxable_value_pr, row.taxable_value_2b));
-        }
-        suppliers[gstin].exposure += exp;
-      }
-    });
-
-    return Object.values(suppliers)
-      .sort((a, b) => {
-        if (b.exposure !== a.exposure) return b.exposure - a.exposure;
-        return b.mismatches - a.mismatches;
-      })
-      .slice(0, 3);
-  };
-  const topRiskSuppliers = getTopRiskSuppliers();
   return (
     <div className="flex flex-col h-screen bg-[#F8FAFC] font-sans relative overflow-hidden">
       
       {/* Toast Notification */}
       {ToastComponent}
 
-      {/* Header: 48px white border-bottom, title 16px weight 600, subtitle period/GSTIN 12px #6B7280 */}
+      {/* Header */}
       <div className="h-12 bg-white border-b border-[#E5E7EB] px-6 flex items-center justify-between shrink-0">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-[16px] font-semibold text-[#111827]">GST Reconciliation Engine</h1>
-          <p className="text-[12px] text-[#6B7280]">
-            {clientInfo ? `${clientInfo.business_name} (${clientInfo.gstin})` : 'Select Client'} · Period: {reconMonth === '2024-03' ? 'March 2024' : reconMonth}
-          </p>
+          <h1 className="text-[16px] font-semibold text-[#111827]">GST Intelligence Workspace</h1>
         </div>
-        <div className="text-[11px] font-mono text-slate-500 bg-slate-150 px-2 py-0.5 rounded">
+        <div className="text-[11px] font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
           Match Engine: ACTIVE · 99.4% Accuracy
         </div>
       </div>
 
-      {/* Toolbar: period selector + GSTIN selector + Run Reconciliation, height 40px, mb 16px */}
-      <div className="h-10 bg-white border-b border-[#E5E7EB] px-6 flex items-center gap-3 shrink-0 mb-4">
-        {/* Client selector */}
-        <select
-          value={selectedClient}
-          onChange={(e) => setSelectedClient(e.target.value)}
-          className="h-8 bg-slate-50 border border-[#E5E7EB] rounded-[4px] px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
-        >
-          <option value="" disabled>Choose Client...</option>
-          {clients.map(c => (
-            <option key={c.id} value={c.id}>{c.business_name} ({c.gstin})</option>
-          ))}
-        </select>
-
-        {/* Period selector */}
-        <select
-          value={reconMonth}
-          onChange={(e) => setReconMonth(e.target.value)}
-          className="h-8 bg-slate-50 border border-[#E5E7EB] rounded-[4px] px-2 text-[12px] font-medium text-slate-800 focus:outline-none focus:border-indigo-500"
-        >
-          <option value="2024-03">March 2024 (FY 2023-24)</option>
-          <option value="2024-02">February 2024</option>
-          <option value="2024-01">January 2024</option>
-        </select>
-
-
-
-        {step !== 5 && (
-          <div className="flex gap-2">
-            {[1, 2, 3, 4].map((s) => (
-              <button
-                key={s}
-                onClick={() => setStep(s)}
-                className={`h-8 px-2.5 text-[11px] font-semibold rounded-[4px] border transition-colors ${
-                  step === s
-                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                    : 'bg-white border-[#E5E7EB] text-slate-500 hover:bg-slate-50'
+      {/* Workflow Stepper */}
+      <div className="bg-white border-b border-[#E5E7EB] px-6 py-4 shrink-0">
+        <div className="flex items-center justify-center max-w-4xl mx-auto">
+          {workflowSteps.map((s, index) => (
+          <React.Fragment key={s.id}>
+            <div className="flex flex-col items-center">
+              <div
+                className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm transition-all ${
+                  step > s.id 
+                    ? 'bg-emerald-500 text-white' 
+                    : step === s.id 
+                      ? 'bg-[#1B4F8A] text-white' 
+                      : 'bg-white border-2 border-slate-200 text-slate-400'
                 }`}
               >
-                Step {s}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Run Reconciliation primary button */}
-        <button
-          onClick={handleRunReconciliation}
-          disabled={!selectedClient || !file2B || !filePR || isProcessing}
-          className="h-8 px-4 bg-[#1B4F8A] hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed text-white text-[12px] font-semibold rounded-[4px] flex items-center gap-1.5 transition-colors cursor-pointer ml-auto min-w-[150px]"
-        >
-          {isProcessing ? (
-            <span className="flex items-center gap-2 justify-center">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <span>Processing...</span>
-            </span>
-          ) : (
-            <>
-              <Zap size={12} fill="currentColor" />
-              <span>Run Reconciliation</span>
-            </>
-          )}
-        </button>
+                {step > s.id ? <Check size={16} /> : s.id}
+              </div>
+              <span className={`text-xs mt-1 font-medium ${
+                step >= s.id ? 'text-slate-900' : 'text-slate-400'
+              }`}>{s.label}</span>
+            </div>
+            {index < workflowSteps.length - 1 && (
+              <div className={`flex-1 h-0.5 mx-4 ${
+                step > s.id ? 'bg-[#1B4F8A]' : 'bg-slate-200'}`} />
+            )}
+          </React.Fragment>
+        ))}
+        </div>
       </div>
 
       {formError && (
@@ -688,519 +588,632 @@ ${clientInfo?.business_name || 'Our Company'}`;
       )}
 
       {/* Main content body */}
-      <div className="flex-1 overflow-hidden flex">
-
-        {/* Left main area (reconciliation steps or results table) */}
-        <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
-
-          {/* ======================================================
-              STEP 1: SELECT CLIENT
-              ====================================================== */}
-          {step === 1 && !isProcessing && (
-            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {/* ======================================================
+            EMPTY STATE
+            ====================================================== */}
+        {!selectedClient && step === 1 && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <Building2 size={64} className="text-slate-200 mx-auto" />
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Select Audit Subject</h3>
-                <p className="text-[12px] text-slate-500">Pick client registry in toolbar or load evaluation demo dataset.</p>
-              </div>
-              <button
-                onClick={() => setStep(2)}
-                disabled={!selectedClient}
-                className="w-full h-10 bg-[#1B4F8A] hover:bg-[#163F6E] disabled:bg-slate-200 disabled:text-slate-400 text-white text-[12px] font-semibold rounded-[4px] flex items-center justify-center gap-1"
-              >
-                <span>Continue to GSTR-2B Upload</span>
-                <ArrowRight size={14} />
-              </button>
-            </div>
-          )}
-
-          {/* ======================================================
-              STEP 2: UPLOAD GSTR-2B
-              ====================================================== */}
-          {step === 2 && !isProcessing && (
-            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Upload GSTR-2B JSON</h3>
-                <p className="text-[12px] text-slate-500">Provide official portal auto-drafted transaction statement.</p>
-              </div>
-
-              {/* Dropzone: border 2px dashed #D1D5DB, border-radius 4px, background #F7F8FA, height 120px */}
-              <div className="relative border-2 border-dashed border-[#D1D5DB] rounded-[4px] bg-[#F7F8FA] h-[120px] flex flex-col items-center justify-center text-center p-4 hover:bg-[#EFF6FF] hover:border-[#1B4F8A] transition-colors group">
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setFile2B(e.target.files[0]);
-                      showToast("GSTR-2B portal JSON loaded successfully!", "success");
-                    }
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <CloudUpload size={20} className="text-[#D1D5DB] group-hover:text-[#1B4F8A] mb-1" />
-                <span className="text-[13px] text-[#6B7280] font-medium">
-                  {file2B ? file2B.name : 'Click to Upload GSTR-2B JSON'}
-                </span>
-              </div>
-
-              <div className="flex gap-3">
-                <button onClick={() => setStep(1)} className="h-9 px-4 border border-[#E5E7EB] rounded-[4px] text-[12px] font-medium hover:bg-slate-50 flex-1">Back</button>
-                <button onClick={() => setStep(3)} disabled={!file2B} className="h-9 px-4 bg-[#1B4F8A] text-white disabled:bg-slate-200 disabled:text-slate-400 rounded-[4px] text-[12px] font-medium flex-1">Continue</button>
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================
-              STEP 3: UPLOAD PURCHASE REGISTER & COLUMN MAPPER
-              ====================================================== */}
-          {step === 3 && !isProcessing && (
-            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Upload Purchase Register</h3>
-                <p className="text-[12px] text-slate-500">Provide ERP booked purchase registers (.xlsx, .csv).</p>
-              </div>
-
-              {/* Dropzone */}
-              <div className="relative border-2 border-dashed border-[#D1D5DB] rounded-[4px] bg-[#F7F8FA] h-[120px] flex flex-col items-center justify-center text-center p-4 hover:bg-[#EFF6FF] hover:border-[#1B4F8A] transition-colors group">
-                <input
-                  type="file"
-                  accept=".xlsx,.csv"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setFilePR(e.target.files[0]);
-                      showToast("Purchase Register Books sheet loaded!", "success");
-                    }
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <CloudUpload size={20} className="text-[#D1D5DB] group-hover:text-[#1B4F8A] mb-1" />
-                <span className="text-[13px] text-[#6B7280] font-medium">
-                  {filePR ? filePR.name : 'Click to Upload Purchase Register'}
-                </span>
-              </div>
-
-              {filePR && (
-                <div className="space-y-2 pt-2 border-t border-[#E5E7EB]">
-                  <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider block">Verify Field Mapping</span>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {Object.keys(mappings).map((key) => (
-                      <div key={key} className="flex items-center justify-between border-b border-slate-50 pb-1">
-                        <span className="text-slate-500 font-medium capitalize">{key.replace('_', ' ')}</span>
-                        <span className="text-slate-800 font-semibold">{mappings[key as keyof typeof mappings]}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button onClick={() => setStep(2)} className="h-9 px-4 border border-[#E5E7EB] rounded-[4px] text-[12px] font-medium hover:bg-slate-50 flex-1">Back</button>
-                <button onClick={() => setStep(4)} disabled={!filePR} className="h-9 px-4 bg-[#1B4F8A] text-white disabled:bg-slate-200 disabled:text-slate-400 rounded-[4px] text-[12px] font-medium flex-1">Continue</button>
-              </div>
-            </div>
-          )}
-
-          {/* ======================================================
-              STEP 4: RUN AI MATCHING / ANALYZE RECONCILIATION
-              ====================================================== */}
-          {step === 4 && (
-            <div className="max-w-xl mx-auto mt-8 bg-white border border-[#E5E7EB] rounded-[4px] p-6 space-y-4">
-              {!isProcessing && processingProgress === 0 ? (
-                <div className="text-center space-y-4">
-                  <Zap size={24} className="text-[#1B4F8A] mx-auto animate-pulse" />
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Run AI Match Analysis</h3>
-                    <p className="text-[12px] text-slate-500">Evaluate GSTR-2B portal entries against ERP purchase registers.</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => setStep(3)} className="h-9 px-4 border border-[#E5E7EB] rounded-[4px] text-[12px] font-medium hover:bg-slate-50 flex-1">Back</button>
-                    <button onClick={handleRunReconciliation} className="h-9 px-4 bg-[#1B4F8A] text-white rounded-[4px] text-[12px] font-semibold flex-1">Start Analysis</button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex justify-between text-xs font-mono text-slate-650">
-                    <span>Analyzing matching database...</span>
-                    <span>{processingProgress}%</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                    <div className="bg-[#1B4F8A] h-full transition-all duration-300" style={{ width: `${processingProgress}%` }}></div>
-                  </div>
-                  <div className="bg-slate-900 text-[#A7F3D0] rounded p-3 font-mono text-[11px] h-32 overflow-y-auto space-y-1">
-                    {PROCESSING_STEPS.slice(0, currentStepIndex + 1).map((log, idx) => (
-                      <div key={idx}>{log}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ======================================================
-              STEP 5: REVIEW FINDINGS (RESULTS DASHBOARD)
-              ====================================================== */}
-          {step === 5 && !isProcessing && (
-            <div className="space-y-4">
-              
-              {/* RECONCILIATION SUMMARY BAR: Horizontal 4-stat bar, white background, border 1px, border-radius 4px */}
-              <div className="grid grid-cols-4 bg-white border border-[#E5E7EB] rounded-[4px] divide-x divide-[#E5E7EB] h-16 items-center shrink-0">
-                {/* Matched */}
-                <div className="px-6 flex flex-col">
-                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">Matched</span>
-                  <div className="flex items-baseline gap-2 mt-0.5">
-                    <span className="text-[16px] font-bold font-mono text-[#15803D]">{formatCurrency(matchedITCValue)}</span>
-                    <span className="text-[11px] text-[#6B7280] font-mono">{fullyReconciled} rows</span>
-                  </div>
-                </div>
-                
-                {/* Unmatched */}
-                <div className="px-6 flex flex-col">
-                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">Unmatched</span>
-                  <div className="flex items-baseline gap-2 mt-0.5">
-                    <span className="text-[16px] font-bold font-mono text-[#B91C1C]">
-                      {formatCurrency(categoryMetrics.value_mismatch.exposure + categoryMetrics.gstin_mismatch.exposure)}
-                    </span>
-                    <span className="text-[11px] text-[#6B7280] font-mono">
-                      {categoryMetrics.value_mismatch.count + categoryMetrics.gstin_mismatch.count} rows
-                    </span>
-                  </div>
-                </div>
-
-                {/* In Books Only */}
-                <div className="px-6 flex flex-col">
-                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">In Books Only</span>
-                  <div className="flex items-baseline gap-2 mt-0.5">
-                    <span className="text-[16px] font-bold font-mono text-[#B91C1C]">{formatCurrency(categoryMetrics.missing_2b.exposure)}</span>
-                    <span className="text-[11px] text-[#6B7280] font-mono">{categoryMetrics.missing_2b.count} rows</span>
-                  </div>
-                </div>
-
-                {/* In GSTR Only */}
-                <div className="px-6 flex flex-col">
-                  <span className="text-[11px] uppercase text-[#6B7280] font-medium tracking-wider">In GSTR Only</span>
-                  <div className="flex items-baseline gap-2 mt-0.5">
-                    <span className="text-[16px] font-bold font-mono text-[#B91C1C]">{formatCurrency(categoryMetrics.missing_books.exposure)}</span>
-                    <span className="text-[11px] text-[#6B7280] font-mono">{categoryMetrics.missing_books.count} rows</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Table controls */}
-              <div className="bg-white border border-[#E5E7EB] rounded-[4px] p-4 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sliders size={13} className="text-[#6B7280]" />
-                    <span className="text-[12px] font-bold text-slate-800">Ledger Verification Logs</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleExport('excel')}
-                      className="h-8 px-3 border border-[#E5E7EB] text-[12px] font-semibold text-slate-700 rounded-[4px] hover:bg-slate-50 flex items-center gap-1.5"
-                    >
-                      <Download size={12} className="text-[#15803D]" />
-                      <span>Export Excel</span>
-                    </button>
-                    <button
-                      onClick={() => handleExport('pdf')}
-                      className="h-8 px-3 border border-[#E5E7EB] text-[12px] font-semibold text-slate-700 rounded-[4px] hover:bg-slate-50 flex items-center gap-1.5"
-                    >
-                      <FileSpreadsheet size={12} className="text-indigo-600" />
-                      <span>Export PDF</span>
-                    </button>
-                    <button onClick={handleRerun} className="h-8 px-3 border border-[#E5E7EB] text-[12px] font-semibold text-slate-700 rounded-[4px] hover:bg-slate-50">
-                      Reset
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="text"
-                    placeholder="Search invoice or GSTIN..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-8 pl-3 pr-8 border border-[#E5E7EB] rounded-[4px] text-[12px] w-64 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
-                  />
-                  <select
-                    value={vendorFilter}
-                    onChange={(e) => setVendorFilter(e.target.value)}
-                    className="h-8 bg-slate-50 border border-[#E5E7EB] rounded-[4px] px-2 text-[12px] font-medium text-slate-800"
-                  >
-                    <option value="all">All Vendors</option>
-                    {uniqueVendors.map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                </div>
-
-                {/* RECONCILIATION TABLE */}
-                <div className="overflow-x-auto border border-[#E5E7EB] rounded-[4px]">
-                  <table className="min-w-full divide-y divide-[#E5E7EB]">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        <th className="pl-4 py-2 w-9"><input type="checkbox" className="rounded border-slate-350 text-indigo-700" /></th>
-                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Supplier GSTIN</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Invoice No</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Date</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Taxable</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">IGST</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">CGST</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">SGST</th>
-                        <th className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Match Status</th>
-                        <th className="px-3 py-2 text-right text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-[#E5E7EB]">
-                      {filteredRows.length > 0 ? (
-                        filteredRows.map((row) => {
-                          const isSelected = selectedRow?.id === row.id;
-                          return (
-                            <React.Fragment key={row.id}>
-                              {/* Row height 36px (h-9) */}
-                              <tr
-                                onClick={() => setSelectedRow(row)}
-                                className={`cursor-pointer hover:bg-slate-50/50 h-9 transition-colors ${
-                                  isSelected ? 'bg-slate-50' : ''
-                                }`}
-                              >
-                                <td className="pl-4 py-1" onClick={(e) => e.stopPropagation()}>
-                                  <input type="checkbox" className="rounded border-slate-350 text-indigo-700" />
-                                </td>
-                                <td className="px-3 py-1 text-[12px] text-slate-800 font-medium">{row.supplier_gstin}</td>
-                                <td className="px-3 py-1 text-[12px] text-slate-900 font-semibold">{row.invoice_number}</td>
-                                <td className="px-3 py-1 text-[12px] text-slate-500">{row.invoice_date}</td>
-                                
-                                {/* Amount columns: right-aligned monospace 12px */}
-                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
-                                  {row.taxable_value_2b > 0 ? formatCurrency(row.taxable_value_2b) : '—'}
-                                </td>
-                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
-                                  {row.igst_2b > 0 ? formatCurrency(row.igst_2b) : '—'}
-                                </td>
-                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
-                                  {row.cgst_2b > 0 ? formatCurrency(row.cgst_2b) : '—'}
-                                </td>
-                                <td className="px-3 py-1 text-right text-[12px] font-mono text-slate-800">
-                                  {row.sgst_2b > 0 ? formatCurrency(row.sgst_2b) : '—'}
-                                </td>
-
-                                {/* Match Status column: badge per badge rules */}
-                                <td className="px-3 py-1 text-left">
-                                  <span className={`px-2 py-0.5 rounded-[2px] text-[10px] font-semibold tracking-wide border uppercase inline-block ${
-                                    row.status === 'matched'
-                                      ? 'bg-[#DCFCE7] text-[#15803D] border-[#BBF7D0]'
-                                      : row.status === 'value_mismatch'
-                                      ? 'bg-[#FEE2E2] text-[#B91C1C] border-[#FCA5A5]'
-                                      : row.status === 'gstin_mismatch'
-                                      ? 'bg-[#FEF3C7] text-[#D97706] border-[#FDE68A]'
-                                      : 'bg-[#F3F4F6] text-[#4B5563] border-[#E5E7EB]'
-                                  }`}>
-                                    {row.status === 'matched' && 'Matched'}
-                                    {row.status === 'value_mismatch' && 'Unmatched'}
-                                    {row.status === 'gstin_mismatch' && 'Partial'}
-                                    {row.status === 'missing_in_2b' && 'Missing 2B'}
-                                    {row.status === 'missing_in_books' && 'Missing Books'}
-                                  </span>
-                                </td>
-
-                                <td className="px-3 py-1 text-right" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {row.status === 'missing_in_2b' && (
-                                      <button
-                                        onClick={() => handleCopyEmail(row)}
-                                        className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-[#6B7280] hover:text-[#111827]"
-                                        title="Outreach Email"
-                                      >
-                                        <Mail size={12} />
-                                      </button>
-                                    )}
-                                    <button
-                                      onClick={() => setSelectedRow(row)}
-                                      className="w-6 h-6 rounded hover:bg-slate-100 flex items-center justify-center text-[#6B7280] hover:text-[#111827]"
-                                    >
-                                      <ChevronRight size={12} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-
-                              {/* Expandable row: sub-row background #F7F8FA, indent 24px, font 12px */}
-                              {isSelected && (
-                                <tr className="bg-[#F7F8FA]" onClick={(e) => e.stopPropagation()}>
-                                  <td colSpan={10} className="pl-6 py-2">
-                                    <div className="pl-6 border-l-2 border-indigo-500 text-[12px] text-slate-650 space-y-1">
-                                      <p><strong className="text-slate-800">AI Explainer:</strong> {row.ai_insight}</p>
-                                      <p><strong className="text-slate-800">Recommended Action:</strong> {row.suggested_action}</p>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={10} className="text-center py-8 text-slate-400 text-[12px]">No records found</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-        </div>
-
-        {/* MISMATCH DETAIL PANEL (Side panel): width: 360px, border-left: 1px solid #E5E7EB, background: #FFFFFF */}
-        {selectedRow && step === 5 && (
-          <div className="w-[360px] border-l border-[#E5E7EB] bg-white flex flex-col shrink-0 h-full overflow-y-auto">
-            {/* Header: 14px weight 600, 40px height, border-bottom 1px solid #E5E7EB */}
-            <div className="h-10 border-b border-[#E5E7EB] px-4 flex items-center justify-between shrink-0">
-              <span className="text-[14px] font-semibold text-slate-900">Mismatch Details</span>
-              <button onClick={() => setSelectedRow(null)} className="text-[11px] text-[#6B7280] hover:text-slate-900">
-                Clear
-              </button>
-            </div>
-
-            {/* Content area with info-rows */}
-            <div className="p-4 space-y-4">
-              <div className="bg-slate-50 rounded p-3 border border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Active Selection</span>
-                <span className="text-[13px] font-extrabold text-slate-900 block font-mono mt-0.5">{selectedRow.invoice_number}</span>
-                <span className="text-[11px] text-[#6B7280] block mt-0.5 font-mono">{selectedRow.supplier_gstin}</span>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Invoice Audits</span>
-                
-                {/* Info-rows (same style as client detail: flex justify-between, label 11px, value 13px) */}
-                {[
-                  { label: "Invoice Date", value: selectedRow.invoice_date },
-                  { label: "Taxable Value (Books)", value: selectedRow.taxable_value_pr > 0 ? formatCurrency(selectedRow.taxable_value_pr) : '—', mono: true },
-                  { label: "Taxable Value (Portal)", value: selectedRow.taxable_value_2b > 0 ? formatCurrency(selectedRow.taxable_value_2b) : '—', mono: true },
-                  { label: "Variance Gap", value: selectedRow.difference > 0 ? formatCurrency(selectedRow.difference) : '—', mono: true, highlight: selectedRow.difference > 0 },
-                  { label: "CGST (Books)", value: selectedRow.cgst_pr > 0 ? formatCurrency(selectedRow.cgst_pr) : '—', mono: true },
-                  { label: "CGST (Portal)", value: selectedRow.cgst_2b > 0 ? formatCurrency(selectedRow.cgst_2b) : '—', mono: true },
-                  { label: "SGST (Books)", value: selectedRow.sgst_pr > 0 ? formatCurrency(selectedRow.sgst_pr) : '—', mono: true },
-                  { label: "SGST (Portal)", value: selectedRow.sgst_2b > 0 ? formatCurrency(selectedRow.sgst_2b) : '—', mono: true },
-                  { label: "IGST (Books)", value: selectedRow.igst_pr > 0 ? formatCurrency(selectedRow.igst_pr) : '—', mono: true },
-                  { label: "IGST (Portal)", value: selectedRow.igst_2b > 0 ? formatCurrency(selectedRow.igst_2b) : '—', mono: true },
-                  { label: "Audit Action", value: selectedRow.suggested_action }
-                ].map((row, idx) => (
-                  <div key={idx} className="flex justify-between py-1.5 border-b border-slate-100 text-[12px] last:border-b-0">
-                    <span className="text-[#6B7280] font-medium text-[11px]">{row.label}</span>
-                    <span className={`text-[13px] text-[#111827] text-right truncate max-w-[200px] ${
-                      row.mono ? 'font-mono' : 'font-semibold'
-                    } ${row.highlight ? 'text-red-650' : ''}`}>
-                      {row.value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* AI Diagnostic Explanation */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">AI Explanation</span>
-                <p className="text-[12px] text-slate-650 leading-relaxed font-medium">
-                  {aiExplanation?.likely_cause || selectedRow.ai_insight}
+                <h3 className="text-[16px] font-semibold text-slate-700 mb-1">
+                  Select a client to begin GST reconciliation
+                </h3>
+                <p className="text-[13px] text-slate-500 mb-4">
+                  Choose from your client to start the AI-powered GST reconciliation process.
                 </p>
               </div>
-
-              {/* Action Toolbar */}
-              <div className="flex gap-2 pt-4">
-                <button
-                  onClick={() => {
-                    const isReviewed = reviewedRows.includes(selectedRow.id);
-                    if (isReviewed) {
-                      setReviewedRows(reviewedRows.filter(id => id !== selectedRow.id));
-                      showToast("Reverted review status.");
-                    } else {
-                      setReviewedRows([...reviewedRows, selectedRow.id]);
-                      showToast("✓ Marked reviewed.");
-                    }
-                  }}
-                  className={`flex-1 h-9 rounded text-[11px] font-bold uppercase tracking-wider border flex items-center justify-center gap-1 transition-colors ${
-                    reviewedRows.includes(selectedRow.id)
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100/50'
-                      : 'bg-slate-900 border-slate-900 text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <ShieldCheck size={12} />
-                  <span>{reviewedRows.includes(selectedRow.id) ? 'Reviewed' : 'Review'}</span>
-                </button>
-                <button
-                  onClick={() => {
-                    const isFlagged = flaggedRows.includes(selectedRow.id);
-                    if (isFlagged) {
-                      setFlaggedRows(flaggedRows.filter(id => id !== selectedRow.id));
-                      showToast("Unflagged invoice.");
-                    } else {
-                      setFlaggedRows([...flaggedRows, selectedRow.id]);
-                      showToast("Flagged invoice for partner review.");
-                    }
-                  }}
-                  className={`w-9 h-9 rounded border flex items-center justify-center transition-colors ${
-                    flaggedRows.includes(selectedRow.id)
-                      ? 'bg-rose-50 border-rose-200 text-rose-600'
-                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <AlertTriangle size={12} />
-                </button>
+              <div className="max-w-md mx-auto">
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <select
+                    value={selectedClient}
+                    onChange={(e) => {
+                      setSelectedClient(e.target.value);
+                      if (e.target.value) setStep(2);
+                    }}
+                    className="w-full h-11 pl-10 pr-4 bg-white border border-slate-200 rounded-lg text-[13px] text-slate-800 focus:outline-none focus:border-[#1B4F8A] focus:ring-1 focus:ring-[#1B4F8A]"
+                  >
+                    <option value="" disabled>Search and select a client...</option>
+                    {clients.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.business_name} ({c.gstin})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
         )}
 
+        {/* ======================================================
+            STEP 1 & 2: SELECT CLIENT & UPLOAD
+            ====================================================== */}
+        {(step === 1 || step === 2) && selectedClient && (
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="max-w-4xl mx-auto space-y-6">
+              
+              {/* Client Summary Card */}
+              {clientInfo && (
+                <div className="bg-white rounded-xl border border-slate-200 p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-lg bg-[#E8EFF7] flex items-center justify-center text-[#1B4F8A] text-lg font-bold">
+                        {clientInfo.business_name.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 className="text-[15px] font-semibold text-slate-900">
+                          {clientInfo.business_name}
+                        </h3>
+                        <p className="text-[13px] text-slate-500 font-mono">
+                          {clientInfo.gstin}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px] text-slate-500">Last Reconciliation</p>
+                      <p className="text-[13px] text-slate-700">{clientInfo.last_recon}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Section */}
+              {step === 2 && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    {/* Left: GSTR-2B Upload */}
+                    <div className="md:col-span-1">
+                      <UploadZone
+                        label="GSTR-2B Portal Data"
+                        acceptedFormats=".csv,.xlsx,.xls"
+                        file={file2B}
+                        onFileSelect={setFile2B}
+                      />
+                    </div>
+
+                    {/* Period Selector */}
+                    <div className="md:col-span-1">
+                      <div className="bg-white rounded-xl border border-slate-200 p-4">
+                      <label className="block text-[12px] font-medium text-slate-700 mb-2">
+                          Period
+                        </label>
+                        <select
+                          value={reconMonth}
+                          onChange={(e) => setReconMonth(e.target.value)}
+                          className="w-full h-10 bg-white border border-slate-200 rounded-lg px-3 text-[13px] text-slate-800 focus:outline-none focus:border-[#1B4F8A] focus:ring-1 focus:ring-[#1B4F8A]"
+                        >
+                          <option value="2024-03">March 2024</option>
+                          <option value="2024-02">February 2024</option>
+                          <option value="2024-01">January 2024</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Right: Purchase Register Upload */}
+                    <div className="md:col-span-1">
+                      <UploadZone
+                        label="Purchase Register"
+                        acceptedFormats=".csv,.xlsx,.xls"
+                        file={filePR}
+                        onFileSelect={setFilePR}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setStep(1)}
+                      className="h-10 px-4 border border-slate-200 bg-white text-slate-700 rounded-lg text-[13px] font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleRunReconciliation}
+                      disabled={!file2B || !filePR || isProcessing}
+                      className="h-10 px-6 bg-[#1B4F8A] text-white rounded-lg text-[13px] font-semibold hover:bg-[#163F6E] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={16} />
+                          Start Reconciliation
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================
+            STEP 3: PROCESSING
+            ====================================================== */}
+        {step === 3 && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="max-w-xl bg-white rounded-xl border border-slate-200 p-8 text-center space-y-6">
+              <div className="space-y-2">
+                <div className="w-16 h-16 rounded-full bg-[#E8EFF7] flex items-center justify-center mx-auto">
+                  <Zap size={32} className="text-[#1B4F8A] animate-pulse" />
+                </div>
+                <h3 className="text-[18px] font-semibold text-slate-900">
+                  Processing Reconciliation
+                </h3>
+                <p className="text-[13px] text-slate-500">
+                  AI engine is matching and analyzing your data...
+                </p>
+              </div>
+
+              {/* Stages
+              <div className="flex items-center justify-between mb-2">
+                {processingStages.map((stage, idx) => (
+                  <div key={idx} className="flex flex-col items-center">
+                    <div className={`w-3 h-3 rounded-full ${stage.progress ? 'bg-[#1B4F8A]' : 'bg-slate-200'}`} />
+                    <span className={`text-[11px] mt-1 ${stage.progress ? 'text-[#1B4F8A] font-medium' : 'text-slate-400'}`}>{stage.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full">
+                <div className="flex justify-between text-[12px] text-slate-600 mb-2">
+                  <span>{processingProgress}% Complete</span>
+                  <span>{elapsedTime}s elapsed</span>
+                </div>
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div className="bg-[#1B4F8A] h-full transition-all duration-300" style={{ width: `${processingProgress}%`} />
+                </div>
+              </div>
+
+              {/* Logs */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-left">
+                <div className="text-[11px] text-slate-600 font-mono space-y-1">
+                  {PROCESSING_STEPS.slice(0, currentStepIndex + 1).map((log, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#1B4F8A]" />
+                      {log}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================
+            STEP 4: REVIEW RESULTS
+            ====================================================== */}
+        {step === 4 && !isProcessing && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            
+            {/* Summary Stats Bar
+            <div className="bg-white border-b border-slate-200 px-6 py-4 shrink-0">
+              <div className="grid grid-cols-4 gap-0 divide-x divide-slate-200">
+                {/* Matched */}
+                <div className="px-4 py-2">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+                    Matched
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold text-emerald-600">
+                      {formatCurrency(summaryStats.matched.itc)}
+                    </span>
+                    <span className="text-[12px] text-slate-500 font-mono">
+                      {summaryStats.matched.count} rows
+                    </span>
+                  </div>
+                </div>
+
+                {/* Mismatched */}
+                <div className="px-4 py-2">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+                    Mismatched
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold text-amber-600">
+                      {formatCurrency(summaryStats.mismatched.itc)}
+                    </span>
+                    <span className="text-[12px] text-slate-500 font-mono">
+                      {summaryStats.mismatched.count} rows
+                    </span>
+                  </div>
+                </div>
+
+                {/* Missing in 2B */}
+                <div className="px-4 py-2">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+                    Missing in 2B
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold text-red-600">
+                      {formatCurrency(summaryStats.missing_2b.itc)}
+                    </span>
+                    <span className="text-[12px] text-slate-500 font-mono">
+                      {summaryStats.missing_2b.count} rows
+                    </span>
+                  </div>
+                </div>
+
+                {/* Missing in Books */}
+                <div className="px-4 py-2">
+                  <div className="text-[11px] uppercase tracking-wider text-slate-500 font-medium mb-1">
+                    Missing in Books
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold text-slate-700">
+                      {formatCurrency(summaryStats.missing_books.itc)}
+                    </span>
+                    <span className="text-[12px] text-slate-500 font-mono">
+                      {summaryStats.missing_books.count} rows
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="bg-white border-b border-slate-200 px-6 shrink-0">
+              <div className="flex items-center gap-2">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'mismatched', label: 'Mismatched' },
+                  { id: 'missing_2b', label: 'Missing in 2B' },
+                  { id: 'missing_books', label: 'Missing in Books' }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setStatusTab(tab.id)}
+                    className={`px-4 py-3 text-[13px] font-medium border-b-2 transition-colors ${
+                      statusTab === tab.id 
+                        ? 'border-[#1B4F8A] text-[#1B4F8A]' 
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+                <div className="ml-auto flex items-center gap-2">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search invoice or GSTIN..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-9 pl-9 pr-4 border border-slate-200 rounded-lg text-[12px] w-64 focus:outline-none focus:border-[#1B4F8A] focus:ring-1 focus:ring-[#1B4F8A]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {isLoading ? (
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  {[1,2,3,4,5].map((i) => (
+                    <div key={i} className="border-b border-slate-100 px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="h-4 bg-slate-100 rounded w-32 animate-pulse" />
+                        <div className="h-4 bg-slate-100 rounded w-24 animate-pulse" />
+                        <div className="h-4 bg-slate-100 rounded w-20 animate-pulse" />
+                        <div className="h-4 bg-slate-100 rounded w-28 animate-pulse" />
+                        <div className="h-4 bg-slate-100 rounded w-24 animate-pulse" />
+                        <div className="h-4 bg-slate-100 rounded w-16 animate-pulse" />
+                        <div className="ml-auto h-8 w-8 bg-slate-100 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-slate-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Supplier GSTIN
+                        </th>
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Invoice No
+                        </th>
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          2B Value
+                        </th>
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          PR Value
+                        </th>
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Difference
+                        </th>
+                        <th className="px-6 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredRows.map((row) => {
+                        const isHighRisk = row.status === 'missing_in_2b' || row.status === 'gstin_mismatch' || (row.status === 'value_mismatch' && row.difference > 10000);
+                        const isExpanded = expandedRows.has(row.id);
+                        return (
+                          <React.Fragment key={row.id}>
+                            <tr
+                              className={`hover:bg-slate-50 transition-colors ${
+                                isHighRisk ? 'bg-red-50/30' : ''
+                              }`}
+                            >
+                              <td className="px-6 py-3 text-[13px] text-slate-700 font-mono">
+                                {row.supplier_gstin}
+                              </td>
+                              <td className="px-6 py-3 text-[13px] text-slate-700">
+                                {row.invoice_number}
+                              </td>
+                              <td className="px-6 py-3 text-[13px] text-slate-600">
+                                {row.invoice_date}
+                              </td>
+                              <td className="px-6 py-3 text-[13px] text-slate-700 font-mono">
+                                {formatCurrency(row.taxable_value_2b)}
+                              </td>
+                              <td className="px-6 py-3 text-[13px] text-slate-700 font-mono">
+                                {formatCurrency(row.taxable_value_pr)}
+                              </td>
+                              <td className="px-6 py-3 text-[13px] text-slate-700 font-mono">
+                                {row.difference > 0 ? `+${formatCurrency(row.difference)}` : formatCurrency(Math.abs(row.difference))}
+                              </td>
+                              <td className="px-6 py-3">
+                                <StatusBadge status={row.status} />
+                              </td>
+                              <td className="px-6 py-3 text-right">
+                                <button
+                                  onClick={() => toggleRowExpansion(row.id)}
+                                  className="p-1 hover:bg-slate-100 rounded-lg"
+                                >
+                                  {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </button>
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan={8} className="bg-slate-50 px-6 py-4">
+                                  <div className="bg-white border border-slate-200 rounded-lg p-4">
+                                    <div className="flex items-start gap-4">
+                                      <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                                        <Sparkles size={20} className="text-indigo-600" />
+                                      </div>
+                                      <div className="flex-1">
+                                        <h4 className="text-[13px] font-semibold text-slate-900 mb-1">
+                                          AI Insight
+                                        </h4>
+                                        <p className="text-[13px] text-slate-600">
+                                          {typedSummary || row.ai_insight}
+                                        </p>
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                          <span className="inline-flex items-center px-2 py-1 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                            Suggested: {row.suggested_action}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Sticky Export Bar */}
+            <div className="bg-white border-t border-slate-200 px-6 py-4 shrink-0 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-slate-500">Estimated file size: ~2.4 MB</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleRerun}
+                  className="h-10 px-4 border border-slate-200 text-[13px] font-medium text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={() => handleExport('excel')}
+                  disabled={isExportingExcel}
+                  className="h-10 px-4 border border-slate-200 text-[13px] font-medium text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                >
+                  {isExportingExcel ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <FileSpreadsheet size={16} />
+                      Export Excel
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={isExportingPdf}
+                  className="h-10 px-4 bg-[#1B4F8A] text-[13px] font-semibold text-white rounded-lg hover:bg-[#163F6E] flex items-center gap-2 transition-colors"
+                >
+                  {isExportingPdf ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      Export PDF
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* ======================================================
-          MODALS
-          ====================================================== */}
-      {clientSummaryModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E5E7EB] w-full max-w-lg rounded p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
-            <button onClick={() => setClientSummaryModalOpen(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-900">
-              <X size={16} />
-            </button>
-            <h3 className="text-sm font-bold text-slate-900">Executive Client Summary</h3>
-            <div className="mt-4 p-3 bg-slate-50 border border-slate-100 rounded font-mono text-[11px] whitespace-pre-wrap h-64 overflow-y-auto">
-              {/* Summary template body */}
-              {`Dear client, completed matching. Health Score: ${healthScore.toFixed(1)}%`}
-            </div>
-            <div className="mt-4 flex gap-2 justify-end">
-              <button onClick={() => setClientSummaryModalOpen(false)} className="h-8 px-4 border border-[#E5E7EB] text-[12px] font-medium rounded hover:bg-slate-50">Close</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {scheduleFollowupModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#E5E7EB] w-full max-w-md rounded p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
-            <button onClick={() => setScheduleFollowupModalOpen(false)} className="absolute top-5 right-5 text-slate-400 hover:text-slate-900">
-              <X size={16} />
-            </button>
-            <h3 className="text-sm font-bold text-slate-900">Schedule Vendor Follow-ups</h3>
-            <div className="mt-4 flex gap-2 justify-end">
-              <button onClick={() => setScheduleFollowupModalOpen(false)} className="h-8 px-4 border border-[#E5E7EB] text-[12px] font-medium rounded hover:bg-slate-50">Cancel</button>
-              <button onClick={() => { showToast("✓ Scheduled automatic vendor outreach!"); setScheduleFollowupModalOpen(false); }} className="h-8 px-4 bg-[#1B4F8A] text-white text-[12px] font-semibold rounded hover:bg-[#163F6E]">Activate</button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
 
+// Upload Zone Component
+function UploadZone({ 
+  label, acceptedFormats, file, onFileSelect }: {
+  label: string, acceptedFormats: string, file: File | null, onFileSelect: (file: File | null) => void
+}) {
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      onFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onFileSelect(e.target.files[0]);
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  return (
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`relative border-2 ${
+        isDragActive
+          ? 'border-[#1B4F8A] bg-blue-50/30'
+          : file
+            ? 'border-slate-200 bg-white'
+            : 'border-dashed border-slate-200 bg-white'
+      } rounded-xl p-6 flex flex-col items-center justify-center transition-all cursor-pointer hover:border-slate-300`}
+    >
+      <input
+        type="file"
+        accept={acceptedFormats}
+        onChange={handleChange}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+      />
+      {file ? (
+        <div className="flex flex-col items-center gap-2 w-full">
+          <FileSpreadsheet size={24} className="text-[#1B4F8A]" />
+          <div className="text-center">
+            <p className="text-[13px] font-medium text-slate-900 truncate w-full">
+              {file.name}
+            </p>
+            <p className="text-[11px] text-slate-500">
+              {formatFileSize(file.size)}
+            </p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onFileSelect(null);
+            }}
+            className="mt-2 px-3 py-1 text-[11px] font-medium text-slate-500 hover:text-red-600 flex items-center gap-1"
+          >
+            <X size={12} />
+            Remove
+          </button>
+        </div>
+      ) : (
+        <div className="text-center space-y-2">
+          <CloudUpload size={28} className="text-slate-300" />
+          <div>
+            <p className="text-[13px] font-medium text-slate-700">
+              {label}
+            </p>
+            <p className="text-[12px] text-slate-500">
+              <span className="text-[#1B4F8A]">Browse files</span> or drag and drop
+            </p>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            {acceptedFormats.split(',').join(', ')}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Status Badge Component
+function StatusBadge({ status }: { status: string }) {
+  const badgeStyles: Record<string, { variant: 'high' | 'medium' | 'low' | 'default', label: string } = {
+    matched: { variant: 'low', label: 'Matched' },
+    value_mismatch: { variant: 'medium', label: 'Value Mismatch' },
+    missing_in_2b: { variant: 'high', label: 'Missing in 2B' },
+    missing_in_books: { variant: 'default', label: 'Missing in Books' },
+    gstin_mismatch: { variant: 'medium', label: 'GSTIN Mismatch' },
+  };
+
+  const style = badgeStyles[status] || badgeStyles.matched;
+
+  return (
+    <Badge variant={style.variant}>{style.label}</Badge>
+  );
+}
+
+// Badge Component
+function Badge({ variant, children }: { variant: 'high' | 'medium' | 'low' | 'default', children: React.ReactNode }) {
+  const variants = {
+    high: 'bg-red-50 text-red-700 border-red-200',
+    medium: 'bg-amber-50 text-amber-700 border-amber-200',
+    low: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    default: 'bg-slate-100 text-slate-700 border-slate-200',
+  };
+
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${variants[variant]}`}>
+      {children}
+    </span>
+  );
+}
+
+// Main Component
 export default function GSTReconciliationPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-[400px] flex items-center justify-center text-slate-400 text-xs font-mono font-bold uppercase tracking-wider">
-        <span>Loading AI GSTR-2B audits environment...</span>
-      </div>
-    }>
+    <Suspense fallback={<div className="h-screen flex items-center justify-center">Loading...</div>}>
       <GSTReconciliationPageContent />
     </Suspense>
   );
