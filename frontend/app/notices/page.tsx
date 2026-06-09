@@ -10,7 +10,8 @@ import {
   X,
   Copy,
   FolderOpen,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
